@@ -1,104 +1,161 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Feather, Ionicons } from '@expo/vector-icons'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { generatePlan } from '@/engine/generatePlan'
-import type { Plan } from '@/engine/types'
-
-// Foundation preview: a hard-coded sample so we can see the engine render on
-// device. The interactive morning flow (check-in → "reading the day" → Gap)
-// replaces this next.
-const SAMPLE = { readiness: 6, dayDifficulty: 8 }
-
-const ACCENT: Record<Plan['accent'], { tint: string; label: string }> = {
-  amber: { tint: '#B45309', label: 'Deficit' },
-  neutral: { tint: '#475569', label: 'Aligned' },
-  bright: { tint: '#0EA5E9', label: 'Surplus' },
+// Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
+// not a tech app. This pass builds only the top portion (background, icon row,
+// title block); the morning flow lands beneath it next.
+const COLORS = {
+  background: '#F2EFE9', // soft warm cream, set on the screen + root layout
+  charcoal: '#2A2A2A', // the "Wake" wordmark
+  tagline: '#8A7B6A', // muted warm brown/gray
+  iconCircle: '#EAEAEA', // light grey chip behind each icon
+  iconBorder: '#DCDCDC', // subtle grey edge so the chip reads on cream
+  icon: '#000000', // black glyphs
+  card: '#FFFFFF', // empty content card
+  gold: '#8A6D2F', // deep antique gold — the greeting
 }
 
+// Long names formatted by hand so the date line doesn't depend on the device
+// JS engine's Intl support (Hermes coverage varies).
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
 export default function Index() {
-  const plan = generatePlan(SAMPLE)
-  const accent = ACCENT[plan.accent]
-  const rest = plan.sequence.slice(1)
+  // Placeholder until the Supabase profile / auth supplies the real name.
+  const userName = 'Alex'
+
+  const now = new Date()
+  const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
+
+  // Placeholder until a weather source is wired in.
+  const temperature = 72
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.kicker}>WAKE · ENGINE PREVIEW</Text>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.iconRow}>
+        <Pressable
+          style={styles.iconButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Weather"
+        >
+          <Feather name="sun" size={18} color={COLORS.icon} />
+        </Pressable>
 
-        <View style={styles.gapRow}>
-          <View style={styles.gapCell}>
-            <Text style={styles.gapNumber}>{SAMPLE.readiness}</Text>
-            <Text style={styles.gapLabel}>You</Text>
+        <Pressable
+          style={styles.iconButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Calendar"
+        >
+          <Feather name="calendar" size={18} color={COLORS.icon} />
+        </Pressable>
+      </View>
+
+      <View style={styles.titleBlock}>
+        <Text style={styles.title}>Wake</Text>
+        <Text style={styles.tagline}>Start your day the right way.</Text>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardGreeting}>Good morning, {userName}.</Text>
+            <Text style={styles.cardDate}>{dateLine}</Text>
           </View>
-          <Text style={styles.gapDivider}>/</Text>
-          <View style={styles.gapCell}>
-            <Text style={styles.gapNumber}>{SAMPLE.dayDifficulty}</Text>
-            <Text style={styles.gapLabel}>Day</Text>
-          </View>
-          <View style={[styles.statePill, { backgroundColor: accent.tint }]}>
-            <Text style={styles.statePillText}>{accent.label}</Text>
+
+          <View style={styles.weather}>
+            <Ionicons name="partly-sunny-outline" size={30} color={COLORS.charcoal} />
+            <Text style={styles.weatherTemp}>{temperature}°F</Text>
           </View>
         </View>
-
-        <Text style={[styles.headline, { color: accent.tint }]}>{plan.headline}</Text>
-        <Text style={styles.subhead}>{plan.subhead}</Text>
-
-        <View style={[styles.oneThing, { borderColor: accent.tint }]}>
-          <Text style={styles.oneThingLabel}>THE ONE THING</Text>
-          <Text style={styles.oneThingTitle}>{plan.oneThing.title}</Text>
-          <Text style={styles.oneThingDesc}>{plan.oneThing.description}</Text>
-        </View>
-
-        {rest.length > 0 && (
-          <View style={styles.sequence}>
-            <Text style={styles.sequenceLabel}>IF YOU'VE GOT THE BANDWIDTH</Text>
-            {rest.map((action) => (
-              <View key={action.slug} style={styles.seqItem}>
-                <Text style={styles.seqTitle}>{action.title}</Text>
-                <Text style={styles.seqDesc}>{action.description}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FBFAF8' },
-  content: { padding: 24, gap: 16 },
-  kicker: { fontSize: 12, letterSpacing: 2, color: '#94A3B8', fontWeight: '600' },
-  gapRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
-  gapCell: { alignItems: 'center' },
-  gapNumber: { fontSize: 40, fontWeight: '700', color: '#0F172A', lineHeight: 44 },
-  gapLabel: { fontSize: 12, color: '#94A3B8', letterSpacing: 1 },
-  gapDivider: { fontSize: 28, color: '#CBD5E1', fontWeight: '300' },
-  statePill: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
-  statePillText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  headline: { fontSize: 24, fontWeight: '700', lineHeight: 30, marginTop: 4 },
-  subhead: { fontSize: 16, color: '#64748B', lineHeight: 22 },
-  oneThing: {
-    borderWidth: 2,
+  safe: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 24,
+  },
+  iconRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    padding: 18,
-    gap: 6,
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.iconCircle,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.iconBorder,
+  },
+  titleBlock: {
+    alignItems: 'center',
     marginTop: 8,
   },
-  oneThingLabel: { fontSize: 11, letterSpacing: 1.5, color: '#94A3B8', fontWeight: '700' },
-  oneThingTitle: { fontSize: 19, fontWeight: '700', color: '#0F172A', lineHeight: 25 },
-  oneThingDesc: { fontSize: 15, color: '#64748B', lineHeight: 21 },
-  sequence: { gap: 12, marginTop: 8 },
-  sequenceLabel: { fontSize: 11, letterSpacing: 1.5, color: '#94A3B8', fontWeight: '700' },
-  seqItem: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#EEF0F2',
+  title: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 64,
+    lineHeight: 72,
+    color: COLORS.charcoal,
   },
-  seqTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', lineHeight: 21 },
-  seqDesc: { fontSize: 14, color: '#94A3B8', lineHeight: 19 },
+  tagline: {
+    marginTop: 4,
+    fontSize: 15,
+    letterSpacing: 0.3,
+    color: COLORS.tagline,
+  },
+  card: {
+    marginTop: 24,
+    height: 220,
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: COLORS.card,
+    // Soft lift so the white card reads against the cream background.
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardHeaderText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cardGreeting: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 18,
+    lineHeight: 24,
+    color: COLORS.gold,
+  },
+  cardDate: {
+    marginTop: 4,
+    fontSize: 12,
+    color: COLORS.tagline,
+  },
+  weather: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  weatherTemp: {
+    fontSize: 17,
+    color: COLORS.charcoal,
+  },
 })
