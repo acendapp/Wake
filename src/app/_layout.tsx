@@ -11,7 +11,7 @@ import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 // Warm pale cream that fills the whole app.
-const BACKGROUND = '#F2EFE9'
+const BACKGROUND = '#FAF8F4'
 
 // Keep the native splash up until our fonts are ready, so the serif title
 // never flashes in a fallback face. Called in global scope per Expo's docs.
