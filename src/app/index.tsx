@@ -1,9 +1,10 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { classifyState } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
 
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
@@ -49,6 +50,15 @@ const PROMPTS: Record<ReadinessState, string> = {
   surplus: 'Best use of your edge today:',
 }
 
+// One-line read on the You-vs-Day relationship shown under THE GAP bars. Echoes
+// the model's three moves — close the deficit / hold the alignment / spend the
+// surplus — in the same voice as the engine's FRAMING headlines.
+const GAP_SUMMARY: Record<ReadinessState, string> = {
+  deficit: 'Today asks for more than you brought. Close the gap.',
+  aligned: "You're matched to today. Hold it.",
+  surplus: 'More in the tank than today needs. Spend it.',
+}
+
 export default function Index() {
   // Placeholder until the Supabase profile / auth supplies the real name.
   const userName = 'Alex'
@@ -59,147 +69,198 @@ export default function Index() {
   // Placeholder until a weather source is wired in.
   const temperature = 72
 
-  // State-aware copy. Placeholder state until the morning check-in feeds real
-  // readiness vs. day-difficulty into the engine's classifyState().
-  const gapState: ReadinessState = 'aligned'
+  // Placeholder "You" (readiness) and "Day" (difficulty), 1–10, until the morning
+  // check-in feeds real numbers. classifyState() is the single source of truth:
+  // the Gap state it returns drives FOCAL POINT, WHERE YOU STAND, and THE GAP, so
+  // the whole screen tells one story. 5 vs 7 is a 2-point deficit (depleted into a
+  // demanding day), matching the "Drained" / "7/10" placeholders below.
+  const readiness = 5
+  const dayDifficulty = 7
+  const gapState: ReadinessState = classifyState(readiness, dayDifficulty)
   const activity = 'a short walk before your 9:00.'
 
   // Smart insight. Placeholder `true` so the populated state shows; this flips
   // to false until the user has logged enough mornings to detect a pattern.
   const hasInsight = true
 
+  // The "WHERE YOU STAND" strip — all three captured the night before in the evening
+  // check-in, so no calendar is required. dayDemand is the self-reported "Day"
+  // half of the Gap (higher-signal than parsing a calendar); lastNightState
+  // feeds the pattern loop; leaveBy is the morning's time budget (soon an input
+  // to the engine's sequence sizing). Placeholders until the check-in wires in.
+  const dayDemand = `${dayDifficulty}/10`
+  const lastNightState = 'Drained'
+  const leaveBy = '7:45'
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.iconRow}>
-        <Pressable
-          style={styles.iconButton}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Weather"
-        >
-          <Feather name="sun" size={18} color={COLORS.icon} />
-        </Pressable>
-
-        <Pressable
-          style={styles.iconButton}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Calendar"
-        >
-          <Feather name="calendar" size={18} color={COLORS.icon} />
-        </Pressable>
-      </View>
-
-      <View style={styles.titleBlock}>
-        <Text style={styles.title}>Wake</Text>
-        <Text style={styles.tagline}>Start your day the right way.</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardGreeting}>Good morning, {userName}.</Text>
-            <Text style={styles.cardDate}>{dateLine}</Text>
-          </View>
-
-          <View style={styles.weather}>
-            <Ionicons name="partly-sunny-outline" size={22} color={COLORS.charcoal} />
-            <Text style={styles.weatherTemp}>{temperature}°F</Text>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.gapRow}>
-          <View style={styles.gapText}>
-            <Text style={styles.focalLabel}>Focal Point</Text>
-            <Text style={styles.gapPrompt}>{PROMPTS[gapState]}</Text>
-            <Text style={styles.gapActivity}>{activity}</Text>
-
-            <View style={styles.insightRow}>
-              <View style={styles.graphBadge}>
-                <Feather name="trending-up" size={14} color={COLORS.gold} />
-              </View>
-
-              {hasInsight ? (
-                <Text style={styles.insightText}>
-                  When you walk, your focus hits{' '}
-                  <Text style={styles.insightPos}>8+</Text>. Skipping it:{' '}
-                  <Text style={styles.insightNeg}>under 5</Text>.
-                </Text>
-              ) : (
-                <Text style={styles.insightText}>Your patterns will show here soon</Text>
-              )}
-            </View>
-          </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.iconRow}>
+          <Pressable
+            style={styles.iconButton}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Weather"
+          >
+            <Feather name="sun" size={18} color={COLORS.icon} />
+          </Pressable>
 
           <Pressable
-            style={styles.gapButton}
+            style={styles.iconButton}
+            hitSlop={10}
             accessibilityRole="button"
-            accessibilityLabel="Start activity"
+            accessibilityLabel="Calendar"
           >
-            <LinearGradient
-              colors={GOLD_GRADIENT}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.gapButtonFill}
-            >
-              <View style={styles.commitCircle}>
-                <Feather name="arrow-right" size={20} color="#FFFFFF" />
-              </View>
-              <Text style={styles.commitLabel}>START</Text>
-            </LinearGradient>
+            <Feather name="calendar" size={18} color={COLORS.icon} />
           </Pressable>
         </View>
-      </View>
 
-      <View style={[styles.card, styles.cardMedia]}>
-        <View style={styles.cardMediaClip}>
-          <Image
-            source={require('../../assets/images/valley.png')}
-            style={[StyleSheet.absoluteFill, styles.mediaImage]}
-            contentFit="cover"
-          />
-          <LinearGradient
-            colors={MEDIA_FADE}
-            locations={MEDIA_FADE_LOCATIONS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={styles.titleBlock}>
+          <Text style={styles.title}>Wake</Text>
+          <Text style={styles.tagline}>Start your day the right way.</Text>
+        </View>
 
-          <Text style={styles.mediaLabel}>TODAY AT A GLANCE</Text>
-
-          <View style={styles.glanceRow}>
-            <View style={styles.glanceItem}>
-              <Feather name="users" size={18} color="#1A1A1A" />
-              <Text style={styles.glanceLabel}>Standup</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardGreeting}>Good morning, {userName}.</Text>
+              <Text style={styles.cardDate}>{dateLine}</Text>
             </View>
 
-            <View style={styles.glanceDivider} />
+            <View style={styles.weather}>
+              <Ionicons name="partly-sunny-outline" size={22} color={COLORS.charcoal} />
+              <Text style={styles.weatherTemp}>{temperature}°F</Text>
+            </View>
+          </View>
 
-            <View style={styles.glanceItem}>
-              <Feather name="coffee" size={18} color="#1A1A1A" />
-              <Text style={styles.glanceLabel}>Coffee</Text>
+          <View style={styles.divider} />
+
+          <View style={styles.gapRow}>
+            <View style={styles.gapText}>
+              <Text style={styles.focalLabel}>Focal Point</Text>
+              <Text style={styles.gapPrompt}>{PROMPTS[gapState]}</Text>
+              <Text style={styles.gapActivity}>{activity}</Text>
+
+              <View style={styles.insightRow}>
+                <View style={styles.graphBadge}>
+                  <Feather name="trending-up" size={14} color={COLORS.gold} />
+                </View>
+
+                {hasInsight ? (
+                  <Text style={styles.insightText}>
+                    When you walk, your focus hits{' '}
+                    <Text style={styles.insightPos}>8+</Text>. Skipping it:{' '}
+                    <Text style={styles.insightNeg}>under 5</Text>.
+                  </Text>
+                ) : (
+                  <Text style={styles.insightText}>Your patterns will show here soon</Text>
+                )}
+              </View>
             </View>
 
-            <View style={styles.glanceDivider} />
+            <Pressable
+              style={styles.gapButton}
+              accessibilityRole="button"
+              accessibilityLabel="Start activity"
+            >
+              <LinearGradient
+                colors={GOLD_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.gapButtonFill}
+              >
+                <View style={styles.commitCircle}>
+                  <Feather name="arrow-right" size={20} color="#FFFFFF" />
+                </View>
+                <Text style={styles.commitLabel}>START</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
 
-            <View style={styles.glanceItem}>
-              <Feather name="video" size={18} color="#1A1A1A" />
-              <Text style={styles.glanceLabel}>Call</Text>
-            </View>
+        <View style={[styles.card, styles.cardMedia]}>
+          <View style={styles.cardMediaClip}>
+            <Image
+              source={require('../../assets/images/valley.png')}
+              style={[StyleSheet.absoluteFill, styles.mediaImage]}
+              contentFit="cover"
+            />
+            <LinearGradient
+              colors={MEDIA_FADE}
+              locations={MEDIA_FADE_LOCATIONS}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
 
-            <View style={styles.glanceDivider} />
+            <Text style={styles.mediaLabel}>WHERE YOU STAND</Text>
 
-            <View style={styles.glanceItem}>
-              {/* No confident sleek workout glyph — fall back to the header's calendar icon. */}
-              <Feather name="calendar" size={18} color="#1A1A1A" />
-              <Text style={styles.glanceLabel}>Workout</Text>
+            <View style={styles.glanceRow}>
+              <View style={styles.glanceItem}>
+                <Feather name="activity" size={16} color="#1A1A1A" />
+                <Text style={styles.glanceValue}>{dayDemand}</Text>
+                <Text style={styles.glanceLabel}>Demand</Text>
+              </View>
+
+              <View style={styles.glanceDivider} />
+
+              <View style={styles.glanceItem}>
+                <Feather name="moon" size={16} color="#1A1A1A" />
+                <Text style={styles.glanceValue}>{lastNightState}</Text>
+                <Text style={styles.glanceLabel}>Last night</Text>
+              </View>
+
+              <View style={styles.glanceDivider} />
+
+              <View style={styles.glanceItem}>
+                <Feather name="clock" size={16} color="#1A1A1A" />
+                <Text style={styles.glanceValue}>{leaveBy}</Text>
+                <Text style={styles.glanceLabel}>Out by</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
+
+        <View style={[styles.card, styles.cardGap]}>
+          <View style={styles.gapBoxHeader}>
+            <Text style={[styles.focalLabel, styles.gapBoxLabel]}>The Gap</Text>
+            <Pressable
+              style={styles.infoBadge}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="About the Gap"
+            >
+              <Text style={styles.infoBadgeText}>i</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.gapBars}>
+            <View style={styles.gapBarRow}>
+              <Text style={styles.gapBarLabel}>You</Text>
+              <View style={styles.gapTrack}>
+                <View style={[styles.gapFillYou, { flex: readiness }]} />
+                <View style={{ flex: 10 - readiness }} />
+              </View>
+              <Text style={styles.gapBarValue}>{readiness}</Text>
+            </View>
+
+            <View style={styles.gapBarRow}>
+              <Text style={styles.gapBarLabel}>Day</Text>
+              <View style={styles.gapTrack}>
+                <View style={[styles.gapFillDay, { flex: dayDifficulty }]} />
+                <View style={{ flex: 10 - dayDifficulty }} />
+              </View>
+              <Text style={styles.gapBarValue}>{dayDifficulty}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.gapSummary}>{GAP_SUMMARY[gapState]}</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -208,7 +269,16 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scroll: {
+    flex: 1, // bounds the scroll viewport to the screen so the stack can scroll
+  },
+  scrollContent: {
+    // The 24px side gutter now lives on the scroll content (was on `safe`), so the
+    // scrollbar sits at the screen edge. paddingBottom gives the last card room to
+    // breathe at the end of the scroll.
     paddingHorizontal: 24,
+    paddingBottom: 32,
   },
   iconRow: {
     flexDirection: 'row',
@@ -266,6 +336,85 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
+  cardGap: {
+    // The "THE GAP" box below WHERE YOU STAND — the You-vs-Day bars. Height sized
+    // to fit the header + two bars + summary line; matches that box's 16px top gap.
+    // Inherits the card's cream fill, shadow, radius, and 24/16 padding so the
+    // header sits inset exactly like FOCAL POINT does in the main card.
+    height: 190,
+    marginTop: 16,
+  },
+  gapBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6, // between the label and the info badge
+    marginBottom: 18, // space before the bars
+  },
+  gapBoxLabel: {
+    marginBottom: 0, // override focalLabel's 20 — the header row owns the spacing
+  },
+  infoBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 5, // a rounded square (a "box"), distinct from the circular badges
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBadgeText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontStyle: 'italic', // a serif italic "i" reads as an editorial info mark
+    fontSize: 10,
+    lineHeight: 11,
+    color: COLORS.gold, // matches the gold "THE GAP" label
+    includeFontPadding: false,
+  },
+  gapBars: {
+    gap: 12, // between the You and Day rows
+    marginBottom: 16, // space before the summary line
+  },
+  gapBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12, // label ↔ track ↔ value
+  },
+  gapBarLabel: {
+    width: 30, // fixed so both tracks start at the same x
+    fontSize: 8.5,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: COLORS.tagline, // same muted eyebrow as the other labels
+  },
+  gapTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    flexDirection: 'row', // fill + remainder split the width by flex (= the 1–10 value)
+    backgroundColor: COLORS.iconCircle, // light grey track behind the fill
+    overflow: 'hidden', // clips the fill to the track's rounded ends
+  },
+  gapFillYou: {
+    backgroundColor: COLORS.gold, // "You" in gold — the brand/self color
+  },
+  gapFillDay: {
+    backgroundColor: COLORS.charcoal, // "Day" in charcoal — the heavier demand
+  },
+  gapBarValue: {
+    width: 18, // fits a two-digit "10"
+    textAlign: 'right',
+    fontFamily: 'PlayfairDisplay_400Regular', // the content face
+    fontSize: 13,
+    color: COLORS.charcoal,
+    includeFontPadding: false,
+  },
+  gapSummary: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.charcoal, // the takeaway line — dark enough to read clearly
+  },
   cardMedia: {
     // Media card below the main one — same surface (color + shadow + radius from
     // styles.card), half the height. No overflow:hidden here so the card's shadow
@@ -300,25 +449,39 @@ const styles = StyleSheet.create({
     left: 10,
     top: 0,
     bottom: 0,
-    width: '62.5%', // 5/8 of the card, left-aligned
+    // Kept at 5/8 width so all three columns stay left of the image fade (which
+    // begins revealing at 50%) and read cleanly on the opaque cream.
+    width: '62.5%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 20, // nudge the items just below vertical center
+    paddingTop: 14, // taller 3-line items, so nudge down a touch less than before
   },
   glanceItem: {
-    flex: 1, // four equal columns
+    flex: 1, // three equal columns
     alignItems: 'center',
-    gap: 5, // between icon and name
+    gap: 4, // between icon, value, and label
+  },
+  glanceValue: {
+    fontFamily: 'PlayfairDisplay_400Regular', // the content face, like the greeting
+    fontSize: 13,
+    lineHeight: 16,
+    color: '#1A1A1A',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   glanceLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 9.5,
-    color: '#1A1A1A',
+    // Small system-font eyebrow under the value — same treatment as the date and
+    // Focal Point labels (uppercase, tracked, muted), not the Playfair content face.
+    fontSize: 8,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: COLORS.tagline,
     textAlign: 'center',
   },
   glanceDivider: {
     width: StyleSheet.hairlineWidth, // thin grey vertical rule between items
-    height: 36,
+    height: 44, // taller than before to span the icon + value + label stack
     backgroundColor: COLORS.divider,
   },
   cardHeaderRow: {
