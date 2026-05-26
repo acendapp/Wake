@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { classifyState } from '@/engine/generatePlan'
@@ -54,12 +55,55 @@ const PROMPTS: Record<ReadinessState, string> = {
 // the model's three moves — close the deficit / hold the alignment / spend the
 // surplus — in the same voice as the engine's FRAMING headlines.
 const GAP_SUMMARY: Record<ReadinessState, string> = {
-  deficit: 'Today asks for more than you brought. Close the gap.',
+  deficit: "The day asks for more than you're bringing. Close the gap.",
   aligned: "You're matched to today. Hold it.",
   surplus: 'More in the tank than today needs. Spend it.',
 }
 
+// Rows in the "i" popup that explains the Gap model. Ordered behind → matched →
+// ahead so the scale reads top-to-bottom like a dial. Each `move` echoes the
+// engine's three FRAMING verbs (close / hold / spend). The dot colors run a
+// muted traffic light: red behind, neutral matched, green ahead. The row whose
+// state matches the live `gapState` is emphasized when the popup opens.
+const GAP_LEGEND: { state: ReadinessState; label: string; dot: string; move: string }[] = [
+  { state: 'deficit', label: 'Deficit', dot: COLORS.negative, move: 'The day asks for more than you are bringing.' },
+  { state: 'aligned', label: 'Aligned', dot: COLORS.tagline, move: "You're matched to what's ahead." },
+  { state: 'surplus', label: 'Surplus', dot: COLORS.positive, move: 'You have more in the tank than the day requires.' },
+]
+
+// The noun that completes "Right now, you're in ___." at the foot of the popup.
+const GAP_FOOTNOTE: Record<ReadinessState, string> = {
+  deficit: 'a deficit',
+  aligned: 'alignment',
+  surplus: 'a surplus',
+}
+
+// The full morning sequence behind the collapsible "YOUR FULL SEQUENCE" card.
+// Step 1 mirrors the Focal Point activity above — the single highest-conviction
+// move — and the rest fill out the ritual for anyone with the time and the will.
+// Placeholder content; the engine's generatePlan() will supply the real ordered
+// sequence (and its estMinutes) once the morning check-in feeds it.
+const SEQUENCE: { title: string; minutes: number }[] = [
+  { title: 'A short walk before your 9:00.', minutes: 10 },
+  { title: 'A full glass of water, before any coffee.', minutes: 1 },
+  { title: 'Ten minutes of morning light on the balcony.', minutes: 10 },
+  { title: 'A protein-forward breakfast — skip the pastry.', minutes: 15 },
+  { title: 'Two minutes of slow breathing before your first call.', minutes: 2 },
+]
+
 export default function Index() {
+  // Whether the "i" popup explaining the Gap model is open.
+  const [infoOpen, setInfoOpen] = useState(false)
+
+  // Whether the collapsible "YOUR FULL SEQUENCE" card is expanded. Collapsed by
+  // default — the screen leads with the single Focal Point move; the full
+  // sequence is here only for anyone with the time who wants it.
+  const [sequenceOpen, setSequenceOpen] = useState(false)
+  const toggleSequence = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    setSequenceOpen((open) => !open)
+  }
+
   // Placeholder until the Supabase profile / auth supplies the real name.
   const userName = 'Alex'
 
@@ -121,7 +165,7 @@ export default function Index() {
 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Wake</Text>
-          <Text style={styles.tagline}>Start your day the right way.</Text>
+          <Text style={styles.tagline}>Your best days start here.</Text>
         </View>
 
         <View style={styles.card}>
@@ -231,6 +275,7 @@ export default function Index() {
             <Pressable
               style={styles.infoBadge}
               hitSlop={10}
+              onPress={() => setInfoOpen(true)}
               accessibilityRole="button"
               accessibilityLabel="About the Gap"
             >
@@ -260,7 +305,103 @@ export default function Index() {
 
           <Text style={styles.gapSummary}>{GAP_SUMMARY[gapState]}</Text>
         </View>
+
+        <View style={styles.cardSequence}>
+          <Pressable
+            style={styles.sequenceHeader}
+            onPress={toggleSequence}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: sequenceOpen }}
+            accessibilityLabel="Your full sequence"
+          >
+            <Feather name="list" size={24} color={COLORS.gold} />
+
+            <View style={styles.sequenceHeaderText}>
+              <Text style={styles.sequenceTitle}>YOUR FULL SEQUENCE</Text>
+              <Text style={styles.sequenceSubtitle}>
+                {SEQUENCE.length} steps • Personalized for today
+              </Text>
+            </View>
+
+            <Feather
+              name={sequenceOpen ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={COLORS.charcoal}
+            />
+          </Pressable>
+
+          {sequenceOpen && (
+            <View style={styles.sequenceList}>
+              {SEQUENCE.map((step, i) => (
+                <View key={step.title} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
+                  <Text style={styles.stepNumber}>{i + 1}</Text>
+                  <Text style={styles.stepText}>{step.title}</Text>
+                  <Text style={styles.stepMinutes}>{step.minutes} min</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
+
+      <Modal
+        visible={infoOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInfoOpen(false)}
+      >
+        {/* Backdrop: a tap anywhere off the card dismisses. The inner card is its
+            own Pressable with a no-op onPress so it captures the touch and the
+            backdrop's onPress never fires when you tap the card itself. */}
+        <Pressable style={styles.modalBackdrop} onPress={() => setInfoOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>The Gap</Text>
+              <Pressable
+                style={styles.modalClose}
+                hitSlop={10}
+                onPress={() => setInfoOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Feather name="x" size={16} color={COLORS.tagline} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalBody}>
+              Every morning, Wake reads two things: how you're showing up, and what the
+              day demands. The distance between them is your Gap.
+            </Text>
+            <Text style={styles.modalBody}>
+              Within two points, you're aligned. The Gap only opens when the distance
+              grows.
+            </Text>
+
+            <View style={styles.legend}>
+              {GAP_LEGEND.map((row) => {
+                const current = row.state === gapState
+                return (
+                  <View key={row.state} style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: row.dot }]} />
+                    <Text style={[styles.legendLabel, current && styles.legendLabelCurrent]}>
+                      {row.label}
+                    </Text>
+                    <Text style={styles.legendMove}>{row.move}</Text>
+                  </View>
+                )
+              })}
+            </View>
+
+            <Text style={styles.modalFootnote}>
+              Right now, you're in{' '}
+              <Text style={{ color: GAP_LEGEND.find((row) => row.state === gapState)!.dot }}>
+                {GAP_FOOTNOTE[gapState]}
+              </Text>
+              .
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -626,5 +767,177 @@ const styles = StyleSheet.create({
     // Drop the font's extra vertical padding so the number's optical center
     // lines up with the icon (the row's alignItems: 'center' does the rest).
     includeFontPadding: false,
+  },
+  modalBackdrop: {
+    flex: 1,
+    // Warm-tinted dark scrim (not pure black) so the dim stays in the brand's
+    // warm world. Centers the card and insets it from the screen edges.
+    backgroundColor: 'rgba(20, 18, 15, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360, // keeps the card from sprawling on larger phones / tablets
+    borderRadius: 24, // matches the cards on the screen behind it
+    backgroundColor: COLORS.background, // same cream surface as everything else
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    // Deeper shadow than the inline cards so the popup clearly floats above the
+    // dimmed screen.
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontFamily: 'PlayfairDisplay_400Regular', // the editorial display face
+    fontSize: 24,
+    color: COLORS.charcoal,
+    includeFontPadding: false,
+  },
+  modalClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14, // a circular chip, like the weather/calendar icon buttons
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.iconCircle,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.iconBorder,
+  },
+  modalBody: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    // A softened warm ink, lighter than the charcoal wordmark — keeps the
+    // explainer calm and readable rather than stark black-on-cream.
+    color: '#4A453E',
+    marginBottom: 12,
+  },
+  legend: {
+    marginTop: 8,
+    marginBottom: 20,
+    gap: 14, // between the three state rows
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  legendLabel: {
+    width: 64, // fixed so every `move` line starts at the same x
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: COLORS.tagline, // muted by default
+  },
+  legendLabelCurrent: {
+    color: COLORS.gold, // the live state's label lights up gold
+  },
+  legendMove: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    lineHeight: 17,
+    color: COLORS.charcoal,
+  },
+  modalFootnote: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.tagline, // subtle — it reinforces the highlighted legend row
+    // The state noun inside is colored inline to match its dot above:
+    // red (deficit) / muted grey (aligned) / green (surplus).
+  },
+  cardSequence: {
+    // Same cream surface, radius, and shadow as the other cards, but no fixed
+    // height — it grows when the sequence expands. (The shared `card` style bakes
+    // in height: 280, so this collapsible defines its own surface instead.)
+    marginTop: 16,
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.background,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  sequenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12, // even spacing between the list icon, the text block, and the chevron
+  },
+  sequenceHeaderText: {
+    flex: 1, // takes the middle, pushing the chevron to the right edge
+  },
+  sequenceTitle: {
+    // Matches the date eyebrow exactly (system font, 8.5px, uppercase, tracked,
+    // muted) per the request to mirror the date/day line's treatment.
+    fontSize: 8.5,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: COLORS.tagline,
+  },
+  sequenceSubtitle: {
+    marginTop: 4,
+    fontFamily: 'PlayfairDisplay_400Regular', // the "Wake" content face
+    fontSize: 11.5, // a touch smaller than the card's body copy
+    color: COLORS.tagline, // same muted tone as the title above it
+  },
+  sequenceList: {
+    marginTop: 16, // space between the header and the first step
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12, // number ↔ action ↔ minutes
+    paddingVertical: 12,
+  },
+  stepRowDivided: {
+    // Every row but the first gets a hairline rule above it, so the steps read
+    // as a clean divided list.
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.divider,
+  },
+  stepNumber: {
+    width: 14, // fixed so the action text aligns down the column
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: COLORS.gold, // gold numerals tie the list to the brand accent
+    includeFontPadding: false,
+  },
+  stepText: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    lineHeight: 19,
+    color: COLORS.charcoal,
+  },
+  stepMinutes: {
+    // Subtle right-aligned time estimate — reinforces the "if you have the time"
+    // framing. Same muted eyebrow treatment as the other small labels.
+    fontSize: 8.5,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: COLORS.tagline,
   },
 })
