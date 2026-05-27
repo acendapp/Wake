@@ -57,6 +57,58 @@ export interface PlanInput {
   mode?: Mode | null
 }
 
+// ── Evening reflection ───────────────────────────────────────────────────────
+
+/** How today landed relative to the morning's call — the engine's error signal. */
+export type Lookback = 'behind' | 'matched' | 'ahead'
+
+/** End-of-day self-reads, 1–10 each. Feed trends + personalization, not the
+ *  core Gap math (which uses a single morning `readiness`). */
+export interface DayReads {
+  energy: number
+  mood: number
+  focus: number
+}
+
+/** A prescribed bedtime, derived from tomorrow's demand and the wake time. */
+export interface SleepPlan {
+  /** Target sleep duration in hours (quarter-hour resolution, e.g. 7.75). */
+  targetHours: number
+  /** "HH:MM" 24h bedtime that hits the target before `wakeTime`. */
+  bedtime: string
+  /** "HH:MM" 24h wake time the plan was built around. */
+  wakeTime: string
+}
+
+/** A single evening wind-down move. The evening mirror of an `Action`. */
+export interface WindDownStep {
+  slug: string
+  /** Short imperative — what gets shown in the wind-down list. */
+  title: string
+  /** One line on the how/why. */
+  description: string
+  estMinutes: number
+  /** Ranking weight; higher surfaces first and survives shorter sequences. */
+  priority: number
+}
+
+/** Everything captured in the evening Reflect ritual. Persisted per day. */
+export interface Reflection {
+  /** ISO date (YYYY-MM-DD) of the day being reviewed. */
+  date: string
+  /** How today went vs. the morning's call. */
+  lookback: Lookback
+  reads: DayReads
+  /** Optional free-text note. */
+  note?: string
+  /** Tomorrow's self-reported demand, 1–10 ("Day" half of tomorrow's Gap). */
+  tomorrowDemand: number
+  /** "HH:MM" 24h morning deadline — sizes tomorrow's sequence and the morning budget. */
+  leaveBy: string
+  /** Prescribed sleep for tonight. */
+  sleep: SleepPlan
+}
+
 /** The result the morning screen renders. */
 export interface Plan {
   state: ReadinessState

@@ -1,0 +1,25 @@
+// Wake's palette — one warm, consistent identity across every surface (the
+// morning Today screen and the evening Reflect ritual both use it). The "evening"
+// feeling in Reflect is carried by content — the copy, the moon motif, the
+// wind-down — not by a different background.
+//
+// `day` mirrors the COLORS object still inlined in the Today screen; that screen
+// can migrate to import from here when it's next touched (see the consolidation
+// follow-up). New code should import from this module.
+//
+// If a true night mode is ever wanted, do it app-wide and keyed to the actual
+// time of day — not as a per-tab surface.
+
+export const day = {
+  background: '#FAF8F4', // soft warm cream
+  surface: '#FFFFFF', // cards sit just above the cream
+  text: '#2A2A2A', // charcoal — the "Wake" wordmark
+  muted: '#8A7B6A', // muted warm brown/gray (taglines, secondary)
+  gold: '#8A6D2F', // deep antique gold — the accent
+  border: '#DCDCDC', // subtle grey edge
+  onAccent: '#FFFFFF', // text/icons sitting on the gold accent
+  positive: '#2E7D4F', // muted green
+  negative: '#B23B3B', // muted red
+} as const
+
+export type Palette = typeof day

@@ -1,12 +1,27 @@
-import { useState } from 'react'
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useCallback, useState } from 'react'
+import {
+  ActivityIndicator,
+  LayoutAnimation,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { classifyState } from '@/engine/generatePlan'
+import { Loading } from '@/components/Loading'
+import { Scale } from '@/components/reflect/Scale'
+import { classifyState, generatePlan } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
+import { addDays, getDay, localDate, saveMorning, type DayRow } from '@/lib/days'
+import { errorMessage } from '@/lib/errors'
+import { EVENING_HOUR } from '@/lib/time'
 
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
 // not a tech app. This pass builds only the top portion (background, icon row,
@@ -51,13 +66,14 @@ const PROMPTS: Record<ReadinessState, string> = {
   surplus: 'Best use of your edge today:',
 }
 
-// One-line read on the You-vs-Day relationship shown under THE GAP bars. Echoes
-// the model's three moves — close the deficit / hold the alignment / spend the
-// surplus — in the same voice as the engine's FRAMING headlines.
-const GAP_SUMMARY: Record<ReadinessState, string> = {
-  deficit: "The day asks for more than you're bringing. Close the gap.",
-  aligned: "You're matched to today. Hold it.",
-  surplus: 'More in the tank than today needs. Spend it.',
+// Read on the You-vs-Day relationship shown under THE GAP bars. `read` states the
+// relationship, `move` is the imperative that echoes the engine's three FRAMING
+// verbs — close the deficit / hold the alignment / spend the surplus. The two are
+// rendered on separate lines so the takeaway always breaks cleanly.
+const GAP_SUMMARY: Record<ReadinessState, { read: string; move: string }> = {
+  deficit: { read: "The day asks for more than you're bringing.", move: 'Close the gap.' },
+  aligned: { read: "You're matched to today.", move: 'Maintain it.' },
+  surplus: { read: 'More in the tank than today needs.', move: 'Make the most of it.' },
 }
 
 // Rows in the "i" popup that explains the Gap model. Ordered behind → matched →
@@ -78,63 +94,230 @@ const GAP_FOOTNOTE: Record<ReadinessState, string> = {
   surplus: 'a surplus',
 }
 
-// The full morning sequence behind the collapsible "YOUR FULL SEQUENCE" card.
-// Step 1 mirrors the Focal Point activity above — the single highest-conviction
-// move — and the rest fill out the ritual for anyone with the time and the will.
-// Placeholder content; the engine's generatePlan() will supply the real ordered
-// sequence (and its estMinutes) once the morning check-in feeds it.
-const SEQUENCE: { title: string; minutes: number }[] = [
-  { title: 'A short walk before your 9:00.', minutes: 10 },
-  { title: 'A full glass of water, before any coffee.', minutes: 1 },
-  { title: 'Ten minutes of morning light on the balcony.', minutes: 10 },
-  { title: 'A protein-forward breakfast — skip the pastry.', minutes: 15 },
-  { title: 'Two minutes of slow breathing before your first call.', minutes: 2 },
-]
+// A coarse word for how last night ended, from yesterday's logged energy.
+function lastNightWord(energy: number | null | undefined): string {
+  if (energy == null) return '—'
+  if (energy <= 3) return 'Drained'
+  if (energy <= 6) return 'Steady'
+  return 'Strong'
+}
 
 export default function Index() {
+  const router = useRouter()
+
   // Whether the "i" popup explaining the Gap model is open.
   const [infoOpen, setInfoOpen] = useState(false)
 
   // Whether the collapsible "YOUR FULL SEQUENCE" card is expanded. Collapsed by
-  // default — the screen leads with the single Focal Point move; the full
-  // sequence is here only for anyone with the time who wants it.
+  // default — the screen leads with the single Focal Point move.
   const [sequenceOpen, setSequenceOpen] = useState(false)
   const toggleSequence = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
     setSequenceOpen((open) => !open)
   }
 
-  // Placeholder until the Supabase profile / auth supplies the real name.
-  const userName = 'Alex'
+  // Today's row (+ yesterday, for the "last night" read), reloaded whenever the
+  // tab regains focus so a fresh reflection or check-in shows immediately.
+  const [loading, setLoading] = useState(true)
+  const [today, setToday] = useState<DayRow | null>(null)
+  const [yesterday, setYesterday] = useState<DayRow | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Morning check-in inputs (used only until checked in). `forceCheckIn` lets the
+  // evening "log today anyway" link drop into the check-in past the pivot.
+  const [readinessInput, setReadinessInput] = useState(6)
+  const [demandInput, setDemandInput] = useState(5)
+  const [forceCheckIn, setForceCheckIn] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoadError(null)
+    try {
+      const date = localDate()
+      const [t, y] = await Promise.all([getDay(date), getDay(addDays(date, -1))])
+      setToday(t)
+      setYesterday(y)
+    } catch (e) {
+      setLoadError(errorMessage(e, 'Could not load today.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useFocusEffect(
+    useCallback(() => {
+      load()
+    }, [load]),
+  )
 
   const now = new Date()
   const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
+  const isEvening = now.getHours() >= EVENING_HOUR
+  const checkedIn = today?.readiness != null
+  const demandKnown = today?.day_difficulty != null
 
-  // Placeholder until a weather source is wired in.
+  // Still awaiting their own sources: name (profile), weather, pattern insight.
+  const userName = 'Alex'
   const temperature = 72
-
-  // Placeholder "You" (readiness) and "Day" (difficulty), 1–10, until the morning
-  // check-in feeds real numbers. classifyState() is the single source of truth:
-  // the Gap state it returns drives FOCAL POINT, WHERE YOU STAND, and THE GAP, so
-  // the whole screen tells one story. 5 vs 7 is a 2-point deficit (depleted into a
-  // demanding day), matching the "Drained" / "7/10" placeholders below.
-  const readiness = 5
-  const dayDifficulty = 7
-  const gapState: ReadinessState = classifyState(readiness, dayDifficulty)
-  const activity = 'a short walk before your 9:00.'
-
-  // Smart insight. Placeholder `true` so the populated state shows; this flips
-  // to false until the user has logged enough mornings to detect a pattern.
   const hasInsight = true
 
-  // The "WHERE YOU STAND" strip — all three captured the night before in the evening
-  // check-in, so no calendar is required. dayDemand is the self-reported "Day"
-  // half of the Gap (higher-signal than parsing a calendar); lastNightState
-  // feeds the pattern loop; leaveBy is the morning's time budget (soon an input
-  // to the engine's sequence sizing). Placeholders until the check-in wires in.
+  const submitCheckIn = async () => {
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      // Demand comes from last night's reflection if it happened; otherwise the
+      // inline demand tap supplies it so the Gap can still render.
+      const dayDifficulty = today?.day_difficulty ?? demandInput
+      const plan = generatePlan({ readiness: readinessInput, dayDifficulty })
+      const row = await saveMorning(localDate(), { readiness: readinessInput, dayDifficulty, plan })
+      setToday(row)
+    } catch (e) {
+      setSubmitError(errorMessage(e, 'Could not save your check-in.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <Loading label="Loading today…" />
+      </SafeAreaView>
+    )
+  }
+
+  // ── Load failed: show the real cause + a retry, so it never leaks into the
+  // check-in. A common first cause is the schema not being applied yet. ────────
+  if (loadError && !today) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.altWrap}>
+          <View>
+            <Text style={styles.altEyebrow}>Hmm</Text>
+            <Text style={styles.altTitle}>We couldn&rsquo;t load today.</Text>
+            <Text style={styles.altBody}>{loadError}</Text>
+          </View>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              setLoading(true)
+              load()
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={styles.primaryLabel}>Try again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  // ── Evening, not checked in: the morning read is stale — pivot to tomorrow,
+  // with the check-in demoted to a quiet link for the genuine late riser. ──────
+  if (!checkedIn && isEvening && !forceCheckIn) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.altWrap}>
+          <View>
+            <Text style={styles.altEyebrow}>Later than usual</Text>
+            <Text style={styles.altTitle}>Today&rsquo;s mostly behind you, {userName}.</Text>
+            <Text style={styles.altBody}>
+              No morning check-in today — that&rsquo;s alright. The best move now is to set up
+              tomorrow.
+            </Text>
+          </View>
+          <View>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => router.push('/reflect')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.primaryLabel}>Set up tomorrow</Text>
+            </Pressable>
+            <Pressable
+              style={styles.quietLink}
+              onPress={() => setForceCheckIn(true)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.quietLabel}>Still want to log today?</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  // ── Not checked in: the morning one-tap (+ inline demand if Reflect was skipped) ──
+  if (!checkedIn) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={styles.altWrap}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            <Text style={styles.altEyebrow}>{isEvening ? 'Logging today' : 'Good morning'}</Text>
+            <Text style={styles.altTitle}>
+              {isEvening ? 'Where are you, right now?' : `How are you arriving, ${userName}?`}
+            </Text>
+            {!demandKnown ? (
+              <Text style={styles.altBody}>A couple of quick reads to set today&rsquo;s gap.</Text>
+            ) : null}
+          </View>
+
+          <View style={styles.checkInScales}>
+            <Scale
+              label="How ready are you?"
+              value={readinessInput}
+              onChange={setReadinessInput}
+              lowLabel="running on empty"
+              highLabel="fully charged"
+            />
+            {!demandKnown ? (
+              <Scale
+                label="What's today asking?"
+                value={demandInput}
+                onChange={setDemandInput}
+                lowLabel="open & restful"
+                highLabel="demanding"
+              />
+            ) : null}
+            {submitError ? <Text style={styles.altError}>{submitError}</Text> : null}
+          </View>
+
+          <Pressable
+            style={[styles.primaryButton, submitting && styles.buttonDisabled]}
+            onPress={submitCheckIn}
+            disabled={submitting}
+            accessibilityRole="button"
+          >
+            {submitting ? (
+              <View style={styles.busyRow}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.primaryLabel}>Reading your day…</Text>
+              </View>
+            ) : (
+              <Text style={styles.primaryLabel}>See where you stand</Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    )
+  }
+
+  // ── Checked in: the populated Today, from real data ─────────────────────────
+  const row = today as DayRow
+  const readiness = row.readiness as number
+  const dayDifficulty = row.day_difficulty ?? readiness
+  const gapState: ReadinessState = row.state ?? classifyState(readiness, dayDifficulty)
+  const sequence = row.plan?.sequence ?? []
+  const activity = row.plan?.oneThing.title ?? ''
   const dayDemand = `${dayDifficulty}/10`
-  const lastNightState = 'Drained'
-  const leaveBy = '7:45'
+  const leaveBy = row.leave_by ?? '—'
+  const lastNightState = lastNightWord(yesterday?.energy)
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -150,7 +333,9 @@ export default function Index() {
             accessibilityRole="button"
             accessibilityLabel="Weather"
           >
-            <Feather name="sun" size={18} color={COLORS.icon} />
+            {/* Placeholder until real weather wires in (then this glyph is data-driven).
+                Kept off `sun` so it doesn't echo the Today tab's sunrise icon. */}
+            <Feather name="cloud" size={18} color={COLORS.icon} />
           </Pressable>
 
           <Pressable
@@ -165,7 +350,7 @@ export default function Index() {
 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Wake</Text>
-          <Text style={styles.tagline}>Your best days start here.</Text>
+          <Text style={styles.tagline}>Your best days begin here.</Text>
         </View>
 
         <View style={styles.card}>
@@ -229,7 +414,7 @@ export default function Index() {
         <View style={[styles.card, styles.cardMedia]}>
           <View style={styles.cardMediaClip}>
             <Image
-              source={require('../../assets/images/valley.png')}
+              source={require('../../../assets/images/valley.png')}
               style={[StyleSheet.absoluteFill, styles.mediaImage]}
               contentFit="cover"
             />
@@ -303,7 +488,8 @@ export default function Index() {
             </View>
           </View>
 
-          <Text style={styles.gapSummary}>{GAP_SUMMARY[gapState]}</Text>
+          <Text style={styles.gapSummary}>{GAP_SUMMARY[gapState].read}</Text>
+          <Text style={styles.gapMove}>{GAP_SUMMARY[gapState].move}</Text>
         </View>
 
         <View style={styles.cardSequence}>
@@ -319,7 +505,7 @@ export default function Index() {
             <View style={styles.sequenceHeaderText}>
               <Text style={styles.sequenceTitle}>YOUR FULL SEQUENCE</Text>
               <Text style={styles.sequenceSubtitle}>
-                {SEQUENCE.length} steps • Personalized for today
+                {sequence.length} steps • Personalized for today
               </Text>
             </View>
 
@@ -332,11 +518,11 @@ export default function Index() {
 
           {sequenceOpen && (
             <View style={styles.sequenceList}>
-              {SEQUENCE.map((step, i) => (
-                <View key={step.title} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
+              {sequence.map((step, i) => (
+                <View key={step.slug} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
                   <Text style={styles.stepNumber}>{i + 1}</Text>
                   <Text style={styles.stepText}>{step.title}</Text>
-                  <Text style={styles.stepMinutes}>{step.minutes} min</Text>
+                  <Text style={styles.stepMinutes}>{step.estMinutes} min</Text>
                 </View>
               ))}
             </View>
@@ -369,11 +555,11 @@ export default function Index() {
             </View>
 
             <Text style={styles.modalBody}>
-              Every morning, Wake reads two things: how you're showing up, and what the
+              Every morning, Wake reads two things: how you&rsquo;re showing up, and what the
               day demands. The distance between them is your Gap.
             </Text>
             <Text style={styles.modalBody}>
-              Within two points, you're aligned. The Gap only opens when the distance
+              Within two points, you&rsquo;re aligned. The Gap only opens when the distance
               grows.
             </Text>
 
@@ -393,7 +579,7 @@ export default function Index() {
             </View>
 
             <Text style={styles.modalFootnote}>
-              Right now, you're in{' '}
+              Right now, you&rsquo;re in{' '}
               <Text style={{ color: GAP_LEGEND.find((row) => row.state === gapState)!.dot }}>
                 {GAP_FOOTNOTE[gapState]}
               </Text>
@@ -420,6 +606,74 @@ const styles = StyleSheet.create({
     // breathe at the end of the scroll.
     paddingHorizontal: 24,
     paddingBottom: 32,
+  },
+
+  // ── Pre-check-in states (loading / evening pivot / morning check-in) ────────
+  busyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  altWrap: {
+    flexGrow: 1,
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 28,
+    justifyContent: 'space-between',
+  },
+  altEyebrow: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: COLORS.tagline,
+  },
+  altTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 30,
+    lineHeight: 38,
+    color: COLORS.charcoal,
+    marginTop: 10,
+  },
+  altBody: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 16,
+    lineHeight: 24,
+    color: COLORS.tagline,
+    marginTop: 14,
+  },
+  altError: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: COLORS.negative,
+    marginTop: 8,
+  },
+  checkInScales: {
+    marginVertical: 28,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.gold,
+    borderRadius: 14,
+    paddingVertical: 17,
+    alignItems: 'center',
+  },
+  primaryLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  buttonDisabled: {
+    opacity: 0.4,
+  },
+  quietLink: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  quietLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    color: COLORS.tagline,
+    textDecorationLine: 'underline',
   },
   iconRow: {
     flexDirection: 'row',
@@ -555,6 +809,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: COLORS.charcoal, // the takeaway line — dark enough to read clearly
+  },
+  gapMove: {
+    fontFamily: 'PlayfairDisplay_600SemiBold', // the imperative — the verdict your eye lands on
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2, // sits on its own line under the read
+    color: COLORS.charcoal,
   },
   cardMedia: {
     // Media card below the main one — same surface (color + shadow + radius from

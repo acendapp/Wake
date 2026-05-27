@@ -4,11 +4,13 @@ import {
   PlayfairDisplay_700Bold,
   useFonts,
 } from '@expo-google-fonts/playfair-display'
-import { Stack } from 'expo-router'
+import { Stack, useRouter, useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+
+import { AuthProvider, useAuth } from '@/lib/auth'
 
 // Warm pale cream that fills the whole app.
 const BACKGROUND = '#FAF8F4'
@@ -24,25 +26,47 @@ export default function RootLayout() {
     PlayfairDisplay_700Bold,
   })
 
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync()
-    }
-  }, [loaded, error])
+  return (
+    <AuthProvider>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <RootNavigator fontsReady={loaded || !!error} />
+      </SafeAreaProvider>
+    </AuthProvider>
+  )
+}
 
-  // Render nothing while fonts load (splash stays visible). If loading errors
-  // we still render so the app isn't permanently blank.
-  if (!loaded && !error) return null
+// Gates routes on the session: signed-out users are pushed to the auth group,
+// signed-in users are kept out of it. Holds the splash until both fonts and the
+// first session check are ready.
+function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
+  const { session, initializing } = useAuth()
+  const segments = useSegments()
+  const router = useRouter()
+  const ready = fontsReady && !initializing
+
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync()
+  }, [ready])
+
+  useEffect(() => {
+    if (!ready) return
+    const inAuthGroup = segments[0] === '(auth)'
+    if (!session && !inAuthGroup) {
+      router.replace('/sign-in')
+    } else if (session && inAuthGroup) {
+      router.replace('/')
+    }
+  }, [ready, session, segments, router])
+
+  if (!ready) return null
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: BACKGROUND },
-        }}
-      />
-    </SafeAreaProvider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: BACKGROUND },
+      }}
+    />
   )
 }
