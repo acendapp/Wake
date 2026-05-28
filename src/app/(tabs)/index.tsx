@@ -316,7 +316,7 @@ export default function Index() {
   const sequence = row.plan?.sequence ?? []
   const activity = row.plan?.oneThing.title ?? ''
   const dayDemand = `${dayDifficulty}/10`
-  const leaveBy = row.leave_by ?? '—'
+  const routineTime = row.routine_minutes != null ? `${row.routine_minutes} min` : '—'
   const lastNightState = lastNightWord(yesterday?.energy)
 
   return (
@@ -447,8 +447,8 @@ export default function Index() {
 
               <View style={styles.glanceItem}>
                 <Feather name="clock" size={16} color="#1A1A1A" />
-                <Text style={styles.glanceValue}>{leaveBy}</Text>
-                <Text style={styles.glanceLabel}>Out by</Text>
+                <Text style={styles.glanceValue}>{routineTime}</Text>
+                <Text style={styles.glanceLabel}>Routine</Text>
               </View>
             </View>
           </View>

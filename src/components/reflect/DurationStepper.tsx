@@ -1,38 +1,46 @@
 import { Feather } from '@expo/vector-icons'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { shiftClock, to12h } from '@/lib/time'
 import { day } from '@/theme/colors'
 
-// A minus/plus stepper for the wake time, in 15-minute increments. A native
-// time picker would mean a native module (no Expo Go); a stepper keeps the
-// ritual self-contained and on the warm cream surface.
+// A minus/plus stepper for a duration in minutes — how long the user wants their
+// morning routine to run. A native picker would mean a native module (no Expo
+// Go); a stepper keeps the ritual self-contained on the warm cream surface.
 type Props = {
-  value: string // "HH:MM" 24h
-  onChange: (hhmm: string) => void
+  value: number // minutes
+  onChange: (minutes: number) => void
   stepMinutes?: number
+  min?: number
+  max?: number
 }
 
-export function TimeStepper({ value, onChange, stepMinutes = 15 }: Props) {
+export function DurationStepper({
+  value,
+  onChange,
+  stepMinutes = 5,
+  min = 5,
+  max = 180,
+}: Props) {
+  const clamp = (n: number) => Math.max(min, Math.min(max, n))
   return (
     <View style={styles.row}>
       <Pressable
         style={styles.button}
         hitSlop={10}
-        onPress={() => onChange(shiftClock(value, -stepMinutes))}
+        onPress={() => onChange(clamp(value - stepMinutes))}
         accessibilityRole="button"
-        accessibilityLabel="Earlier"
+        accessibilityLabel="Shorter"
       >
         <Feather name="minus" size={22} color={day.text} />
       </Pressable>
 
-      <Text style={styles.time}>{to12h(value)}</Text>
+      <Text style={styles.value}>{value} min</Text>
 
       <Pressable
         style={styles.button}
         hitSlop={10}
-        onPress={() => onChange(shiftClock(value, stepMinutes))}
+        onPress={() => onChange(clamp(value + stepMinutes))}
         accessibilityRole="button"
-        accessibilityLabel="Later"
+        accessibilityLabel="Longer"
       >
         <Feather name="plus" size={22} color={day.text} />
       </Pressable>
@@ -56,7 +64,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  time: {
+  value: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 30,
     color: day.text,

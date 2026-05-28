@@ -17,14 +17,18 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { Scale } from '@/components/reflect/Scale'
-import { TimeStepper } from '@/components/reflect/TimeStepper'
-import { recommendSleep } from '@/engine/sleep'
 import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
 import { getDay, localDate, saveEvening } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
-import { EVENING_HOUR, formatHours, shiftClock, to12h } from '@/lib/time'
+import {
+  DEFAULT_ROUTINE_MINUTES,
+  getPreferredRoutineMinutes,
+  setPreferredRoutineMinutes,
+} from '@/lib/prefs'
+import { EVENING_HOUR } from '@/lib/time'
 import { day } from '@/theme/colors'
 
 // Intro background fade: a top→bottom gradient that holds the app's cream over
@@ -61,14 +65,9 @@ const LOOKBACK_OPTIONS: { value: Lookback; label: string; sub: string }[] = [
 // there was a morning check-in to look back on (no plan → nothing to tick off),
 // so the live list is filtered per-session. Optional beats sit at the end so the
 // required core stays short; they can be skipped.
-const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'sleep', 'windDown', 'note'] as const
+const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'routine', 'windDown', 'note'] as const
 type StepKey = (typeof ALL_STEPS)[number]
 const OPTIONAL_STEPS: StepKey[] = ['note']
-
-// We capture leave-by (the morning deadline that sizes tomorrow's sequence), not
-// wake time — so to drive the sleep math we assume a fixed get-ready buffer
-// between waking and heading out. TODO: make this buffer user-configurable.
-const GET_READY_MINUTES = 75
 
 type Phase = 'intro' | 'flow' | 'done'
 
@@ -115,9 +114,22 @@ export default function ReflectScreen() {
   const [focus, setFocus] = useState(6)
   const [note, setNote] = useState('')
   const [demand, setDemand] = useState(5)
-  const [leaveBy, setLeaveBy] = useState('07:45')
+  const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Seed the routine stepper with the user's standing preference, so each evening
+  // defaults to their usual length (adjustable per night). First run falls back to
+  // DEFAULT_ROUTINE_MINUTES inside the helper.
+  useEffect(() => {
+    let active = true
+    getPreferredRoutineMinutes().then((m) => {
+      if (active) setRoutineMinutes(m)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const toggleSlug = (slug: string) =>
     setCompletedSlugs((prev) =>
@@ -131,10 +143,7 @@ export default function ReflectScreen() {
   const router = useRouter()
   const close = () => router.navigate('/')
 
-  // Leave-by drives both: tonight's sleep target (via an assumed wake time) and
-  // tomorrow's morning budget.
-  const assumedWake = shiftClock(leaveBy, -GET_READY_MINUTES)
-  const sleep = recommendSleep(demand, assumedWake)
+  // Tomorrow's demand sizes tonight's wind-down sequence.
   const windDown = windDownSequence(demand)
 
   // A soft fade as each beat (and phase) changes — the evening wind-down feel.
@@ -163,9 +172,10 @@ export default function ReflectScreen() {
         note: finalNote.trim() || undefined,
         completedSlugs,
         tomorrowDemand: demand,
-        leaveBy,
-        sleep,
+        routineMinutes,
       })
+      // Remember this length as the new standing default for next time.
+      void setPreferredRoutineMinutes(routineMinutes)
       setPhase('done')
     } catch (e) {
       setSaveError(errorMessage(e, 'Could not save. Please try again.'))
@@ -329,9 +339,8 @@ export default function ReflectScreen() {
               setNote,
               demand,
               setDemand,
-              leaveBy,
-              setLeaveBy,
-              sleep,
+              routineMinutes,
+              setRoutineMinutes,
               windDown,
             })}
           </ScrollView>
@@ -384,9 +393,8 @@ type StepProps = {
   setNote: (s: string) => void
   demand: number
   setDemand: (n: number) => void
-  leaveBy: string
-  setLeaveBy: (s: string) => void
-  sleep: ReturnType<typeof recommendSleep>
+  routineMinutes: number
+  setRoutineMinutes: (n: number) => void
   windDown: ReturnType<typeof windDownSequence>
 }
 
@@ -486,19 +494,15 @@ function renderStep(key: StepKey, p: StepProps) {
         </StepHeader>
       )
 
-    case 'sleep':
+    case 'routine':
       return (
-        <StepHeader eyebrow="Sleep & schedule" question="When do you head out tomorrow?">
-          <Text style={styles.scheduleLabel}>Out the door by</Text>
-          <TimeStepper value={p.leaveBy} onChange={p.setLeaveBy} />
-          <View style={styles.sleepDivider} />
-          <Text style={styles.sleepRx}>
-            For a {p.demand}/10 day, aim for {formatHours(p.sleep.targetHours)} of sleep.
-          </Text>
-          <View style={styles.sleepBedRow}>
-            <Feather name="moon" size={18} color={day.gold} />
-            <Text style={styles.sleepBed}>Lights out by {to12h(p.sleep.bedtime)}</Text>
-          </View>
+        <StepHeader
+          eyebrow="Tomorrow's routine"
+          question="How long do you want your morning to take?"
+          helper="Your usual length — nudge it longer or shorter just for tomorrow."
+        >
+          <Text style={styles.routineLabel}>Routine time</Text>
+          <DurationStepper value={p.routineMinutes} onChange={p.setRoutineMinutes} />
         </StepHeader>
       )
 
@@ -816,36 +820,14 @@ const styles = StyleSheet.create({
     minHeight: 60,
   },
 
-  // Sleep
-  sleepRx: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 18,
-    lineHeight: 26,
-    color: day.text,
-  },
-  sleepBedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-  },
-  sleepBed: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 18,
-    color: day.gold,
-  },
-  scheduleLabel: {
+  // Routine duration
+  routineLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 12,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     color: day.muted,
     marginBottom: 14,
-  },
-  sleepDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: day.border,
-    marginVertical: 28,
   },
 
   // Wind-down

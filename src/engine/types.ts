@@ -70,16 +70,6 @@ export interface DayReads {
   focus: number
 }
 
-/** A prescribed bedtime, derived from tomorrow's demand and the wake time. */
-export interface SleepPlan {
-  /** Target sleep duration in hours (quarter-hour resolution, e.g. 7.75). */
-  targetHours: number
-  /** "HH:MM" 24h bedtime that hits the target before `wakeTime`. */
-  bedtime: string
-  /** "HH:MM" 24h wake time the plan was built around. */
-  wakeTime: string
-}
-
 /** A single evening wind-down move. The evening mirror of an `Action`. */
 export interface WindDownStep {
   slug: string
@@ -90,23 +80,6 @@ export interface WindDownStep {
   estMinutes: number
   /** Ranking weight; higher surfaces first and survives shorter sequences. */
   priority: number
-}
-
-/** Everything captured in the evening Reflect ritual. Persisted per day. */
-export interface Reflection {
-  /** ISO date (YYYY-MM-DD) of the day being reviewed. */
-  date: string
-  /** How today went vs. the morning's call. */
-  lookback: Lookback
-  reads: DayReads
-  /** Optional free-text note. */
-  note?: string
-  /** Tomorrow's self-reported demand, 1–10 ("Day" half of tomorrow's Gap). */
-  tomorrowDemand: number
-  /** "HH:MM" 24h morning deadline — sizes tomorrow's sequence and the morning budget. */
-  leaveBy: string
-  /** Prescribed sleep for tonight. */
-  sleep: SleepPlan
 }
 
 /** The result the morning screen renders. */

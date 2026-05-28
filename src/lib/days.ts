@@ -1,4 +1,4 @@
-import type { DayReads, Lookback, Plan, ReadinessState, SleepPlan } from '@/engine/types'
+import type { DayReads, Lookback, Plan, ReadinessState } from '@/engine/types'
 import { supabase } from './supabase'
 
 // The store layer over `public.days` — one row per user per local date. Screens
@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 // so swapping storage later (or mocking in tests) touches nothing else.
 //
 // A single evening reflection writes TWO rows: today's review (look-back, reads,
-// note, completion) and tomorrow's setup (demand, leave-by, sleep). The morning
+// note, completion) and tomorrow's setup (demand, routine length). The morning
 // check-in writes today's readiness + computed plan.
 
 /** Row shape of `public.days` (snake_case, as Postgres returns it). */
@@ -29,6 +29,11 @@ export type DayRow = {
   lookback: Lookback | null
   note: string | null
   completed_slugs: string[]
+  // How long tomorrow's morning routine should run, in minutes. Set the evening
+  // before; defaults to the user's standing preference (see src/lib/prefs.ts).
+  routine_minutes: number | null
+  // Vestigial (replaced by routine_minutes in migration 0003): no longer written,
+  // kept so the type still mirrors the live table for older rows.
   leave_by: string | null
   sleep_target_hours: number | null
   sleep_bedtime: string | null
@@ -113,8 +118,7 @@ export async function saveEvening(
     note?: string
     completedSlugs?: string[]
     tomorrowDemand: number
-    leaveBy: string
-    sleep: SleepPlan
+    routineMinutes: number
   },
 ): Promise<void> {
   const userId = await currentUserId()
@@ -129,8 +133,6 @@ export async function saveEvening(
   })
   await upsertDay(userId, addDays(date, 1), {
     day_difficulty: input.tomorrowDemand,
-    leave_by: input.leaveBy,
-    sleep_target_hours: input.sleep.targetHours,
-    sleep_bedtime: input.sleep.bedtime,
+    routine_minutes: input.routineMinutes,
   })
 }
