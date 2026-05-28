@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRouter } from 'expo-router'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -19,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Scale } from '@/components/reflect/Scale'
 import { TimeStepper } from '@/components/reflect/TimeStepper'
 import { recommendSleep } from '@/engine/sleep'
-import type { Lookback, ReadinessState } from '@/engine/types'
+import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
 import { getDay, localDate, saveEvening } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
@@ -40,11 +41,11 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 function recapLine(state: ReadinessState, dayDifficulty: number): string {
   switch (state) {
     case 'deficit':
-      return `This morning you were running a deficit against a ${dayDifficulty}/10 day.`
+      return `Today you were running a deficit against a ${dayDifficulty}/10 day.`
     case 'aligned':
-      return `This morning you were matched to a ${dayDifficulty}/10 day.`
+      return `Today you were matched to a ${dayDifficulty}/10 day.`
     case 'surplus':
-      return `This morning you had a surplus over a ${dayDifficulty}/10 day.`
+      return `Today you had a surplus over a ${dayDifficulty}/10 day.`
   }
 }
 
@@ -56,10 +57,12 @@ const LOOKBACK_OPTIONS: { value: Lookback; label: string; sub: string }[] = [
   { value: 'ahead', label: 'Ahead of it', sub: 'I had more than it asked.' },
 ]
 
-// The ritual's beats, in order. One per screen. Optional beats sit at the end so
-// the required core stays short; they can be skipped.
-const STEPS = ['lookback', 'reads', 'demand', 'sleep', 'windDown', 'note'] as const
-type StepKey = (typeof STEPS)[number]
+// The ritual's beats, in order. One per screen. `completion` only appears when
+// there was a morning check-in to look back on (no plan → nothing to tick off),
+// so the live list is filtered per-session. Optional beats sit at the end so the
+// required core stays short; they can be skipped.
+const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'sleep', 'windDown', 'note'] as const
+type StepKey = (typeof ALL_STEPS)[number]
 const OPTIONAL_STEPS: StepKey[] = ['note']
 
 // We capture leave-by (the morning deadline that sizes tomorrow's sequence), not
@@ -73,15 +76,22 @@ export default function ReflectScreen() {
   const weekday = WEEKDAYS[new Date().getDay()]
   const isEvening = new Date().getHours() >= EVENING_HOUR
 
-  // This morning's call, loaded from today's stored row for the look-back recap.
+  // This morning's call + the sequence it prescribed, loaded from today's stored
+  // row. The call anchors the look-back recap; the sequence drives the completion
+  // step. Any slugs already ticked off (a re-entry/edit) pre-seed the selection.
   const [morningCall, setMorningCall] = useState(NO_MORNING_RECAP)
+  const [morningSequence, setMorningSequence] = useState<Action[]>([])
+  const [completedSlugs, setCompletedSlugs] = useState<string[]>([])
   useEffect(() => {
     let active = true
     getDay(localDate())
       .then((row) => {
-        if (active && row?.state && row.day_difficulty != null) {
+        if (!active || !row) return
+        if (row.state && row.day_difficulty != null) {
           setMorningCall(recapLine(row.state, row.day_difficulty))
         }
+        if (row.plan?.sequence.length) setMorningSequence(row.plan.sequence)
+        if (row.completed_slugs?.length) setCompletedSlugs(row.completed_slugs)
       })
       .catch(() => {})
     return () => {
@@ -91,6 +101,12 @@ export default function ReflectScreen() {
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [step, setStep] = useState(0)
+
+  // The completion beat is only meaningful when there was a morning plan to do.
+  const steps = useMemo(
+    () => ALL_STEPS.filter((s) => s !== 'completion' || morningSequence.length > 0),
+    [morningSequence.length],
+  )
 
   // Answers.
   const [lookback, setLookback] = useState<Lookback | null>(null)
@@ -102,6 +118,18 @@ export default function ReflectScreen() {
   const [leaveBy, setLeaveBy] = useState('07:45')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  const toggleSlug = (slug: string) =>
+    setCompletedSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    )
+
+  // Close the ritual back to Today. The bottom tab bar is hidden for the whole
+  // Reflect tab statically in (tabs)/_layout.tsx (not via in-screen setOptions),
+  // which is what keeps entering/leaving the tab flicker-free; the X / Done buttons
+  // are the way out. Phase is left as-is, so re-opening resumes where they were.
+  const router = useRouter()
+  const close = () => router.navigate('/')
 
   // Leave-by drives both: tonight's sleep target (via an assumed wake time) and
   // tomorrow's morning budget.
@@ -116,8 +144,8 @@ export default function ReflectScreen() {
     Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: true }).start()
   }, [phase, step, fade])
 
-  const key = STEPS[step]
-  const isLast = step === STEPS.length - 1
+  const key = steps[step]
+  const isLast = step === steps.length - 1
   const isOptional = OPTIONAL_STEPS.includes(key)
   const canContinue = key !== 'lookback' || lookback !== null
 
@@ -133,6 +161,7 @@ export default function ReflectScreen() {
         lookback,
         reads: { energy, mood, focus },
         note: finalNote.trim() || undefined,
+        completedSlugs,
         tomorrowDemand: demand,
         leaveBy,
         sleep,
@@ -157,6 +186,7 @@ export default function ReflectScreen() {
   if (!isEvening && phase === 'intro') {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <RitualHeader onClose={close} />
         <View style={styles.gateWrap}>
           <Feather name="moon" size={26} color={day.gold} />
           <Text style={styles.gateTitle}>Come back this evening.</Text>
@@ -185,14 +215,14 @@ export default function ReflectScreen() {
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+          <RitualHeader onClose={close} />
           <View style={styles.introWrap}>
             <View>
               <Text style={styles.eyebrow}>{weekday} evening</Text>
               <Text style={styles.introTitle}>Let&rsquo;s close out {weekday}.</Text>
               <Text style={styles.introRecap}>{morningCall}</Text>
               <Text style={styles.introBody}>
-                It only takes a minute — a few quiet questions on how today went, and how to
-                set up tomorrow.
+                A minute of reflection now helps you finish today and start tomorrow clearer.
               </Text>
             </View>
             <Pressable
@@ -215,36 +245,38 @@ export default function ReflectScreen() {
   if (phase === 'done') {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <Image
+          source={require('../../../assets/images/reflect-bg.png')}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+        <LinearGradient
+          colors={INTRO_FADE}
+          locations={INTRO_FADE_LOCATIONS}
+          style={StyleSheet.absoluteFill}
+        />
+        <RitualHeader onClose={close} />
         <Animated.View style={[styles.doneWrap, { opacity: fade }]}>
           <View>
             <Text style={styles.eyebrow}>You&rsquo;re set for tomorrow</Text>
             <Text style={styles.doneTitle}>Rest well.</Text>
           </View>
 
-          <View style={styles.previewCard}>
-            <PreviewRow label="Tomorrow" value={`${demand}/10`} />
-            <PreviewRow label="Out the door" value={to12h(leaveBy)} />
-            <PreviewRow
-              label="Lights out by"
-              value={`${to12h(sleep.bedtime)} · ${formatHours(sleep.targetHours)}`}
-            />
-            <PreviewRow
-              label="Wind-down"
-              value={`${windDown.length} ${windDown.length === 1 ? 'move' : 'moves'}`}
-              last
-            />
+          <View>
+            <Pressable style={styles.beginButton} onPress={close} accessibilityRole="button">
+              <Text style={styles.beginLabel}>Done</Text>
+            </Pressable>
+            <Pressable
+              style={styles.editLink}
+              onPress={() => {
+                setStep(0)
+                setPhase('flow')
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.editLabel}>Edit tonight&rsquo;s check-in</Text>
+            </Pressable>
           </View>
-
-          <Pressable
-            style={styles.editLink}
-            onPress={() => {
-              setStep(0)
-              setPhase('flow')
-            }}
-            accessibilityRole="button"
-          >
-            <Text style={styles.editLabel}>Edit tonight&rsquo;s check-in</Text>
-          </Pressable>
         </Animated.View>
       </SafeAreaView>
     )
@@ -253,21 +285,26 @@ export default function ReflectScreen() {
   // ── Flow ──────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      {/* Same evening image as the intro, washed far back so it reads as a faint
+          texture behind the questions rather than a full background. */}
+      <Image
+        source={require('../../../assets/images/reflect-bg.png')}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+      <View style={[StyleSheet.absoluteFill, styles.flowWash]} />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.progressRow}>
-          <Pressable onPress={back} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
-            <Feather name="chevron-left" size={24} color={day.muted} />
-          </Pressable>
+        <RitualHeader onClose={close} onBack={back}>
           <View style={styles.dots}>
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <View key={s} style={[styles.dot, i <= step ? styles.dotOn : styles.dotOff]} />
             ))}
           </View>
-          <View style={styles.progressSpacer} />
-        </View>
+        </RitualHeader>
 
         <Animated.View style={[styles.flex, { opacity: fade }]}>
           <ScrollView
@@ -279,6 +316,9 @@ export default function ReflectScreen() {
               lookback,
               setLookback,
               morningCall,
+              morningSequence,
+              completedSlugs,
+              toggleSlug,
               energy,
               setEnergy,
               mood,
@@ -331,6 +371,9 @@ type StepProps = {
   lookback: Lookback | null
   setLookback: (v: Lookback) => void
   morningCall: string
+  morningSequence: Action[]
+  completedSlugs: string[]
+  toggleSlug: (slug: string) => void
   energy: number
   setEnergy: (n: number) => void
   mood: number
@@ -367,6 +410,38 @@ function renderStep(key: StepKey, p: StepProps) {
                     {opt.label}
                   </Text>
                   <Text style={styles.lookbackSub}>{opt.sub}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </StepHeader>
+      )
+
+    case 'completion':
+      return (
+        <StepHeader
+          eyebrow="This morning's plan"
+          question="Which of these did you do?"
+          helper="Tap the ones you got to. This is how Wake learns what actually helps you."
+        >
+          <View style={styles.completionList}>
+            {p.morningSequence.map((move) => {
+              const done = p.completedSlugs.includes(move.slug)
+              return (
+                <Pressable
+                  key={move.slug}
+                  style={[styles.completionRow, done && styles.completionRowOn]}
+                  onPress={() => p.toggleSlug(move.slug)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: done }}
+                >
+                  <View style={[styles.checkbox, done && styles.checkboxOn]}>
+                    {done ? <Feather name="check" size={14} color={day.onAccent} /> : null}
+                  </View>
+                  <Text style={[styles.completionTitle, done && styles.completionTitleOn]}>
+                    {move.title}
+                  </Text>
+                  <Text style={styles.completionMinutes}>{move.estMinutes} min</Text>
                 </Pressable>
               )
             })}
@@ -446,6 +521,37 @@ function renderStep(key: StepKey, p: StepProps) {
   }
 }
 
+// The ritual's top bar, shared by every phase. The X (always present) closes the
+// ritual; the back arrow only appears once the user is past the intro. `children`
+// is the centered content — the progress dots during the flow, empty otherwise.
+function RitualHeader({
+  onClose,
+  onBack,
+  children,
+}: {
+  onClose: () => void
+  onBack?: () => void
+  children?: ReactNode
+}) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerSide}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+            <Feather name="chevron-left" size={24} color={day.muted} />
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={styles.headerCenter}>{children}</View>
+      <View style={[styles.headerSide, styles.headerSideRight]}>
+        <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+          <Feather name="x" size={24} color={day.muted} />
+        </Pressable>
+      </View>
+    </View>
+  )
+}
+
 function StepHeader({
   eyebrow,
   question,
@@ -472,15 +578,6 @@ function StepHeader({
   )
 }
 
-function PreviewRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  return (
-    <View style={[styles.previewRow, !last && styles.previewRowBorder]}>
-      <Text style={styles.previewLabel}>{label}</Text>
-      <Text style={styles.previewValue}>{value}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -488,6 +585,11 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  // Cream wash over the flow's background image — the photo reads ~22%, a soft
+  // texture behind the questions. Raise the alpha to fade it further.
+  flowWash: {
+    backgroundColor: 'rgba(250, 248, 244, 0.78)',
   },
 
   // Gate (before evening)
@@ -530,24 +632,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   introTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
+    fontFamily: 'PlayfairDisplay_500Medium',
     fontSize: 34,
     color: day.text,
     marginTop: 10,
   },
+  // The personalized hook — today's actual morning call. Muted + regular so it
+  // sits below the title.
   introRecap: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 16,
     lineHeight: 24,
     color: day.muted,
-    marginTop: 14,
+    marginTop: 26,
   },
   introBody: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 16,
-    lineHeight: 24,
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 15,
+    lineHeight: 22,
     color: day.text,
-    marginTop: 16,
+    marginTop: 26,
   },
   beginButton: {
     backgroundColor: day.gold,
@@ -561,16 +665,26 @@ const styles = StyleSheet.create({
     color: day.onAccent,
   },
 
-  // Progress
-  progressRow: {
+
+
+  // Header (shared across phases: back · dots · close)
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
   },
-  dots: {
+  headerSide: {
+    width: 24, // icon width; equal on both sides so the center content stays centered
+  },
+  headerSideRight: {
+    alignItems: 'flex-end', // pins the X to the right edge
+  },
+  headerCenter: {
     flex: 1,
+  },
+  dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 7,
@@ -585,9 +699,6 @@ const styles = StyleSheet.create({
   },
   dotOff: {
     backgroundColor: day.border,
-  },
-  progressSpacer: {
-    width: 24, // balances the back chevron so the dots stay centered
   },
 
   // Step
@@ -642,6 +753,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: day.muted,
     marginTop: 3,
+  },
+
+  // Completion (tick off this morning's moves)
+  completionList: {
+    gap: 12,
+  },
+  completionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    backgroundColor: day.surface,
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  completionRowOn: {
+    borderColor: day.gold,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: {
+    backgroundColor: day.gold,
+    borderColor: day.gold,
+  },
+  completionTitle: {
+    flex: 1, // takes the middle so the minutes stay pinned right
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 16,
+    lineHeight: 21,
+    color: day.text,
+  },
+  completionTitleOn: {
+    color: day.gold,
+  },
+  completionMinutes: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: day.muted,
   },
 
   // Text inputs
@@ -766,7 +926,8 @@ const styles = StyleSheet.create({
   doneWrap: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingVertical: 40,
+    paddingTop: 40,
+    paddingBottom: 16, // less bottom padding pushes the Done button + edit link lower
     justifyContent: 'space-between',
   },
   doneTitle: {
@@ -775,34 +936,6 @@ const styles = StyleSheet.create({
     color: day.text,
     marginTop: 10,
   },
-  previewCard: {
-    backgroundColor: day.surface,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-  },
-  previewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-  },
-  previewRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: day.border,
-  },
-  previewLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    color: day.muted,
-  },
-  previewValue: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 15,
-    color: day.text,
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: 16,
-  },
   editLink: {
     alignItems: 'center',
     paddingVertical: 8,
@@ -810,7 +943,13 @@ const styles = StyleSheet.create({
   editLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 14,
-    color: day.muted,
+    // Sits over the dark lower third of the photo (river + mountains), so it's
+    // light with a soft shadow to stay legible over both the dark water and the
+    // bright moonlight reflection.
+    color: day.background,
     textDecorationLine: 'underline',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 })

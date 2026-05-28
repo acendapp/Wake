@@ -42,6 +42,11 @@ export default function TabsLayout() {
         options={{
           title: 'Reflect',
           tabBarIcon: ({ color }) => <Feather name="moon" size={ICON_SIZE} color={color} />,
+          // Reflect is a full-screen evening ritual — hide the tab bar whenever it's
+          // the active tab. Declared here (static) rather than toggled from inside the
+          // screen, so switching into/out of Reflect never flickers the bar. The
+          // screen's own X / Done buttons navigate back to Today.
+          tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen

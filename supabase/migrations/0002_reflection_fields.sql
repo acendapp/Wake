@@ -2,7 +2,8 @@
 -- Adds the fields the Reflect ritual captures that weren't in 0001.
 -- Apply after 0001 (Supabase dashboard SQL editor, or `supabase db push`).
 
-alter table public.days
+alter table public.
+days
   -- Evening look-back: how the day landed vs. the morning's call.
   add column if not exists lookback text
     check (lookback in ('behind', 'matched', 'ahead')),
