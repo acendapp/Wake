@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
+import { ProfileProvider, useProfile } from '@/lib/profile'
 
 // Warm pale cream that fills the whole app.
 const BACKGROUND = '#FAF8F4'
@@ -30,22 +31,27 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <RootNavigator fontsReady={loaded || !!error} />
-      </SafeAreaProvider>
+      <ProfileProvider>
+        <SafeAreaProvider>
+          <StatusBar style="dark" />
+          <RootNavigator fontsReady={loaded || !!error} />
+        </SafeAreaProvider>
+      </ProfileProvider>
     </AuthProvider>
   )
 }
 
-// Gates routes on the session: signed-out users are pushed to the auth group,
-// signed-in users are kept out of it. Holds the splash until both fonts and the
-// first session check are ready.
+// Gates routes on session + profile: signed-out users go to the auth group;
+// signed-in users who haven't finished onboarding go to /onboarding; everyone
+// else lands in the tabs. Holds the splash until fonts, the first session check,
+// and (when signed in) the profile have all resolved, so there's no flash of the
+// wrong screen.
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, initializing } = useAuth()
+  const { profile, loading: profileLoading } = useProfile()
   const segments = useSegments()
   const router = useRouter()
-  const ready = fontsReady && !initializing
+  const ready = fontsReady && !initializing && !profileLoading
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync()
@@ -54,12 +60,18 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   useEffect(() => {
     if (!ready) return
     const inAuthGroup = segments[0] === '(auth)'
-    if (!session && !inAuthGroup) {
-      router.replace('/sign-in')
-    } else if (session && inAuthGroup) {
+    const inOnboarding = segments[0] === 'onboarding'
+    if (!session) {
+      if (!inAuthGroup) router.replace('/sign-in')
+      return
+    }
+    const onboarded = !!profile?.onboarding_completed_at
+    if (!onboarded) {
+      if (!inOnboarding) router.replace('/onboarding')
+    } else if (inAuthGroup || inOnboarding) {
       router.replace('/')
     }
-  }, [ready, session, segments, router])
+  }, [ready, session, profile, segments, router])
 
   if (!ready) return null
 
