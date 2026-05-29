@@ -4,22 +4,27 @@ import { useRouter } from 'expo-router'
 import { Fragment, useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { DurationStepper } from '@/components/reflect/DurationStepper'
+import { useAuth } from '@/lib/auth'
 import {
   saveOnboarding,
   useProfile,
   type AgeRange,
   type Chronotype,
-  type FitnessLevel,
+  type FrictionPoint,
   type Intent,
   type Sex,
 } from '@/lib/profile'
@@ -48,11 +53,47 @@ const CHRONOTYPES: Choice<Chronotype>[] = [
   { value: 'neither', title: 'In between', blurb: 'It depends on the day.' },
 ]
 
-const FITNESS: Choice<FitnessLevel>[] = [
-  { value: 'low', title: 'Rarely', blurb: 'Movement isn’t a habit yet.' },
-  { value: 'moderate', title: 'A few times a week', blurb: 'I move when I can.' },
-  { value: 'high', title: 'Most days', blurb: 'Training is part of my life.' },
+// Where the morning tends to break down — answers stand on their own, no blurb.
+const FRICTION: { value: FrictionPoint; title: string }[] = [
+  { value: 'before_up', title: 'Before I’m even out of bed' },
+  { value: 'getting_ready', title: 'Once I’m up but before I’m out the door' },
+  { value: 'out_world', title: 'Out in the world' },
+  { value: 'all_morning', title: 'Honestly, all the way through' },
 ]
+
+// Phrasings for the curation loader — the editorial beat reflects the three
+// leading signals back at the user (intent → chronotype → friction) plus the
+// time budget. Demographics stay silent, so a skip never leaves a blank line.
+const INTENT_PHRASE: Record<Intent, string> = {
+  calm: 'ease you into the day',
+  energize: 'get you up and moving',
+  focus: 'sharpen you for what matters',
+}
+const CHRONO_PHRASE: Record<Chronotype, string> = {
+  early: 'an early start',
+  late: 'a slower climb',
+  neither: 'however you wake',
+}
+const FRICTION_PHRASE: Record<FrictionPoint, string> = {
+  before_up: 'the struggle to get out of bed',
+  getting_ready: 'the rush before you’re out the door',
+  out_world: 'the chaos once you’re out',
+  all_morning: 'a morning that fights you throughout',
+}
+
+function curationLines(
+  intent: Intent,
+  chronotype: Chronotype,
+  friction: FrictionPoint,
+  routineMinutes: number,
+): string[] {
+  return [
+    `Building a morning sequence to ${INTENT_PHRASE[intent]}…`,
+    `Mapping your energy curve to ${CHRONO_PHRASE[chronotype]}…`,
+    `Designing a buffer against ${FRICTION_PHRASE[friction]}…`,
+    `Fitting it into your ${routineMinutes}-minute window…`,
+  ]
+}
 
 const AGE_RANGES: { value: AgeRange; label: string }[] = [
   { value: 'under_25', label: 'Under 25' },
@@ -86,16 +127,21 @@ const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
 
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
+  const { signUp, session } = useAuth()
   const router = useRouter()
   const insets = useSafeAreaInsets()
 
   const [step, setStep] = useState(0)
   const [intent, setIntent] = useState<Intent | null>(null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(null)
-  const [fitness, setFitness] = useState<FitnessLevel | null>(null)
+  const [friction, setFriction] = useState<FrictionPoint | null>(null)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
+
+  // Account is created at the end of the flow (step 7), once the user is invested.
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,27 +149,53 @@ export default function OnboardingScreen() {
 
   // Required questions gate Continue; the rest always advance.
   const canAdvance =
-    step === 1 ? intent !== null : step === 2 ? chronotype !== null : step === 3 ? fitness !== null : true
+    step === 1 ? intent !== null : step === 2 ? chronotype !== null : step === 3 ? friction !== null : true
+
+  const canCreateAccount = email.trim().length > 3 && password.length >= 6 && !saving
+
+  // Step 7 normally creates an account; if the user is already signed in (e.g.
+  // they came in via the sign-in screen's create-account path), it just saves.
+  const buttonEnabled =
+    step === 7 ? (session ? !saving : canCreateAccount) : canAdvance && !saving
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(0, s - 1))
 
-  const finish = async () => {
-    if (!intent || !chronotype || !fitness) return
+  // Final step: create the account, then persist the answers gathered so far.
+  // saveOnboarding stamps onboarding_completed_at; refresh() then flips the root
+  // gate, which — since the new user isn't entitled yet — routes to /paywall.
+  const createAccount = async () => {
+    if (!intent || !chronotype || !friction) return
     setSaving(true)
     setError(null)
+    // Already signed in (came in via the sign-in screen) → skip straight to save.
+    if (!session) {
+      const res = await signUp(email.trim(), password)
+      if (res.error) {
+        setError(res.error)
+        setSaving(false)
+        return
+      }
+      if (res.needsConfirmation) {
+        // Email confirmation must be OFF in Supabase for this single-flow signup.
+        setError('Please disable email confirmation in Supabase to continue.')
+        setSaving(false)
+        return
+      }
+    }
     try {
       await saveOnboarding({
         intent,
         chronotype,
-        fitnessLevel: fitness,
+        frictionPoint: friction,
         routineMinutes,
         ageRange,
         sex,
       })
       // Seed the device-local default so the evening routine stepper starts here.
       await setPreferredRoutineMinutes(routineMinutes)
-      await refresh() // flips onboarding_completed_at → the root gate routes to tabs
+      await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
+      // No setSaving(false): the screen unmounts as the gate navigates away.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
       setSaving(false)
@@ -232,9 +304,20 @@ export default function OnboardingScreen() {
     )
   }
 
+  // The editorial curation beat — full-bleed, immersive, no chrome. Auto-advances
+  // to account creation when the lines finish.
+  if (step === 6 && intent && chronotype && friction) {
+    return (
+      <CurationLoader
+        lines={curationLines(intent, chronotype, friction, routineMinutes)}
+        onDone={() => setStep(7)}
+      />
+    )
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
-      {step > 0 && (
+      {step >= 1 && step <= LAST_QUESTION && (
         <View style={styles.header}>
           <Pressable
             onPress={back}
@@ -250,12 +333,16 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {step === 1 && (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {step === 1 && (
           <Question
             title="What do you want your mornings to do for you?"
             caption="Your routine leans this way. You can change it anytime."
@@ -273,7 +360,7 @@ export default function OnboardingScreen() {
         )}
 
         {step === 2 && (
-          <Question title="When does your body wake up?">
+          <Question title="How do your mornings usually start?">
             {CHRONOTYPES.map((o) => (
               <ChoiceCard
                 key={o.value}
@@ -287,14 +374,13 @@ export default function OnboardingScreen() {
         )}
 
         {step === 3 && (
-          <Question title="How active are you, most weeks?">
-            {FITNESS.map((o) => (
+          <Question title="Where do your mornings usually go wrong?">
+            {FRICTION.map((o) => (
               <ChoiceCard
                 key={o.value}
                 title={o.title}
-                blurb={o.blurb}
-                selected={fitness === o.value}
-                onPress={() => setFitness(o.value)}
+                selected={friction === o.value}
+                onPress={() => setFriction(o.value)}
               />
             ))}
           </Question>
@@ -349,45 +435,77 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 6 && (
-          <View style={styles.intro}>
-            <Text style={styles.introTitle}>You’re all set.</Text>
-            <Text style={styles.introBody}>
-              Tomorrow morning, check in and Wake will meet you where you are.
+        {step === 7 && (
+          <View>
+            <Text style={styles.questionTitle}>Your routine is ready.</Text>
+            <Text style={styles.caption}>
+              {session
+                ? 'Save it and pick up tomorrow morning.'
+                : 'Create an account to save it and pick up tomorrow morning.'}
             </Text>
+            {!session && (
+              <View style={styles.accountForm}>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email"
+                  placeholderTextColor={day.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  editable={!saving}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor={day.muted}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  textContentType="newPassword"
+                  editable={!saving}
+                />
+              </View>
+            )}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
 
-      <View style={styles.footer}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <View style={styles.footer}>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {step === 5 && (
+          {step === 5 && (
+            <Pressable
+              onPress={next}
+              disabled={saving}
+              style={styles.skip}
+              accessibilityRole="button"
+            >
+              <Text style={styles.skipLabel}>Skip for now</Text>
+            </Pressable>
+          )}
+
           <Pressable
-            onPress={next}
-            disabled={saving}
-            style={styles.skip}
+            style={[styles.button, !buttonEnabled && styles.buttonDisabled]}
+            onPress={step === 7 ? createAccount : next}
+            disabled={!buttonEnabled}
             accessibilityRole="button"
           >
-            <Text style={styles.skipLabel}>Skip for now</Text>
+            {saving ? (
+              <ActivityIndicator color={day.onAccent} />
+            ) : (
+              <Text style={styles.buttonLabel}>
+                {step === 7 ? (session ? 'Save my routine' : 'Create account') : 'Continue'}
+              </Text>
+            )}
           </Pressable>
-        )}
-
-        <Pressable
-          style={[styles.button, (!canAdvance || saving) && styles.buttonDisabled]}
-          onPress={step === 6 ? finish : next}
-          disabled={!canAdvance || saving}
-          accessibilityRole="button"
-        >
-          {saving ? (
-            <ActivityIndicator color={day.onAccent} />
-          ) : (
-            <Text style={styles.buttonLabel}>
-              {step === 6 ? 'Start my mornings' : 'Continue'}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -433,7 +551,7 @@ function ChoiceCard({
   onPress,
 }: {
   title: string
-  blurb: string
+  blurb?: string
   selected: boolean
   onPress: () => void
 }) {
@@ -446,7 +564,7 @@ function ChoiceCard({
     >
       <View style={styles.cardText}>
         <Text style={[styles.cardTitle, selected && styles.cardTitleOn]}>{title}</Text>
-        <Text style={styles.cardBlurb}>{blurb}</Text>
+        {blurb ? <Text style={styles.cardBlurb}>{blurb}</Text> : null}
       </View>
       {selected && <Feather name="check" size={20} color={day.gold} />}
     </Pressable>
@@ -478,6 +596,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: day.background,
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -519,7 +640,7 @@ const styles = StyleSheet.create({
   },
   welcomeTop: {
     alignItems: 'center',
-    paddingTop: 80,
+    paddingTop: 52,
   },
   welcomeBrand: {
     fontFamily: 'PlayfairDisplay_400Regular',
@@ -649,21 +770,6 @@ const styles = StyleSheet.create({
   welcomeFooter: {
     paddingHorizontal: 24,
   },
-  intro: {
-    gap: 14,
-  },
-  introTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 30,
-    color: day.text,
-    lineHeight: 38,
-  },
-  introBody: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 17,
-    color: day.muted,
-    lineHeight: 26,
-  },
   questionTitle: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 26,
@@ -720,6 +826,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 22,
     paddingVertical: 22,
+  },
+  accountForm: {
+    marginTop: 28,
+    gap: 14,
+  },
+  input: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 17,
+    color: day.text,
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
   },
   groupLabel: {
     fontFamily: 'PlayfairDisplay_500Medium',

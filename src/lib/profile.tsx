@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -18,6 +19,8 @@ import { supabase } from './supabase'
 export type Intent = 'calm' | 'energize' | 'focus'
 export type Chronotype = 'early' | 'late' | 'neither'
 export type FitnessLevel = 'low' | 'moderate' | 'high'
+/** Where the user's mornings tend to break down — which phase to brace for. */
+export type FrictionPoint = 'before_up' | 'getting_ready' | 'out_world' | 'all_morning'
 export type AgeRange = 'under_25' | '25_34' | '35_44' | '45_54' | '55_plus'
 export type Sex = 'female' | 'male' | 'other'
 
@@ -30,6 +33,7 @@ export type ProfileRow = {
   intent: Intent | null
   chronotype: Chronotype | null
   fitness_level: FitnessLevel | null
+  friction_point: FrictionPoint | null
   routine_minutes: number | null
   constraints: string[]
   age_range: AgeRange | null
@@ -42,7 +46,7 @@ export type ProfileRow = {
 export type OnboardingInput = {
   intent: Intent
   chronotype: Chronotype
-  fitnessLevel: FitnessLevel
+  frictionPoint: FrictionPoint
   routineMinutes: number
   constraints?: string[]
   ageRange?: AgeRange | null
@@ -82,7 +86,7 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
         id: userId,
         intent: input.intent,
         chronotype: input.chronotype,
-        fitness_level: input.fitnessLevel,
+        friction_point: input.frictionPoint,
         routine_minutes: input.routineMinutes,
         constraints: input.constraints ?? [],
         age_range: input.ageRange ?? null,
@@ -114,6 +118,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const uid = session?.user.id ?? null
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  // Bumped by every load path; an in-flight read whose generation is stale when
+  // it resolves is discarded. This makes a post-save refresh() authoritative
+  // even if the session-change auto-fetch resolves after it — which happens when
+  // the account is created mid-onboarding (sign-up fires the fetch, then we save
+  // and refresh). Without this, the stale fetch could clobber the saved profile
+  // and bounce the user back into onboarding.
+  const fetchGen = useRef(0)
 
   // Derived so there's no stale-false window: a signed-in user whose profile we
   // haven't loaded for *this* uid is "loading". On sign-in `loadedFor` still
@@ -123,31 +134,31 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const loading = uid !== null && loadedFor !== uid
 
   useEffect(() => {
-    let active = true
     if (uid === null) {
+      fetchGen.current++
       setProfile(null)
       setLoadedFor(null)
       return
     }
+    const gen = ++fetchGen.current
     getProfile()
       .then((p) => {
-        if (!active) return
+        if (gen !== fetchGen.current) return
         setProfile(p)
         setLoadedFor(uid)
       })
       .catch(() => {
-        if (!active) return
+        if (gen !== fetchGen.current) return
         setProfile(null)
         setLoadedFor(uid)
       })
-    return () => {
-      active = false
-    }
   }, [uid])
 
   const refresh = useCallback(async () => {
     if (uid === null) return
+    const gen = ++fetchGen.current
     const p = await getProfile()
+    if (gen !== fetchGen.current) return
     setProfile(p)
     setLoadedFor(uid)
   }, [uid])

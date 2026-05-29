@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
+import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
 import { ProfileProvider, useProfile } from '@/lib/profile'
 
 // Warm pale cream that fills the whole app.
@@ -32,26 +33,31 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <SafeAreaProvider>
-          <StatusBar style="dark" />
-          <RootNavigator fontsReady={loaded || !!error} />
-        </SafeAreaProvider>
+        <EntitlementProvider>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <RootNavigator fontsReady={loaded || !!error} />
+          </SafeAreaProvider>
+        </EntitlementProvider>
       </ProfileProvider>
     </AuthProvider>
   )
 }
 
-// Gates routes on session + profile: signed-out users go to the auth group;
-// signed-in users who haven't finished onboarding go to /onboarding; everyone
-// else lands in the tabs. Holds the splash until fonts, the first session check,
-// and (when signed in) the profile have all resolved, so there's no flash of the
-// wrong screen.
+// Gates routes on session + profile + entitlement. The first-run journey runs
+// front to back: a signed-out visitor starts in the onboarding/welcome flow;
+// once they've created an account and finished onboarding they hit the paywall;
+// only an entitled, onboarded user reaches the tabs. /sign-in stays reachable
+// from the welcome screen for returning users. Holds the splash until fonts, the
+// first session check, and (when signed in) the profile + entitlement have all
+// resolved, so there's no flash of the wrong screen.
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, initializing } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
+  const { entitled, loading: entitlementLoading } = useEntitlement()
   const segments = useSegments()
   const router = useRouter()
-  const ready = fontsReady && !initializing && !profileLoading
+  const ready = fontsReady && !initializing && !profileLoading && !entitlementLoading
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync()
@@ -61,17 +67,26 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     if (!ready) return
     const inAuthGroup = segments[0] === '(auth)'
     const inOnboarding = segments[0] === 'onboarding'
+    const inPaywall = segments[0] === 'paywall'
+
+    // Signed out: begin in onboarding/welcome. /sign-in is still reachable via
+    // the welcome screen's "Sign in" link, so don't bounce out of the auth group.
     if (!session) {
-      if (!inAuthGroup) router.replace('/sign-in')
+      if (!inAuthGroup && !inOnboarding) router.replace('/onboarding')
       return
     }
     const onboarded = !!profile?.onboarding_completed_at
     if (!onboarded) {
       if (!inOnboarding) router.replace('/onboarding')
-    } else if (inAuthGroup || inOnboarding) {
-      router.replace('/')
+      return
     }
-  }, [ready, session, profile, segments, router])
+    if (!entitled) {
+      if (!inPaywall) router.replace('/paywall')
+      return
+    }
+    // Fully set up — keep them out of the pre-app screens.
+    if (inAuthGroup || inOnboarding || inPaywall) router.replace('/')
+  }, [ready, session, profile, entitled, segments, router])
 
   if (!ready) return null
 
