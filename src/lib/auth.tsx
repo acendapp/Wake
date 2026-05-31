@@ -15,6 +15,8 @@ type AuthContextValue = {
   initializing: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string) => Promise<SignUpResult>
+  /** Send a password-reset email. Errors surface as a message, null on success. */
+  resetPassword: (email: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -52,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { error: error.message, needsConfirmation: false }
       // When the project requires email confirmation, signUp returns no session.
       return { error: null, needsConfirmation: data.session === null }
+    },
+    resetPassword: async (email) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      return { error: error?.message ?? null }
     },
     signOut: async () => {
       await supabase.auth.signOut()

@@ -27,6 +27,8 @@ export type Sex = 'female' | 'male' | 'other'
 /** Row shape of `public.profiles` (snake_case, as Postgres returns it). */
 export type ProfileRow = {
   id: string
+  first_name: string | null
+  last_name: string | null
   timezone: string | null
   mode: string | null
   goals: string[]
@@ -44,6 +46,8 @@ export type ProfileRow = {
 
 /** The answers first-run onboarding collects. The demographics are optional. */
 export type OnboardingInput = {
+  firstName: string
+  lastName?: string | null
   intent: Intent
   chronotype: Chronotype
   frictionPoint: FrictionPoint
@@ -84,6 +88,8 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
     .upsert(
       {
         id: userId,
+        first_name: input.firstName,
+        last_name: input.lastName ?? null,
         intent: input.intent,
         chronotype: input.chronotype,
         friction_point: input.frictionPoint,

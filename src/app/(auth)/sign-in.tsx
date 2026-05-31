@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import {
   ActivityIndicator,
@@ -14,11 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/auth'
 import { day } from '@/theme/colors'
 
-// Email + password gate. On success the auth listener flips the session and the
-// root layout redirects into the tabs — so this screen never navigates itself.
+// Email + password gate for *returning* users. On success the auth listener flips
+// the session and the root layout redirects into the app — so the sign-in itself
+// never navigates. New users don't create an account here: "Create an account"
+// sends them into onboarding, which builds their routine first and creates the
+// account at the end (step 7).
 export default function SignInScreen() {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+  const { signIn, resetPassword } = useAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -31,24 +35,33 @@ export default function SignInScreen() {
     setBusy(true)
     setError(null)
     setConfirm(null)
-    if (mode === 'in') {
-      const res = await signIn(email.trim(), password)
-      if (res.error) setError(res.error)
-    } else {
-      const res = await signUp(email.trim(), password)
-      if (res.error) setError(res.error)
-      else if (res.needsConfirmation) {
-        setConfirm('Check your email to confirm your account, then sign in.')
-        setMode('in')
-      }
-    }
+    const res = await signIn(email.trim(), password)
+    if (res.error) setError(res.error)
     setBusy(false)
   }
 
-  const toggle = () => {
-    setMode((m) => (m === 'in' ? 'up' : 'in'))
+  // New users go through onboarding first; jump straight to the first question
+  // (step 1), past the welcome screen they just came from. replace() so Back
+  // doesn't drop them onto a stranded sign-in screen.
+  const createAccount = () => {
+    router.replace({ pathname: '/onboarding', params: { start: 'questions' } })
+  }
+
+  // Sends a reset link to whatever's in the email field. We require the email
+  // first (the password is irrelevant here) and report back inline.
+  const forgotPassword = async () => {
+    if (email.trim().length < 4) {
+      setConfirm(null)
+      setError('Enter your email above, then tap “Forgot password.”')
+      return
+    }
+    setBusy(true)
     setError(null)
     setConfirm(null)
+    const res = await resetPassword(email.trim())
+    if (res.error) setError(res.error)
+    else setConfirm('Password reset link sent — check your email.')
+    setBusy(false)
   }
 
   return (
@@ -60,9 +73,7 @@ export default function SignInScreen() {
         <View style={styles.wrap}>
           <View>
             <Text style={styles.title}>Wake</Text>
-            <Text style={styles.tagline}>
-              {mode === 'in' ? 'Welcome back.' : 'Your best days begin here.'}
-            </Text>
+            <Text style={styles.tagline}>Welcome back.</Text>
           </View>
 
           <View style={styles.form}>
@@ -86,8 +97,8 @@ export default function SignInScreen() {
               placeholderTextColor={day.muted}
               secureTextEntry
               autoCapitalize="none"
-              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-              textContentType={mode === 'in' ? 'password' : 'newPassword'}
+              autoComplete="current-password"
+              textContentType="password"
             />
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -102,22 +113,26 @@ export default function SignInScreen() {
               {busy ? (
                 <View style={styles.busyRow}>
                   <ActivityIndicator color={day.onAccent} />
-                  <Text style={styles.buttonLabel}>
-                    {mode === 'in' ? 'Signing in…' : 'Creating account…'}
-                  </Text>
+                  <Text style={styles.buttonLabel}>Signing in…</Text>
                 </View>
               ) : (
-                <Text style={styles.buttonLabel}>
-                  {mode === 'in' ? 'Sign in' : 'Create account'}
-                </Text>
+                <Text style={styles.buttonLabel}>Sign in</Text>
               )}
+            </Pressable>
+
+            <Pressable
+              onPress={forgotPassword}
+              disabled={busy}
+              style={styles.forgot}
+              hitSlop={8}
+              accessibilityRole="button"
+            >
+              <Text style={styles.forgotLabel}>Forgot password?</Text>
             </Pressable>
           </View>
 
-          <Pressable onPress={toggle} style={styles.toggle} accessibilityRole="button">
-            <Text style={styles.toggleLabel}>
-              {mode === 'in' ? 'New here? Create an account' : 'Have an account? Sign in'}
-            </Text>
+          <Pressable onPress={createAccount} style={styles.toggle} accessibilityRole="button">
+            <Text style={styles.toggleLabel}>New here? Create an account</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -195,6 +210,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  forgot: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  forgotLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: day.muted,
+    textDecorationLine: 'underline',
   },
   toggle: {
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Fragment, useState } from 'react'
 import {
   ActivityIndicator,
@@ -127,17 +127,25 @@ const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
 
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
-  const { signUp, session } = useAuth()
+  const { signUp, signOut, session } = useAuth()
   const router = useRouter()
   const insets = useSafeAreaInsets()
 
-  const [step, setStep] = useState(0)
+  // "Create an account" on the sign-in screen routes here with ?start=questions
+  // to skip the welcome beat and open on the first question (step 1).
+  const { start } = useLocalSearchParams<{ start?: string }>()
+  const [step, setStep] = useState(start === 'questions' ? FIRST_QUESTION : 0)
   const [intent, setIntent] = useState<Intent | null>(null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(null)
   const [friction, setFriction] = useState<FrictionPoint | null>(null)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
+
+  // Name is captured at the end (step 7) and used to greet the user across the
+  // app. First name is required; last name is optional.
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
 
   // Account is created at the end of the flow (step 7), once the user is invested.
   const [email, setEmail] = useState('')
@@ -151,12 +159,16 @@ export default function OnboardingScreen() {
   const canAdvance =
     step === 1 ? intent !== null : step === 2 ? chronotype !== null : step === 3 ? friction !== null : true
 
-  const canCreateAccount = email.trim().length > 3 && password.length >= 6 && !saving
+  // First name is required on the final step; the greeting depends on it.
+  const nameReady = firstName.trim().length > 0
+  const canCreateAccount =
+    nameReady && email.trim().length > 3 && password.length >= 6 && !saving
 
   // Step 7 normally creates an account; if the user is already signed in (e.g.
-  // they came in via the sign-in screen's create-account path), it just saves.
+  // they came in via the sign-in screen's create-account path), it just saves —
+  // but a first name is still required either way.
   const buttonEnabled =
-    step === 7 ? (session ? !saving : canCreateAccount) : canAdvance && !saving
+    step === 7 ? (session ? nameReady && !saving : canCreateAccount) : canAdvance && !saving
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -185,6 +197,8 @@ export default function OnboardingScreen() {
     }
     try {
       await saveOnboarding({
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || null,
         intent,
         chronotype,
         frictionPoint: friction,
@@ -262,13 +276,26 @@ export default function OnboardingScreen() {
             <Pressable style={styles.button} onPress={next} accessibilityRole="button">
               <Text style={styles.buttonLabel}>Build my routine</Text>
             </Pressable>
-            <Pressable
-              style={styles.buttonSecondary}
-              onPress={() => router.push('/sign-in')}
-              accessibilityRole="button"
-            >
-              <Text style={styles.buttonSecondaryLabel}>Sign in</Text>
-            </Pressable>
+            {/* Already signed in (e.g. a half-finished signup left a session) →
+                offer a way out instead of a pointless "Sign in". Signed out → the
+                returning-user path into the sign-in screen. */}
+            {session ? (
+              <Pressable
+                style={styles.buttonSecondary}
+                onPress={() => signOut()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.buttonSecondaryLabel}>Sign out</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.buttonSecondary}
+                onPress={() => router.push('/sign-in')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.buttonSecondaryLabel}>Sign in</Text>
+              </Pressable>
+            )}
           </View>
         </SafeAreaView>
 
@@ -443,35 +470,61 @@ export default function OnboardingScreen() {
                 ? 'Save it and pick up tomorrow morning.'
                 : 'Create an account to save it and pick up tomorrow morning.'}
             </Text>
-            {!session && (
-              <View style={styles.accountForm}>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email"
-                  placeholderTextColor={day.muted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                  editable={!saving}
-                />
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Password"
-                  placeholderTextColor={day.muted}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  editable={!saving}
-                />
-              </View>
-            )}
+            <View style={styles.accountForm}>
+              <TextInput
+                style={styles.input}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First name"
+                placeholderTextColor={day.muted}
+                autoCapitalize="words"
+                autoCorrect={false}
+                autoComplete="given-name"
+                textContentType="givenName"
+                editable={!saving}
+              />
+              <TextInput
+                style={styles.input}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name (optional)"
+                placeholderTextColor={day.muted}
+                autoCapitalize="words"
+                autoCorrect={false}
+                autoComplete="family-name"
+                textContentType="familyName"
+                editable={!saving}
+              />
+              {!session && (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email"
+                    placeholderTextColor={day.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    editable={!saving}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Password"
+                    placeholderTextColor={day.muted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    editable={!saving}
+                  />
+                </>
+              )}
+            </View>
           </View>
         )}
         </ScrollView>

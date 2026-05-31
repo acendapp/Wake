@@ -5,10 +5,10 @@ import {
   PlayfairDisplay_700Bold,
   useFonts,
 } from '@expo-google-fonts/playfair-display'
-import { Stack, useRouter, useSegments } from 'expo-router'
+import { Stack, usePathname, useRouter } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
@@ -55,9 +55,23 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, initializing } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
   const { entitled, loading: entitlementLoading } = useEntitlement()
-  const segments = useSegments()
+  // usePathname returns the clean, group-stripped path ('/sign-in', '/onboarding',
+  // '/paywall', '/'), so the gate can match exact screens without depending on
+  // whether useSegments surfaces the route-group parens — which it doesn't for
+  // /sign-in, and which silently bounced signed-out users out of the auth screen.
+  const pathname = usePathname()
   const router = useRouter()
   const ready = fontsReady && !initializing && !profileLoading && !entitlementLoading
+
+  // Latch the first time everything resolves. After the initial load we keep the
+  // Stack mounted even while the providers briefly reload — e.g. creating an
+  // account mid-onboarding flips the session, which makes profile/entitlement
+  // `loading` derive true for a beat. Returning null there would tear down the
+  // onboarding screen and lose its in-progress step, snapping the user back to
+  // the welcome screen. Routing still waits on `ready` below, so the gate simply
+  // holds until the reload settles, then redirects (a new account → /paywall).
+  const everReady = useRef(false)
+  if (ready) everReady.current = true
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync()
@@ -65,30 +79,31 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   useEffect(() => {
     if (!ready) return
-    const inAuthGroup = segments[0] === '(auth)'
-    const inOnboarding = segments[0] === 'onboarding'
-    const inPaywall = segments[0] === 'paywall'
+    const onSignIn = pathname === '/sign-in'
+    const onOnboarding = pathname === '/onboarding'
+    const onPaywall = pathname === '/paywall'
 
-    // Signed out: begin in onboarding/welcome. /sign-in is still reachable via
-    // the welcome screen's "Sign in" link, so don't bounce out of the auth group.
+    // Signed out: the only allowed screens are the onboarding/welcome flow and
+    // the sign-in screen (reachable from the welcome screen's "Sign in" link).
+    // Anything else (a protected tab, the paywall) bounces back to onboarding.
     if (!session) {
-      if (!inAuthGroup && !inOnboarding) router.replace('/onboarding')
+      if (!onOnboarding && !onSignIn) router.replace('/onboarding')
       return
     }
     const onboarded = !!profile?.onboarding_completed_at
     if (!onboarded) {
-      if (!inOnboarding) router.replace('/onboarding')
+      if (!onOnboarding) router.replace('/onboarding')
       return
     }
     if (!entitled) {
-      if (!inPaywall) router.replace('/paywall')
+      if (!onPaywall) router.replace('/paywall')
       return
     }
     // Fully set up — keep them out of the pre-app screens.
-    if (inAuthGroup || inOnboarding || inPaywall) router.replace('/')
-  }, [ready, session, profile, entitled, segments, router])
+    if (onSignIn || onOnboarding || onPaywall) router.replace('/')
+  }, [ready, session, profile, entitled, pathname, router])
 
-  if (!ready) return null
+  if (!everReady.current) return null
 
   return (
     <Stack

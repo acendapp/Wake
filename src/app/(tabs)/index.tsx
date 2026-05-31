@@ -159,9 +159,13 @@ export default function Index() {
   const isEvening = now.getHours() >= EVENING_HOUR
   const checkedIn = today?.readiness != null
   const demandKnown = today?.day_difficulty != null
+  // Tonight's reflection is done — tomorrow is already set up, so the evening
+  // "set up tomorrow" prompt must not reappear when they land back on Today.
+  const reflectedToday = today?.evening_completed_at != null
 
-  // Still awaiting their own sources: name (profile), weather, pattern insight.
-  const userName = 'Alex'
+  // First name from the onboarding profile; falls back gracefully for any older
+  // account created before names were collected. Weather + insight still mocked.
+  const userName = profile?.first_name?.trim() || 'there'
   const temperature = 72
   const hasInsight = true
 
@@ -217,6 +221,33 @@ export default function Index() {
             accessibilityRole="button"
           >
             <Text style={styles.primaryLabel}>Try again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  // ── Evening, reflection done: tomorrow is set up — confirm it and rest, with a
+  // quiet way back in to adjust. Takes precedence over the "set up tomorrow"
+  // pivot below so a finished reflection isn't re-prompted. ────────────────────
+  if (!checkedIn && isEvening && reflectedToday && !forceCheckIn) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.altWrap}>
+          <View>
+            <Text style={styles.altEyebrow}>All set</Text>
+            <Text style={styles.altTitle}>Tomorrow&rsquo;s ready, {userName}.</Text>
+            <Text style={styles.altBody}>
+              You&rsquo;ve set up tomorrow morning. Rest up — your routine will be waiting when
+              you wake.
+            </Text>
+          </View>
+          <Pressable
+            style={styles.quietLink}
+            onPress={() => router.push('/reflect')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.quietLabel}>Adjust tomorrow</Text>
           </Pressable>
         </View>
       </SafeAreaView>

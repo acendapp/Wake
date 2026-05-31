@@ -1,18 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, View } from 'react-native'
 
 import { day } from '@/theme/colors'
 
 // The "editorial curation" beat between the last onboarding answer and account
-// creation. Serif lines fade in one at a time on the bare cream surface — no
-// spinners, no progress bars — to stage the theater of a routine being composed
-// in real time. When the sequence finishes, every line fades out together and
-// `onDone` fires. Lines are passed in already personalized (see onboarding.tsx).
+// creation. One serif line at a time, centered on the bare cream surface — each
+// fades in, holds, then fades out and is replaced by the next — to stage the
+// theater of a routine being composed in real time. No spinners, no progress
+// bars. When the final line clears, `onDone` fires. Lines are passed in already
+// personalized (see onboarding.tsx).
 
-const LINE_FADE = 600 // each line eases in over this long
-const LINE_GAP = 1200 // the unhurried pause between lines (~1.2s, per design)
-const HOLD = 900 // beat after the final line before the canvas clears
-const OUT_FADE = 700 // all lines fade out together
+const LINE_IN = 600 // each line eases in over this long
+const LINE_HOLD = 1100 // it rests, fully visible, for this beat
+const LINE_OUT = 500 // then fades out before the next takes its place
 
 export function CurationLoader({
   lines,
@@ -21,53 +21,42 @@ export function CurationLoader({
   lines: string[]
   onDone: () => void
 }) {
-  // One opacity per line, plus a container opacity for the shared fade-out.
-  const lineOpacities = useRef(lines.map(() => new Animated.Value(0))).current
-  const containerOpacity = useRef(new Animated.Value(1)).current
+  // A single opacity drives the one visible line; `index` advances through them.
+  const opacity = useRef(new Animated.Value(0)).current
+  const [index, setIndex] = useState(0)
   const done = useRef(false)
 
-  useEffect(() => {
-    const steps: Animated.CompositeAnimation[] = []
-    lineOpacities.forEach((op) => {
-      steps.push(
-        Animated.timing(op, {
-          toValue: 1,
-          duration: LINE_FADE,
-          useNativeDriver: true,
-        }),
-      )
-      steps.push(Animated.delay(LINE_GAP))
-    })
-    steps.push(Animated.delay(HOLD))
-    steps.push(
-      Animated.timing(containerOpacity, {
-        toValue: 0,
-        duration: OUT_FADE,
-        useNativeDriver: true,
-      }),
-    )
+  const finish = () => {
+    if (done.current) return
+    done.current = true
+    onDone()
+  }
 
-    const animation = Animated.sequence(steps)
+  useEffect(() => {
+    if (lines.length === 0) {
+      finish()
+      return
+    }
+    const isLast = index >= lines.length - 1
+    opacity.setValue(0)
+    const animation = Animated.sequence([
+      Animated.timing(opacity, { toValue: 1, duration: LINE_IN, useNativeDriver: true }),
+      Animated.delay(LINE_HOLD),
+      Animated.timing(opacity, { toValue: 0, duration: LINE_OUT, useNativeDriver: true }),
+    ])
     animation.start(({ finished }) => {
-      if (finished && !done.current) {
-        done.current = true
-        onDone()
-      }
+      if (!finished) return
+      if (isLast) finish()
+      else setIndex((i) => i + 1)
     })
     return () => animation.stop()
-    // Run once on mount; lines are fixed for the life of this screen.
+    // Re-runs each time the line advances; lines are fixed for the screen's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [index])
 
   return (
     <View style={styles.root}>
-      <Animated.View style={[styles.stack, { opacity: containerOpacity }]}>
-        {lines.map((line, i) => (
-          <Animated.Text key={line} style={[styles.line, { opacity: lineOpacities[i] }]}>
-            {line}
-          </Animated.Text>
-        ))}
-      </Animated.View>
+      <Animated.Text style={[styles.line, { opacity }]}>{lines[index]}</Animated.Text>
     </View>
   )
 }
@@ -78,9 +67,6 @@ const styles = StyleSheet.create({
     backgroundColor: day.background,
     justifyContent: 'center',
     paddingHorizontal: 36,
-  },
-  stack: {
-    gap: 22,
   },
   line: {
     fontFamily: 'PlayfairDisplay_400Regular',
