@@ -17,10 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Loading } from '@/components/Loading'
 import { Scale } from '@/components/reflect/Scale'
-import { classifyState, generatePlan } from '@/engine/generatePlan'
+import { classifyState } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
+import { resolveMorningPlan } from '@/lib/routine'
 import { addDays, getDay, localDate, saveMorning, type DayRow } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
+import { useProfile } from '@/lib/profile'
 import { EVENING_HOUR } from '@/lib/time'
 
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
@@ -104,6 +106,7 @@ function lastNightWord(energy: number | null | undefined): string {
 
 export default function Index() {
   const router = useRouter()
+  const { profile } = useProfile()
 
   // Whether the "i" popup explaining the Gap model is open.
   const [infoOpen, setInfoOpen] = useState(false)
@@ -169,7 +172,13 @@ export default function Index() {
       // Demand comes from last night's reflection if it happened; otherwise the
       // inline demand tap supplies it so the Gap can still render.
       const dayDifficulty = today?.day_difficulty ?? demandInput
-      const plan = generatePlan({ readiness: readinessInput, dayDifficulty })
+      const plan = resolveMorningPlan({
+        readiness: readinessInput,
+        dayDifficulty,
+        routineMinutes: today?.routine_minutes,
+        intent: profile?.intent,
+        options: today?.plan_options,
+      })
       const row = await saveMorning(localDate(), { readiness: readinessInput, dayDifficulty, plan })
       setToday(row)
     } catch (e) {
@@ -315,6 +324,7 @@ export default function Index() {
   const gapState: ReadinessState = row.state ?? classifyState(readiness, dayDifficulty)
   const sequence = row.plan?.sequence ?? []
   const activity = row.plan?.oneThing.title ?? ''
+  const activityExample = row.plan?.oneThing.example ?? ''
   const dayDemand = `${dayDifficulty}/10`
   const routineTime = row.routine_minutes != null ? `${row.routine_minutes} min` : '—'
   const lastNightState = lastNightWord(yesterday?.energy)
@@ -373,6 +383,9 @@ export default function Index() {
               <Text style={styles.focalLabel}>Focal Point</Text>
               <Text style={styles.gapPrompt}>{PROMPTS[gapState]}</Text>
               <Text style={styles.gapActivity}>{activity}</Text>
+              {activityExample ? (
+                <Text style={styles.gapExample}>{activityExample}</Text>
+              ) : null}
 
               <View style={styles.insightRow}>
                 <View style={styles.graphBadge}>
@@ -521,7 +534,12 @@ export default function Index() {
               {sequence.map((step, i) => (
                 <View key={step.slug} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
                   <Text style={styles.stepNumber}>{i + 1}</Text>
-                  <Text style={styles.stepText}>{step.title}</Text>
+                  <View style={styles.stepTextCol}>
+                    <Text style={styles.stepText}>{step.title}</Text>
+                    {step.example ? (
+                      <Text style={styles.stepExample}>{step.example}</Text>
+                    ) : null}
+                  </View>
                   <Text style={styles.stepMinutes}>{step.estMinutes} min</Text>
                 </View>
               ))}
@@ -950,6 +968,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.gold, // matches the "Good morning" greeting
   },
+  gapExample: {
+    // The low-intensity illustration beneath the broad action. Deliberately
+    // muted and secondary — the gain is in the action, not this example.
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.tagline,
+  },
   graphBadge: {
     width: 28,
     height: 28,
@@ -1168,7 +1194,7 @@ const styles = StyleSheet.create({
   },
   stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start', // top-align: the action can now wrap to an example line
     gap: 12, // number ↔ action ↔ minutes
     paddingVertical: 12,
   },
@@ -1185,12 +1211,21 @@ const styles = StyleSheet.create({
     color: COLORS.gold, // gold numerals tie the list to the brand accent
     includeFontPadding: false,
   },
+  stepTextCol: {
+    flex: 1, // the action + example column takes the slack between number and time
+  },
   stepText: {
-    flex: 1,
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 14,
     lineHeight: 19,
     color: COLORS.charcoal,
+  },
+  stepExample: {
+    // Secondary illustration under each step's broad action. Muted on purpose.
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.tagline,
   },
   stepMinutes: {
     // Subtle right-aligned time estimate — reinforces the "if you have the time"

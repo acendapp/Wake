@@ -43,3 +43,7 @@ example
 # generated native folders
 /ios
 /android
+
+# supabase CLI local scratch
+supabase/.temp/
+supabase/.branches/

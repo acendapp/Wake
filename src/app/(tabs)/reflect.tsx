@@ -22,6 +22,7 @@ import { Scale } from '@/components/reflect/Scale'
 import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
 import { getDay, localDate, saveEvening } from '@/lib/days'
+import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
 import {
   DEFAULT_ROUTINE_MINUTES,
@@ -176,6 +177,9 @@ export default function ReflectScreen() {
       })
       // Remember this length as the new standing default for next time.
       void setPreferredRoutineMinutes(routineMinutes)
+      // Pre-generate tomorrow's personalized routine in the background (best-effort,
+      // off the hot path) so the morning open is instant. Never blocks the ritual.
+      void pregenerateTomorrow(localDate())
       setPhase('done')
     } catch (e) {
       setSaveError(errorMessage(e, 'Could not save. Please try again.'))

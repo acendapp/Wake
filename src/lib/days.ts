@@ -32,6 +32,11 @@ export type DayRow = {
   // How long tomorrow's morning routine should run, in minutes. Set the evening
   // before; defaults to the user's standing preference (see src/lib/prefs.ts).
   routine_minutes: number | null
+  // Evening-pregenerated, Claude-personalized routines, one per readiness state.
+  // The morning check-in picks the one matching the realized state (see 0006 +
+  // src/lib/routine.ts). Null when no pre-gen ran — the morning falls back to a
+  // deterministic plan.
+  plan_options: Partial<Record<ReadinessState, Plan>> | null
   // Vestigial (replaced by routine_minutes in migration 0003): no longer written,
   // kept so the type still mirrors the live table for older rows.
   leave_by: string | null
@@ -107,6 +112,29 @@ export async function saveMorning(
     plan: input.plan,
     morning_completed_at: new Date().toISOString(),
   })
+}
+
+/** Cache the evening-pregenerated per-state routines onto the day they target. */
+export async function savePlanOptions(
+  date: string,
+  options: Partial<Record<ReadinessState, Plan>>,
+): Promise<void> {
+  const userId = await currentUserId()
+  await upsertDay(userId, date, { plan_options: options })
+}
+
+/** Recent completed evening reflections, newest first — the personalization signal. */
+export async function recentReflections(limit = 5): Promise<DayRow[]> {
+  const userId = await currentUserId()
+  const { data, error } = await supabase
+    .from('days')
+    .select('*')
+    .eq('user_id', userId)
+    .not('evening_completed_at', 'is', null)
+    .order('local_date', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data as DayRow[]) ?? []
 }
 
 /** Evening reflection: writes today's review and tomorrow's setup in one go. */
