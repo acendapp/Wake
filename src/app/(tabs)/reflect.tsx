@@ -21,7 +21,7 @@ import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { Scale } from '@/components/reflect/Scale'
 import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
-import { getDay, localDate, saveEvening } from '@/lib/days'
+import { addDays, getDay, localDate, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
 import {
@@ -79,25 +79,15 @@ export default function ReflectScreen() {
   // This morning's call + the sequence it prescribed, loaded from today's stored
   // row. The call anchors the look-back recap; the sequence drives the completion
   // step. Any slugs already ticked off (a re-entry/edit) pre-seed the selection.
+  //
+  // If tonight's reflection was already saved (evening_completed_at set — e.g. the
+  // app reloaded since), every answer is restored from the two rows it was written
+  // to (today's review + tomorrow's setup) and the screen resumes on the done
+  // phase, where "Edit tonight's check-in" reopens the flow with those answers —
+  // never back at a blank intro.
   const [morningCall, setMorningCall] = useState(NO_MORNING_RECAP)
   const [morningSequence, setMorningSequence] = useState<Action[]>([])
   const [completedSlugs, setCompletedSlugs] = useState<string[]>([])
-  useEffect(() => {
-    let active = true
-    getDay(localDate())
-      .then((row) => {
-        if (!active || !row) return
-        if (row.state && row.day_difficulty != null) {
-          setMorningCall(recapLine(row.state, row.day_difficulty))
-        }
-        if (row.plan?.sequence.length) setMorningSequence(row.plan.sequence)
-        if (row.completed_slugs?.length) setCompletedSlugs(row.completed_slugs)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [])
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [step, setStep] = useState(0)
@@ -118,6 +108,41 @@ export default function ReflectScreen() {
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Load today's stored row (and tomorrow's, for a saved reflection's setup half).
+  // Runs once on mount — after every state hook above so the restore can seed them.
+  useEffect(() => {
+    let active = true
+    Promise.all([getDay(localDate()), getDay(addDays(localDate(), 1))])
+      .then(([row, tomorrow]) => {
+        if (!active) return
+        if (row) {
+          if (row.state && row.day_difficulty != null) {
+            setMorningCall(recapLine(row.state, row.day_difficulty))
+          }
+          if (row.plan?.sequence.length) setMorningSequence(row.plan.sequence)
+          if (row.completed_slugs?.length) setCompletedSlugs(row.completed_slugs)
+          if (row.evening_completed_at) {
+            // Tonight's reflection is already saved (e.g. the app reloaded since):
+            // restore every answer and resume on the done screen — never a blank
+            // intro. "Edit tonight's check-in" reopens the flow with these values.
+            if (row.lookback) setLookback(row.lookback)
+            if (row.energy != null) setEnergy(row.energy)
+            if (row.mood != null) setMood(row.mood)
+            if (row.focus != null) setFocus(row.focus)
+            if (row.note) setNote(row.note)
+            // Demand + routine length live on tomorrow's row (see saveEvening).
+            if (tomorrow?.day_difficulty != null) setDemand(tomorrow.day_difficulty)
+            if (tomorrow?.routine_minutes != null) setRoutineMinutes(tomorrow.routine_minutes)
+            setPhase('done')
+          }
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Seed the routine stepper with the user's standing preference, so each evening
   // defaults to their usual length (adjustable per night). First run falls back to

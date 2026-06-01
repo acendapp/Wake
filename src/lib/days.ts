@@ -123,6 +123,22 @@ export async function savePlanOptions(
   await upsertDay(userId, date, { plan_options: options })
 }
 
+/**
+ * How many days the user has actually shown up for (a morning check-in or an
+ * evening reflection). Drives the You page's cold-start gate: trends and
+ * patterns only render once there's enough history to be honest about.
+ */
+export async function completedDayCount(): Promise<number> {
+  const userId = await currentUserId()
+  const { count, error } = await supabase
+    .from('days')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
+  if (error) throw error
+  return count ?? 0
+}
+
 /** Recent completed evening reflections, newest first — the personalization signal. */
 export async function recentReflections(limit = 5): Promise<DayRow[]> {
   const userId = await currentUserId()

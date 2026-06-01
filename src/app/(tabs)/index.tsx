@@ -52,6 +52,13 @@ const GOLD_GRADIENT = ['#A87F4A', '#8C6736'] as const
 const MEDIA_FADE = [COLORS.background, COLORS.background, `${COLORS.background}00`] as const
 const MEDIA_FADE_LOCATIONS = [0, 0.5, 1] as const
 
+// The valley watercolor (1777x885 landscape) that grounds the evening states. Its
+// soft edges already fade to cream, so it sits on the background with no gradient:
+// text lives in the clean "sky" up top, the low sun and winding river anchor the
+// bottom of the screen. Aspect ratio is fixed so the bottom-anchored image keeps
+// its shape on every screen size.
+const VALLEY_ASPECT = 1777 / 885
+
 // Long names formatted by hand so the date line doesn't depend on the device
 // JS engine's Intl support (Hermes coverage varies).
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -232,25 +239,33 @@ export default function Index() {
   // pivot below so a finished reflection isn't re-prompted. ────────────────────
   if (!checkedIn && isEvening && reflectedToday && !forceCheckIn) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.altWrap}>
-          <View>
-            <Text style={styles.altEyebrow}>All set</Text>
-            <Text style={styles.altTitle}>Tomorrow&rsquo;s ready, {userName}.</Text>
-            <Text style={styles.altBody}>
-              You&rsquo;ve set up tomorrow morning. Rest up — your routine will be waiting when
-              you wake.
-            </Text>
+      <View style={styles.safe}>
+        <Image
+          source={require('../../../assets/images/valley.png')}
+          style={styles.eveningArt}
+          contentFit="cover"
+        />
+        <SafeAreaView style={styles.eveningSafe} edges={['top']}>
+          <View style={styles.eveningWrap}>
+            <View>
+              <Feather name="moon" size={22} color={COLORS.gold} />
+              <Text style={styles.eveningEyebrow}>All set</Text>
+              <Text style={styles.eveningTitle}>Tomorrow&rsquo;s ready, {userName}.</Text>
+              <Text style={styles.eveningBody}>
+                You&rsquo;ve set up tomorrow morning. Rest up — your routine will be waiting
+                when you wake.
+              </Text>
+            </View>
+            <Pressable
+              style={styles.eveningQuietLink}
+              onPress={() => router.push('/reflect')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.eveningQuietLabel}>Adjust tomorrow</Text>
+            </Pressable>
           </View>
-          <Pressable
-            style={styles.quietLink}
-            onPress={() => router.push('/reflect')}
-            accessibilityRole="button"
-          >
-            <Text style={styles.quietLabel}>Adjust tomorrow</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     )
   }
 
@@ -258,34 +273,51 @@ export default function Index() {
   // with the check-in demoted to a quiet link for the genuine late riser. ──────
   if (!checkedIn && isEvening && !forceCheckIn) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.altWrap}>
-          <View>
-            <Text style={styles.altEyebrow}>Later than usual</Text>
-            <Text style={styles.altTitle}>Today&rsquo;s mostly behind you, {userName}.</Text>
-            <Text style={styles.altBody}>
-              No morning check-in today — that&rsquo;s alright. The best move now is to set up
-              tomorrow.
-            </Text>
+      <View style={styles.safe}>
+        <Image
+          source={require('../../../assets/images/valley.png')}
+          style={styles.eveningArt}
+          contentFit="cover"
+        />
+        <SafeAreaView style={styles.eveningSafe} edges={['top']}>
+          <View style={styles.eveningWrap}>
+            <View>
+              <Feather name="moon" size={22} color={COLORS.gold} />
+              <Text style={styles.eveningEyebrow}>{WEEKDAYS[now.getDay()]} evening</Text>
+              <Text style={styles.eveningTitle}>
+                Today&rsquo;s mostly behind you, {userName}.
+              </Text>
+              <Text style={styles.eveningBody}>
+                No morning check-in today — that&rsquo;s alright. The best move now is to set
+                up tomorrow.
+              </Text>
+            </View>
+            <View>
+              <Pressable
+                style={styles.eveningButton}
+                onPress={() => router.push('/reflect')}
+                accessibilityRole="button"
+              >
+                <LinearGradient
+                  colors={GOLD_GRADIENT}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.eveningButtonFill}
+                >
+                  <Text style={styles.eveningButtonLabel}>Set up tomorrow</Text>
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                style={styles.eveningQuietLink}
+                onPress={() => setForceCheckIn(true)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.eveningQuietLabel}>Still want to log today?</Text>
+              </Pressable>
+            </View>
           </View>
-          <View>
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push('/reflect')}
-              accessibilityRole="button"
-            >
-              <Text style={styles.primaryLabel}>Set up tomorrow</Text>
-            </Pressable>
-            <Pressable
-              style={styles.quietLink}
-              onPress={() => setForceCheckIn(true)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.quietLabel}>Still want to log today?</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     )
   }
 
@@ -714,14 +746,72 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.4,
   },
-  quietLink: {
+  // ── Evening states (the valley watercolor grounding the bottom of the screen) ──
+  // Bottom-anchored at 140% width so it has presence without full-bleed cropping
+  // (it's a 2:1 landscape — cover would throw away most of it and upscale ~3x).
+  // Slightly overhung on the left/bottom so its soft vignette edges stay offscreen.
+  eveningArt: {
+    position: 'absolute',
+    bottom: -10,
+    left: '-20%',
+    width: '140%',
+    aspectRatio: VALLEY_ASPECT,
+  },
+  eveningSafe: {
+    flex: 1,
+  },
+  eveningWrap: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 24,
+    paddingBottom: 28,
+    justifyContent: 'space-between',
+  },
+  eveningEyebrow: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: COLORS.tagline,
+    marginTop: 16,
+  },
+  eveningTitle: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 34,
+    lineHeight: 42,
+    color: COLORS.charcoal,
+    marginTop: 10,
+  },
+  eveningBody: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 16,
+    lineHeight: 24,
+    color: COLORS.tagline,
+    marginTop: 22,
+  },
+  eveningButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  eveningButtonFill: {
+    paddingVertical: 17,
+    alignItems: 'center',
+  },
+  eveningButtonLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  // Quiet links sit over the light watercolor (the river bend) — black so they
+  // read clearly against it, underlined so they stay quieter than the gold button.
+  eveningQuietLink: {
     alignItems: 'center',
     paddingVertical: 14,
   },
-  quietLabel: {
+  eveningQuietLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 15,
-    color: COLORS.tagline,
+    color: '#000000',
     textDecorationLine: 'underline',
   },
   iconRow: {
