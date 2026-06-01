@@ -388,6 +388,9 @@ export default function Index() {
   const sequence = row.plan?.sequence ?? []
   const activity = row.plan?.oneThing.title ?? ''
   const activityExample = row.plan?.oneThing.example ?? ''
+  // Live progress from the /routine screen (refreshed by the focus-reload).
+  const completedSlugs = row.completed_slugs ?? []
+  const focalDone = row.plan ? completedSlugs.includes(row.plan.oneThing.slug) : false
   const dayDemand = `${dayDifficulty}/10`
   const routineTime = row.routine_minutes != null ? `${row.routine_minutes} min` : '—'
   const lastNightState = lastNightWord(yesterday?.energy)
@@ -469,8 +472,9 @@ export default function Index() {
 
             <Pressable
               style={styles.gapButton}
+              onPress={() => router.push('/routine')}
               accessibilityRole="button"
-              accessibilityLabel="Start activity"
+              accessibilityLabel={focalDone ? 'Routine done — review it' : 'Start activity'}
             >
               <LinearGradient
                 colors={GOLD_GRADIENT}
@@ -478,10 +482,14 @@ export default function Index() {
                 end={{ x: 0, y: 1 }}
                 style={styles.gapButtonFill}
               >
-                <View style={styles.commitCircle}>
-                  <Feather name="arrow-right" size={20} color="#FFFFFF" />
+                <View style={[styles.commitCircle, focalDone && styles.commitCircleDone]}>
+                  <Feather
+                    name={focalDone ? 'check' : 'arrow-right'}
+                    size={20}
+                    color={focalDone ? COLORS.goldButton : '#FFFFFF'}
+                  />
                 </View>
-                <Text style={styles.commitLabel}>START</Text>
+                <Text style={styles.commitLabel}>{focalDone ? 'DONE' : 'START'}</Text>
               </LinearGradient>
             </Pressable>
           </View>
@@ -594,18 +602,27 @@ export default function Index() {
 
           {sequenceOpen && (
             <View style={styles.sequenceList}>
-              {sequence.map((step, i) => (
-                <View key={step.slug} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
-                  <Text style={styles.stepNumber}>{i + 1}</Text>
-                  <View style={styles.stepTextCol}>
-                    <Text style={styles.stepText}>{step.title}</Text>
-                    {step.example ? (
-                      <Text style={styles.stepExample}>{step.example}</Text>
-                    ) : null}
+              {sequence.map((step, i) => {
+                const stepDone = completedSlugs.includes(step.slug)
+                return (
+                  <View key={step.slug} style={[styles.stepRow, i > 0 && styles.stepRowDivided]}>
+                    {stepDone ? (
+                      <View style={styles.stepCheck}>
+                        <Feather name="check" size={10} color={COLORS.background} />
+                      </View>
+                    ) : (
+                      <Text style={styles.stepNumber}>{i + 1}</Text>
+                    )}
+                    <View style={styles.stepTextCol}>
+                      <Text style={styles.stepText}>{step.title}</Text>
+                      {step.example ? (
+                        <Text style={styles.stepExample}>{step.example}</Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.stepMinutes}>{step.estMinutes} min</Text>
                   </View>
-                  <Text style={styles.stepMinutes}>{step.estMinutes} min</Text>
-                </View>
-              ))}
+                )
+              })}
             </View>
           )}
         </View>
@@ -1162,6 +1179,22 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular', // same face as "Wake"
     fontSize: 13,
     color: '#FFFFFF', // white on the gold oval
+  },
+  // Focal point completed: the ring fills white and the check sits in gold.
+  commitCircleDone: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  // A completed step in the full-sequence list: gold check disc in the same
+  // 14pt footprint as the step number, so the column stays aligned.
+  stepCheck: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 3,
   },
   weather: {
     flexDirection: 'row',

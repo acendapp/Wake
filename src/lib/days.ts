@@ -114,6 +114,17 @@ export async function saveMorning(
   })
 }
 
+/**
+ * Morning routine tracking: persist which moves have been checked off, as they
+ * happen. Written by the /routine screen on every toggle (focal point and the
+ * optional rest), and read back by the evening reflection — a morning that was
+ * tracked live never gets re-asked "which of these did you do?".
+ */
+export async function saveCompletedSlugs(date: string, slugs: string[]): Promise<DayRow> {
+  const userId = await currentUserId()
+  return upsertDay(userId, date, { completed_slugs: slugs })
+}
+
 /** Cache the evening-pregenerated per-state routines onto the day they target. */
 export async function savePlanOptions(
   date: string,
@@ -137,6 +148,25 @@ export async function completedDayCount(): Promise<number> {
     .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
   if (error) throw error
   return count ?? 0
+}
+
+/**
+ * Every day that had a plan, newest first — the source for the Library's
+ * "My moves" collection (which moves the engine has actually prescribed to this
+ * user, and which of them they completed). Trimmed to the columns it needs.
+ */
+export async function daysWithPlans(): Promise<
+  Pick<DayRow, 'local_date' | 'plan' | 'completed_slugs'>[]
+> {
+  const userId = await currentUserId()
+  const { data, error } = await supabase
+    .from('days')
+    .select('local_date, plan, completed_slugs')
+    .eq('user_id', userId)
+    .not('plan', 'is', null)
+    .order('local_date', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as Pick<DayRow, 'local_date' | 'plan' | 'completed_slugs'>[]
 }
 
 /** Recent completed evening reflections, newest first — the personalization signal. */

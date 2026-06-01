@@ -88,14 +88,24 @@ export default function ReflectScreen() {
   const [morningCall, setMorningCall] = useState(NO_MORNING_RECAP)
   const [morningSequence, setMorningSequence] = useState<Action[]>([])
   const [completedSlugs, setCompletedSlugs] = useState<string[]>([])
+  // True when the morning was tracked live on the /routine screen (check-offs
+  // already saved). A load-time snapshot — NOT derived from completedSlugs —
+  // so checking the first box *during* the evening step doesn't make the step
+  // vanish from under the user.
+  const [trackedInMorning, setTrackedInMorning] = useState(false)
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [step, setStep] = useState(0)
 
-  // The completion beat is only meaningful when there was a morning plan to do.
+  // The completion beat only appears when there was a morning plan to do AND it
+  // wasn't already tracked in the morning — a user who checked things off on the
+  // /routine screen never gets re-asked "which of these did you do?".
   const steps = useMemo(
-    () => ALL_STEPS.filter((s) => s !== 'completion' || morningSequence.length > 0),
-    [morningSequence.length],
+    () =>
+      ALL_STEPS.filter(
+        (s) => s !== 'completion' || (morningSequence.length > 0 && !trackedInMorning),
+      ),
+    [morningSequence.length, trackedInMorning],
   )
 
   // Answers.
@@ -121,7 +131,11 @@ export default function ReflectScreen() {
             setMorningCall(recapLine(row.state, row.day_difficulty))
           }
           if (row.plan?.sequence.length) setMorningSequence(row.plan.sequence)
-          if (row.completed_slugs?.length) setCompletedSlugs(row.completed_slugs)
+          if (row.completed_slugs?.length) {
+            setCompletedSlugs(row.completed_slugs)
+            // Tracked live this morning → the evening never re-asks.
+            setTrackedInMorning(true)
+          }
           if (row.evening_completed_at) {
             // Tonight's reflection is already saved (e.g. the app reloaded since):
             // restore every answer and resume on the done screen — never a blank
