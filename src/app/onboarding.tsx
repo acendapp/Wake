@@ -222,7 +222,7 @@ export default function OnboardingScreen() {
     return (
       <View style={styles.welcomeRoot}>
         <Image
-          source={require('../../assets/images/welcome-bg.png')}
+          source={require('../../assets/images/welcome-bg.jpg')}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
         />

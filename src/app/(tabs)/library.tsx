@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
 import {
   Modal,
@@ -17,7 +17,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { ARTICLES, BYLINE, readMinutes, type Article } from '@/content/articles'
 import { GOAL_LIBRARY } from '@/engine/goalLibrary'
 import type { ActionCategory, Goal, Intent, ReadinessState } from '@/engine/types'
-import { daysWithPlans, localDate } from '@/lib/days'
+import { daysWithPlans, logicalDate } from '@/lib/days'
 import { day } from '@/theme/colors'
 
 // The Library — two faces behind one segmented control:
@@ -102,6 +102,7 @@ function relationshipLine(e: CollectionEntry): string {
 type LibraryView = 'learn' | 'moves'
 
 export default function LibraryScreen() {
+  const router = useRouter()
   const [view, setView] = useState<LibraryView>('learn')
   const [selected, setSelected] = useState<Goal | null>(null)
   const [reading, setReading] = useState<Article | null>(null)
@@ -116,7 +117,7 @@ export default function LibraryScreen() {
       daysWithPlans()
         .then((rows) => {
           if (!active) return
-          const today = localDate()
+          const today = logicalDate()
           const byGoal = new Map<string, CollectionEntry>()
           for (const row of rows) {
             const sequence = row.plan?.sequence ?? []
@@ -161,7 +162,20 @@ export default function LibraryScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.duration(500)}>
-          <Text style={styles.eyebrow}>The library</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.eyebrow}>The library</Text>
+            {/* Same gear as the You page — jumps to You → Settings. */}
+            <Pressable
+              hitSlop={10}
+              onPress={() =>
+                router.push({ pathname: '/you', params: { settings: String(Date.now()) } })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Feather name="settings" size={18} color={day.muted} />
+            </Pressable>
+          </View>
           <Text style={styles.title}>
             {view === 'learn' ? 'Learn' : 'My routines'}
           </Text>
@@ -263,7 +277,7 @@ function LearnFeed({ onRead }: { onRead: (article: Article) => void }) {
           accessibilityRole="button"
         >
           <Image
-            source={require('../../../assets/images/valley.png')}
+            source={require('../../../assets/images/valley.jpg')}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
           />
@@ -508,6 +522,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   eyebrow: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 12,

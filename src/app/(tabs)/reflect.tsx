@@ -21,7 +21,7 @@ import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { Scale } from '@/components/reflect/Scale'
 import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
-import { addDays, getDay, localDate, saveEvening } from '@/lib/days'
+import { addDays, getDay, logicalDate, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
 import {
@@ -29,7 +29,7 @@ import {
   getPreferredRoutineMinutes,
   setPreferredRoutineMinutes,
 } from '@/lib/prefs'
-import { EVENING_HOUR } from '@/lib/time'
+import { isEveningNow, logicalNow } from '@/lib/time'
 import { day } from '@/theme/colors'
 
 // Intro background fade: a top→bottom gradient that holds the app's cream over
@@ -73,8 +73,10 @@ const OPTIONAL_STEPS: StepKey[] = ['note']
 type Phase = 'intro' | 'flow' | 'done'
 
 export default function ReflectScreen() {
-  const weekday = WEEKDAYS[new Date().getDay()]
-  const isEvening = new Date().getHours() >= EVENING_HOUR
+  // Logical clock: until 3am, "tonight" still belongs to yesterday's date, so
+  // the weekday header, the evening gate, and every row read/write agree.
+  const weekday = WEEKDAYS[logicalNow().getDay()]
+  const isEvening = isEveningNow()
 
   // This morning's call + the sequence it prescribed, loaded from today's stored
   // row. The call anchors the look-back recap; the sequence drives the completion
@@ -123,7 +125,7 @@ export default function ReflectScreen() {
   // Runs once on mount — after every state hook above so the restore can seed them.
   useEffect(() => {
     let active = true
-    Promise.all([getDay(localDate()), getDay(addDays(localDate(), 1))])
+    Promise.all([getDay(logicalDate()), getDay(addDays(logicalDate(), 1))])
       .then(([row, tomorrow]) => {
         if (!active) return
         if (row) {
@@ -206,7 +208,7 @@ export default function ReflectScreen() {
     setSaving(true)
     setSaveError(null)
     try {
-      await saveEvening(localDate(), {
+      await saveEvening(logicalDate(), {
         lookback,
         reads: { energy, mood, focus },
         note: finalNote.trim() || undefined,
@@ -218,7 +220,7 @@ export default function ReflectScreen() {
       void setPreferredRoutineMinutes(routineMinutes)
       // Pre-generate tomorrow's personalized routine in the background (best-effort,
       // off the hot path) so the morning open is instant. Never blocks the ritual.
-      void pregenerateTomorrow(localDate())
+      void pregenerateTomorrow(logicalDate())
       setPhase('done')
     } catch (e) {
       setSaveError(errorMessage(e, 'Could not save. Please try again.'))
@@ -258,9 +260,10 @@ export default function ReflectScreen() {
       <View style={styles.safe}>
         {/* Full-bleed background that fades into the cream up top. */}
         <Image
-          source={require('../../../assets/images/reflect-bg.png')}
+          source={require('../../../assets/images/reflect-bg.jpg')}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
+          transition={250}
         />
         <LinearGradient
           colors={INTRO_FADE}
@@ -299,9 +302,10 @@ export default function ReflectScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Image
-          source={require('../../../assets/images/reflect-bg.png')}
+          source={require('../../../assets/images/reflect-bg.jpg')}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
+          transition={250}
         />
         <LinearGradient
           colors={INTRO_FADE}
@@ -341,9 +345,10 @@ export default function ReflectScreen() {
       {/* Same evening image as the intro, washed far back so it reads as a faint
           texture behind the questions rather than a full background. */}
       <Image
-        source={require('../../../assets/images/reflect-bg.png')}
+        source={require('../../../assets/images/reflect-bg.jpg')}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
+        transition={250}
       />
       <View style={[StyleSheet.absoluteFill, styles.flowWash]} />
 

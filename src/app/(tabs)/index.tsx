@@ -20,10 +20,10 @@ import { Scale } from '@/components/reflect/Scale'
 import { classifyState } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
 import { resolveMorningPlan } from '@/lib/routine'
-import { addDays, getDay, localDate, saveMorning, type DayRow } from '@/lib/days'
+import { addDays, getDay, logicalDate, saveMorning, type DayRow } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
 import { useProfile } from '@/lib/profile'
-import { EVENING_HOUR } from '@/lib/time'
+import { isEveningNow, logicalNow } from '@/lib/time'
 
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
 // not a tech app. This pass builds only the top portion (background, icon row,
@@ -103,6 +103,23 @@ const GAP_FOOTNOTE: Record<ReadinessState, string> = {
   surplus: 'a surplus',
 }
 
+// The You-vs-Day card's title, per state. "The Gap" only reads right when there
+// IS a gap to close — alignment and surplus get their own names. (The info
+// popup keeps "The Gap" as the model's name; this is just the card's face.)
+const GAP_TITLE: Record<ReadinessState, string> = {
+  deficit: 'The Gap',
+  aligned: 'In Balance',
+  surplus: 'The Surplus',
+}
+
+// Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
+// at 1am "Good evening" is right even though the app still treats it as yesterday).
+function greetingWord(hours: number): string {
+  if (hours >= 5 && hours < 12) return 'Good morning'
+  if (hours >= 12 && hours < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
 // A coarse word for how last night ended, from yesterday's logged energy.
 function lastNightWord(energy: number | null | undefined): string {
   if (energy == null) return '—'
@@ -144,7 +161,7 @@ export default function Index() {
   const load = useCallback(async () => {
     setLoadError(null)
     try {
-      const date = localDate()
+      const date = logicalDate()
       const [t, y] = await Promise.all([getDay(date), getDay(addDays(date, -1))])
       setToday(t)
       setYesterday(y)
@@ -161,9 +178,11 @@ export default function Index() {
     }, [load]),
   )
 
-  const now = new Date()
+  // The logical "now": until 3am this is still yesterday's date, so the date
+  // line, the weekday eyebrow, and the evening pivot all roll over together.
+  const now = logicalNow()
   const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
-  const isEvening = now.getHours() >= EVENING_HOUR
+  const isEvening = isEveningNow()
   const checkedIn = today?.readiness != null
   const demandKnown = today?.day_difficulty != null
   // Tonight's reflection is done — tomorrow is already set up, so the evening
@@ -190,7 +209,7 @@ export default function Index() {
         intent: profile?.intent,
         options: today?.plan_options,
       })
-      const row = await saveMorning(localDate(), { readiness: readinessInput, dayDifficulty, plan })
+      const row = await saveMorning(logicalDate(), { readiness: readinessInput, dayDifficulty, plan })
       setToday(row)
     } catch (e) {
       setSubmitError(errorMessage(e, 'Could not save your check-in.'))
@@ -235,13 +254,13 @@ export default function Index() {
   }
 
   // ── Evening, reflection done: tomorrow is set up — confirm it and rest, with a
-  // quiet way back in to adjust. Takes precedence over the "set up tomorrow"
-  // pivot below so a finished reflection isn't re-prompted. ────────────────────
-  if (!checkedIn && isEvening && reflectedToday && !forceCheckIn) {
+  // quiet way back in to adjust. Shows whether or not there was a morning
+  // check-in: once the day is closed out, the populated morning view retires. ──
+  if (isEvening && reflectedToday && !forceCheckIn) {
     return (
       <View style={styles.safe}>
         <Image
-          source={require('../../../assets/images/valley.png')}
+          source={require('../../../assets/images/valley.jpg')}
           style={styles.eveningArt}
           contentFit="cover"
         />
@@ -275,7 +294,7 @@ export default function Index() {
     return (
       <View style={styles.safe}>
         <Image
-          source={require('../../../assets/images/valley.png')}
+          source={require('../../../assets/images/valley.jpg')}
           style={styles.eveningArt}
           contentFit="cover"
         />
@@ -402,25 +421,18 @@ export default function Index() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Settings gear (same as the You page's) — jumps to You → Settings. The
+            fresh timestamp param makes every tap re-trigger the scroll there. */}
         <View style={styles.iconRow}>
           <Pressable
-            style={styles.iconButton}
             hitSlop={10}
+            onPress={() =>
+              router.push({ pathname: '/you', params: { settings: String(Date.now()) } })
+            }
             accessibilityRole="button"
-            accessibilityLabel="Weather"
+            accessibilityLabel="Settings"
           >
-            {/* Placeholder until real weather wires in (then this glyph is data-driven).
-                Kept off `sun` so it doesn't echo the Today tab's sunrise icon. */}
-            <Feather name="cloud" size={18} color={COLORS.icon} />
-          </Pressable>
-
-          <Pressable
-            style={styles.iconButton}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Calendar"
-          >
-            <Feather name="calendar" size={18} color={COLORS.icon} />
+            <Feather name="settings" size={18} color={COLORS.tagline} />
           </Pressable>
         </View>
 
@@ -432,7 +444,7 @@ export default function Index() {
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardHeaderText}>
-              <Text style={styles.cardGreeting}>Good morning, {userName}.</Text>
+              <Text style={styles.cardGreeting}>{greetingWord(new Date().getHours())}, {userName}.</Text>
               <Text style={styles.cardDate}>{dateLine}</Text>
             </View>
 
@@ -482,11 +494,13 @@ export default function Index() {
                 end={{ x: 0, y: 1 }}
                 style={styles.gapButtonFill}
               >
-                <View style={[styles.commitCircle, focalDone && styles.commitCircleDone]}>
+                {/* Done state mirrors START exactly — same gold, same thin white
+                    ring — only the glyph changes (check instead of arrow). */}
+                <View style={styles.commitCircle}>
                   <Feather
                     name={focalDone ? 'check' : 'arrow-right'}
                     size={20}
-                    color={focalDone ? COLORS.goldButton : '#FFFFFF'}
+                    color="#FFFFFF"
                   />
                 </View>
                 <Text style={styles.commitLabel}>{focalDone ? 'DONE' : 'START'}</Text>
@@ -498,7 +512,7 @@ export default function Index() {
         <View style={[styles.card, styles.cardMedia]}>
           <View style={styles.cardMediaClip}>
             <Image
-              source={require('../../../assets/images/valley.png')}
+              source={require('../../../assets/images/valley.jpg')}
               style={[StyleSheet.absoluteFill, styles.mediaImage]}
               contentFit="cover"
             />
@@ -540,7 +554,7 @@ export default function Index() {
 
         <View style={[styles.card, styles.cardGap]}>
           <View style={styles.gapBoxHeader}>
-            <Text style={[styles.focalLabel, styles.gapBoxLabel]}>The Gap</Text>
+            <Text style={[styles.focalLabel, styles.gapBoxLabel]}>{GAP_TITLE[gapState]}</Text>
             <Pressable
               style={styles.infoBadge}
               hitSlop={10}
@@ -654,11 +668,11 @@ export default function Index() {
 
             <Text style={styles.modalBody}>
               Every morning, Wake reads two things: how you&rsquo;re showing up, and what the
-              day demands. The distance between them is your Gap.
+              day demands.
             </Text>
             <Text style={styles.modalBody}>
-              Within two points, you&rsquo;re aligned. The Gap only opens when the distance
-              grows.
+              If you are not in balance with the day ahead, the distance between them is
+              your gap or surplus.
             </Text>
 
             <View style={styles.legend}>
@@ -833,19 +847,9 @@ const styles = StyleSheet.create({
   },
   iconRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingTop: 8,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.iconCircle,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.iconBorder,
   },
   titleBlock: {
     alignItems: 'center',
@@ -1108,8 +1112,10 @@ const styles = StyleSheet.create({
   },
   gapExample: {
     // The low-intensity illustration beneath the broad action. Deliberately
-    // muted and secondary — the gain is in the action, not this example.
+    // muted and secondary — the gain is in the action, not this example. Same
+    // serif as the lead-in above it; only the size and color set it apart.
     marginTop: 4,
+    fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 13,
     lineHeight: 18,
     color: COLORS.tagline,
@@ -1179,11 +1185,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular', // same face as "Wake"
     fontSize: 13,
     color: '#FFFFFF', // white on the gold oval
-  },
-  // Focal point completed: the ring fills white and the check sits in gold.
-  commitCircleDone: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
   },
   // A completed step in the full-sequence list: gold check disc in the same
   // 14pt footprint as the step number, so the column stays aligned.
@@ -1375,8 +1376,10 @@ const styles = StyleSheet.create({
     color: COLORS.charcoal,
   },
   stepExample: {
-    // Secondary illustration under each step's broad action. Muted on purpose.
+    // Secondary illustration under each step's broad action. Muted on purpose —
+    // same serif as the action above it; only size and color set it apart.
     marginTop: 2,
+    fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 12,
     lineHeight: 16,
     color: COLORS.tagline,

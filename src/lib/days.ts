@@ -1,5 +1,6 @@
 import type { DayReads, Lookback, Plan, ReadinessState } from '@/engine/types'
 import { supabase } from './supabase'
+import { logicalNow } from './time'
 
 // The store layer over `public.days` — one row per user per local date. Screens
 // and the engine go through these functions, never the supabase client directly,
@@ -51,6 +52,15 @@ export function localDate(d = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+/**
+ * "YYYY-MM-DD" of the app's logical today — the 3am→3am day (see src/lib/time.ts).
+ * Every screen that touches "today's" row uses this, so a 1am reflection lands on
+ * the day being finished and the whole app rolls over together at 3am.
+ */
+export function logicalDate(): string {
+  return localDate(logicalNow())
 }
 
 /** Shift a "YYYY-MM-DD" local date by whole days (handles month/year rollover). */

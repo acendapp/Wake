@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Loading } from '@/components/Loading'
 import type { Action } from '@/engine/types'
-import { getDay, localDate, saveCompletedSlugs, type DayRow } from '@/lib/days'
+import { getDay, logicalDate, saveCompletedSlugs, type DayRow } from '@/lib/days'
 import { day } from '@/theme/colors'
 
 // The morning routine, performed. Pushed from Today's START button — a focused,
@@ -39,7 +39,7 @@ export default function RoutineScreen() {
 
   useEffect(() => {
     let active = true
-    getDay(localDate())
+    getDay(logicalDate())
       .then((r) => {
         if (!active) return
         setRow(r)
@@ -68,7 +68,7 @@ export default function RoutineScreen() {
   const persist = (slugs: string[]) => {
     setCompleted(slugs)
     setSaveError(null)
-    saveCompletedSlugs(localDate(), slugs).catch(() => {
+    saveCompletedSlugs(logicalDate(), slugs).catch(() => {
       setSaveError('Couldn’t save just now — tonight’s reflection will catch anything missed.')
     })
   }
@@ -166,7 +166,7 @@ export default function RoutineScreen() {
             <View style={styles.doneCircle}>
               <Feather name="check" size={26} color={day.onAccent} />
             </View>
-            <Text style={styles.doneTitle}>That&rsquo;s the day&rsquo;s biggest lever — done.</Text>
+            <Text style={styles.doneTitle}>The hardest part is behind you — the day is yours.</Text>
             <Text style={styles.doneSub}>{focal.title}</Text>
           </View>
 
@@ -328,6 +328,8 @@ const styles = StyleSheet.create({
 
   // ── Sequence phase ──────────────────────────────────────────────────────────
   sequenceScroll: {
+    flexGrow: 1, // lets the content center vertically when it fits on screen
+    justifyContent: 'center',
     paddingHorizontal: 28,
     paddingTop: 12,
     paddingBottom: 32,

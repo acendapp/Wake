@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Pressable,
@@ -238,6 +238,16 @@ export default function YouScreen() {
       }
     }, []),
   )
+
+  // Settings gears on other tabs land here with a fresh ?settings=<timestamp>
+  // param; each new value scrolls down to the settings section. The delay lets
+  // the tab switch + entrance animations settle before the scroll starts.
+  const { settings } = useLocalSearchParams<{ settings?: string }>()
+  useEffect(() => {
+    if (!settings) return
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350)
+    return () => clearTimeout(t)
+  }, [settings])
 
   const count = dayCount ?? 0
   const hasHistory = PREVIEW_WITH_SAMPLE_DATA || count >= MIN_MORNINGS_FOR_TRENDS

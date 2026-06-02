@@ -5,20 +5,21 @@ const totalMinutes = (plan: ReturnType<typeof generatePlan>) =>
   plan.sequence.reduce((sum, a) => sum + a.estMinutes, 0)
 
 describe('classifyState', () => {
-  it('is deficit when you trail the day by 2+', () => {
+  it('is deficit whenever you trail the day at all', () => {
+    expect(classifyState(7, 8)).toBe('deficit')
     expect(classifyState(6, 8)).toBe('deficit')
     expect(classifyState(3, 9)).toBe('deficit')
   })
 
-  it('is surplus when you exceed the day by 2+', () => {
+  it('is surplus whenever you exceed the day at all', () => {
+    expect(classifyState(8, 7)).toBe('surplus')
     expect(classifyState(9, 6)).toBe('surplus')
     expect(classifyState(8, 4)).toBe('surplus')
   })
 
-  it('is aligned within 1 point in either direction', () => {
+  it('is aligned only on an exact match', () => {
     expect(classifyState(8, 8)).toBe('aligned')
-    expect(classifyState(7, 8)).toBe('aligned')
-    expect(classifyState(8, 7)).toBe('aligned')
+    expect(classifyState(5, 5)).toBe('aligned')
   })
 })
 

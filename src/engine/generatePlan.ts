@@ -45,13 +45,13 @@ export function moveCap(budget: number): number {
 
 /**
  * Map the distance between "You" (readiness) and "Day" (difficulty) to a state.
- * A 1-point difference still counts as aligned — the Gap only becomes
- * meaningful at 2+ points, in either direction.
+ * Alignment means an exact match — any distance at all, in either direction,
+ * is a gap (behind the day) or a surplus (ahead of it).
  */
 export function classifyState(readiness: number, dayDifficulty: number): ReadinessState {
   const gap = readiness - dayDifficulty
-  if (gap <= -2) return 'deficit'
-  if (gap >= 2) return 'surplus'
+  if (gap < 0) return 'deficit'
+  if (gap > 0) return 'surplus'
   return 'aligned'
 }
 
