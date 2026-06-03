@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons'
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -219,6 +220,10 @@ export default function YouScreen() {
   const scrollRef = useRef<ScrollView>(null)
 
   const [metric, setMetric] = useState<Metric>('energy')
+
+  // Sign-out in flight — keeps the row from feeling dead while the auth call
+  // runs (it can take a moment offline before the local fallback kicks in).
+  const [signingOut, setSigningOut] = useState(false)
 
   // Real history count → drives the cold-start gate. Refreshed on focus so the
   // page advances as mornings accumulate.
@@ -542,13 +547,27 @@ export default function YouScreen() {
             <View style={styles.settingsSeparator} />
             <Pressable
               style={styles.settingsRow}
-              onPress={() => signOut()}
+              onPress={async () => {
+                if (signingOut) return
+                setSigningOut(true)
+                await signOut()
+                // Normally the root gate unmounts this screen before this runs;
+                // resetting covers any path where it doesn't.
+                setSigningOut(false)
+              }}
+              disabled={signingOut}
               accessibilityRole="button"
             >
               <View style={styles.settingsIcon}>
-                <Feather name="log-out" size={15} color={day.negative} />
+                {signingOut ? (
+                  <ActivityIndicator size="small" color={day.negative} />
+                ) : (
+                  <Feather name="log-out" size={15} color={day.negative} />
+                )}
               </View>
-              <Text style={styles.signOutLabel}>Sign out</Text>
+              <Text style={styles.signOutLabel}>
+                {signingOut ? 'Signing out…' : 'Sign out'}
+              </Text>
             </Pressable>
           </View>
         </Section>

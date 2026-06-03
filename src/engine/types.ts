@@ -157,9 +157,13 @@ export interface Plan {
   headline: string
   /** The "here's how we handle it" line beneath the headline. */
   subhead: string
-  /** The single highest-leverage move. Also sequence[0]. */
+  /**
+   * The single highest-leverage move. Usually sequence[0] — except when
+   * "get out of bed" is in the plan, which always leads the sequence
+   * chronologically while the One Thing stays the highest-leverage move.
+   */
   oneThing: Action
-  /** The full ordered ritual, oneThing first. */
+  /** The full ordered ritual (chronological; oneThing is in here). */
   sequence: Action[]
   /** UI tone for the state. */
   accent: 'amber' | 'neutral' | 'bright'

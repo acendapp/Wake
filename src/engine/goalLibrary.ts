@@ -30,6 +30,11 @@ import type { Goal } from './types'
 // Cost convention: `estMinutes` is the *active* time a move spends from the
 // budget. Near-instant behaviors (phone down, caffeine timing, hydrate, naming
 // an intention) cost ~1, so they're almost always included rather than eating it.
+// The "get out of bed" variant. Chronologically it can only ever be the first
+// thing a person does, so both plan builders float it to the front of the
+// sequence whenever it's included (the Focal Point / One Thing is unaffected).
+export const GET_UP_SLUG = 'get-up-now-1'
+
 export const GOAL_LIBRARY: Goal[] = [
   // ── Cross-state moves (eligible in every state; intent decides emphasis) ───
   {

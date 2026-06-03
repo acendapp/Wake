@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -17,7 +18,10 @@ import { day } from '@/theme/colors'
 // PAYWALL_MODE controls dismissibility. 'hard' = no escape (production intent);
 // 'soft' = a real "Not now" for everyone. We ship 'hard' but keep the flip a
 // one-liner — see the conversation: soft-first is the pre-PMF-friendly default.
-// Until billing is real, a dev-only bypass keeps the app reachable in testing.
+//
+// The pressure valve on the hard paywall is "View a sample routine": one
+// click-through demo morning (the same sample the first-run Today shows), after
+// which the user lands back here. A taste of the mechanism, not ongoing value.
 const PAYWALL_MODE: 'hard' | 'soft' = 'hard'
 
 type PlanId = 'annual' | 'monthly'
@@ -45,6 +49,7 @@ const PLANS: {
 export default function PaywallScreen() {
   const { grant, bypass } = useEntitlement()
   const insets = useSafeAreaInsets()
+  const router = useRouter()
   const [selected, setSelected] = useState<PlanId>('annual')
   const [busy, setBusy] = useState(false)
 
@@ -58,11 +63,21 @@ export default function PaywallScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
+        {/* Dev-only escape hatch, top-right. __DEV__ is false in production
+            builds, so this never ships — the real paywall stays hard. */}
+        {__DEV__ && (
+          <View style={styles.devSkipRow}>
+            <Pressable onPress={bypass} hitSlop={10} accessibilityRole="button">
+              <Text style={styles.devSkipLabel}>Skip</Text>
+            </Pressable>
+          </View>
+        )}
         <View style={styles.header}>
-          <Text style={styles.headline}>Your best days begin here.</Text>
+          <Text style={styles.headline}>Every morning, it knows you better.</Text>
           <Text style={styles.body}>
-            Unlock your personalized morning operating sequence. Establish your daily
-            ritual, budget your cognitive energy, and clear the morning chaos.
+            Wake builds each day&rsquo;s routine from how you actually wake up — and learns
+            from every check-in and reflection. Day one is a good morning. Day thirty is
+            built from thirty mornings of you.
           </Text>
         </View>
 
@@ -120,6 +135,15 @@ export default function PaywallScreen() {
           </Pressable>
         )}
 
+        {/* The taste-before-you-commit valve: one demo morning, then back here. */}
+        <Pressable
+          onPress={() => router.push({ pathname: '/routine', params: { sample: '1' } })}
+          style={styles.sampleLink}
+          accessibilityRole="button"
+        >
+          <Text style={styles.sampleLinkLabel}>View a sample routine</Text>
+        </Pressable>
+
         <View style={styles.links}>
           {/* MOCK: wire these to real URLs / restore when billing is real. */}
           <Pressable accessibilityRole="link">
@@ -134,12 +158,6 @@ export default function PaywallScreen() {
             <Text style={styles.linkText}>Privacy Policy</Text>
           </Pressable>
         </View>
-
-        {__DEV__ && PAYWALL_MODE === 'hard' && (
-          <Pressable onPress={bypass} style={styles.devBypass} accessibilityRole="button">
-            <Text style={styles.devBypassLabel}>Skip for now (dev only)</Text>
-          </Pressable>
-        )}
       </View>
     </SafeAreaView>
   )
@@ -154,6 +172,19 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 28,
     paddingTop: 24,
+  },
+  // Dev-only skip, tucked in the top-right corner above the headline.
+  devSkipRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: -12, // tighten into the safe-area gap so the headline barely moves
+    marginBottom: 4,
+  },
+  devSkipLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: day.muted,
+    textDecorationLine: 'underline',
   },
   header: {
     marginBottom: 32,
@@ -257,6 +288,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: day.muted,
   },
+  // "View a sample routine" — quiet but real, directly under the CTA.
+  sampleLink: {
+    alignItems: 'center',
+    paddingVertical: 13,
+  },
+  sampleLinkLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 15,
+    color: day.gold,
+    textDecorationLine: 'underline',
+  },
   links: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -273,16 +315,5 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 11,
     color: day.muted,
-  },
-  devBypass: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  devBypassLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 12,
-    color: day.gold,
-    textDecorationLine: 'underline',
   },
 })

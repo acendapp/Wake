@@ -41,9 +41,22 @@ describe('generatePlan', () => {
     expect(surplus.oneThing.slug).toBe('prime-body-10')
   })
 
-  it('puts the One Thing first in the sequence', () => {
+  it('keeps the One Thing in the sequence, leading unless "get out of bed" is present', () => {
     const plan = generatePlan({ readiness: 5, dayDifficulty: 9, routineMinutes: 20 })
-    expect(plan.sequence[0]).toBe(plan.oneThing)
+    expect(plan.sequence).toContain(plan.oneThing)
+    // sequence[0] is either the One Thing or the chronological "get out of bed".
+    const first = plan.sequence[0]
+    expect(first === plan.oneThing || first.slug === 'get-up-now-1').toBe(true)
+  })
+
+  it('puts "get out of bed" first whenever it is included — nothing comes before it', () => {
+    // Deficit with a 20-minute budget packs the 1-minute get-up move.
+    const plan = generatePlan({ readiness: 5, dayDifficulty: 9, routineMinutes: 20 })
+    const getUp = plan.sequence.find((a) => a.slug === 'get-up-now-1')
+    expect(getUp).toBeDefined()
+    expect(plan.sequence[0]).toBe(getUp)
+    // The Focal Point stays the highest-leverage move, not the chronological first.
+    expect(plan.oneThing.title).toBe('Move your body')
   })
 
   it('never exceeds the time budget', () => {

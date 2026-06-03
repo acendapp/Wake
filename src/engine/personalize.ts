@@ -1,4 +1,4 @@
-import { eligibleRoutineGoals, maxMoves, moveCap } from './generatePlan'
+import { eligibleRoutineGoals, maxMoves, moveCap, orderGetUpFirst } from './generatePlan'
 import type { Action, ActionCategory, Intent, ReadinessState } from './types'
 
 // The Claude personalization layer — pure, runtime-agnostic logic so it unit-tests
@@ -74,7 +74,8 @@ Hard rules — follow exactly:
 4. Choose and order moves to fit THIS person — their intent, fitness, friction point, goals, constraints, and how recent mornings actually went (the reflections). Lead with the single highest-leverage move for them; that is "leadSlug".
 5. Rewrite each move's "example" so it fits this person (their fitness, constraints, equipment). Keep it short, gentle, and optional in tone. The gain is in the broad ACTION, never the specific example — never prescribe an intensity someone may not be able to do.
 6. This is a wake-up routine (get out of bed and out of the room), not a workout or a work plan. Favor breadth of short moves.
-7. Output ONLY minified JSON: {"moves":[{"slug":"...","example":"..."}],"leadSlug":"..."}. No prose, no markdown.`
+7. If you include the "get out of bed" move, order it FIRST in "moves" — nothing can come before getting out of bed. (It does not need to be "leadSlug" unless it's also the highest-leverage move.)
+8. Output ONLY minified JSON: {"moves":[{"slug":"...","example":"..."}],"leadSlug":"..."}. No prose, no markdown.`
 
 /** Assemble the system + user messages for the Anthropic Messages API. */
 export function buildMessages(
@@ -174,6 +175,10 @@ export function parsePersonalizedSequence(
   if (leadIndex === -1) throw new Error('Personalization: leadSlug not among moves')
   const [lead] = resolved.splice(leadIndex, 1)
   resolved.unshift(lead)
+
+  // Chronological invariant: if "get out of bed" was picked, it goes first —
+  // even ahead of the lead. The One Thing stays the lead either way.
+  orderGetUpFirst(resolved)
 
   return { sequence: resolved, oneThing: lead }
 }

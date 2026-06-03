@@ -139,20 +139,31 @@ export function TrendChart({
     cy: origin[origin.length - 1].y + (endDot.y - origin[origin.length - 1].y) * progress.value,
   }))
 
-  // Press-and-drag scrubbing, snapped to the nearest morning. Lets the parent
-  // ScrollView reclaim the gesture (vertical scrolls), which lands in onTerminate.
+  // Press-and-drag scrubbing, snapped to the nearest morning. The responder owns
+  // the whole chart block (readout lane + canvas), and the Svg is transparent to
+  // touch, so a drag can start from anywhere — not just on the drawn line. The
+  // finger's position is tracked as grant-x + dx (gestureState), which stays
+  // consistent for the whole drag no matter what sits under the finger.
   const innerW = width - PAD_RIGHT
+  const scrubStartX = useRef(0)
   const pan = useMemo(() => {
     const indexAt = (x: number) =>
       Math.max(0, Math.min(data.length - 1, Math.round((x / innerW) * (data.length - 1))))
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => setActiveIndex(indexAt(e.nativeEvent.locationX)),
-      onPanResponderMove: (e) => setActiveIndex(indexAt(e.nativeEvent.locationX)),
+      onPanResponderGrant: (e) => {
+        scrubStartX.current = e.nativeEvent.locationX
+        setActiveIndex(indexAt(scrubStartX.current))
+      },
+      onPanResponderMove: (_e, g) => setActiveIndex(indexAt(scrubStartX.current + g.dx)),
       onPanResponderRelease: () => setActiveIndex(null),
       onPanResponderTerminate: () => setActiveIndex(null),
-      onPanResponderTerminationRequest: () => true,
+      // Only surrender the gesture when the finger is clearly scrolling the page
+      // (mostly vertical). A horizontal scrub keeps the responder to the end.
+      onPanResponderTerminationRequest: (_e, g) => Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+      // Android: stop the native ScrollView from intercepting mid-scrub.
+      onShouldBlockNativeResponder: () => true,
     })
   }, [data.length, innerW])
 
@@ -165,9 +176,10 @@ export function TrendChart({
     active != null ? Math.max(0, Math.min(width - READOUT_W, active.x - READOUT_W / 2)) : 0
 
   return (
-    <View style={{ width }}>
+    // The whole block (readout lane + canvas) is one touch surface for scrubbing.
+    <View style={{ width }} {...pan.panHandlers}>
       {/* The readout floats above the canvas so it never collides with the curve. */}
-      <View style={styles.readoutLane}>
+      <View style={styles.readoutLane} pointerEvents="none">
         {active != null && activeIndex != null && (
           <View style={[styles.readout, { left: readoutLeft }]}>
             <Text style={[styles.readoutValue, { color: readoutColor ?? color }]}>
@@ -180,7 +192,9 @@ export function TrendChart({
         )}
       </View>
 
-      <View {...pan.panHandlers}>
+      {/* Touch-transparent: all gestures land on the wrapper above, so locationX
+          is always measured in the same coordinate space. */}
+      <View pointerEvents="none">
         <Svg width={width} height={height}>
           <Defs>
             <SvgGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">

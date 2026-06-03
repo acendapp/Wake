@@ -1,14 +1,18 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Loading } from '@/components/Loading'
+import { TodayHome } from '@/components/today/TodayHome'
+import { generatePlan } from '@/engine/generatePlan'
 import type { Action } from '@/engine/types'
 import { getDay, logicalDate, saveCompletedSlugs, type DayRow } from '@/lib/days'
+import { useEntitlement } from '@/lib/entitlement'
+import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
 // The morning routine, performed. Pushed from Today's START button — a focused,
@@ -22,22 +26,53 @@ import { day } from '@/theme/colors'
 // Every check-off persists immediately to today's row (completed_slugs), which
 // is what the evening reflection reads — a morning tracked here never gets
 // re-asked "which of these did you do?" at night.
+//
+// SAMPLE MODE (?sample=1): opens on the populated Today home (the same TodayHome
+// component the real Today tab renders) filled with a fixed 10-minute deficit
+// morning, then the same two-phase ritual. Nothing loads from or writes to the
+// store. Two surfaces link here:
+//  • The first-run Today page (entitled user, no history) — the click-through
+//    ends by directing them to Reflect to set up tomorrow.
+//  • The paywall's "View a sample routine" (not yet entitled) — the click-through
+//    ends with the compounding pitch and returns them to the paywall.
 
 // Same sheen as Today's START button, so the two read as one mechanism.
 const GOLD_GRADIENT = ['#A87F4A', '#8C6736'] as const
 
-type Phase = 'focal' | 'sequence'
+// The sample morning: behind (readiness 4) a demanding day (7), with 10 minutes.
+// Pure + deterministic, so every new user sees the same well-formed routine.
+const SAMPLE_READINESS = 4
+const SAMPLE_DAY_DIFFICULTY = 7
+const SAMPLE_MINUTES = 10
+const SAMPLE_PLAN = generatePlan({
+  readiness: SAMPLE_READINESS,
+  dayDifficulty: SAMPLE_DAY_DIFFICULTY,
+  routineMinutes: SAMPLE_MINUTES,
+})
+
+// 'home' (sample only: the populated Today view) → 'focal' → 'sequence'
+type Phase = 'home' | 'focal' | 'sequence'
 
 export default function RoutineScreen() {
   const router = useRouter()
+  // Sample mode flag (see header comment); entitlement tells the two sample
+  // origins apart (first-run Today vs. the paywall).
+  const { sample } = useLocalSearchParams<{ sample?: string }>()
+  const isSample = sample === '1'
+  const { entitled } = useEntitlement()
+  // For the sample's home view greeting — paywall visitors and first-run users
+  // have both completed onboarding, so a first name exists.
+  const { profile } = useProfile()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!isSample)
   const [row, setRow] = useState<DayRow | null>(null)
   const [completed, setCompleted] = useState<string[]>([])
-  const [phase, setPhase] = useState<Phase>('focal')
+  // The sample opens on the beautiful Today home; a real morning opens on focal.
+  const [phase, setPhase] = useState<Phase>(isSample ? 'home' : 'focal')
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isSample) return // nothing to load — the sample plan is fixed
     let active = true
     getDay(logicalDate())
       .then((r) => {
@@ -56,17 +91,19 @@ export default function RoutineScreen() {
     return () => {
       active = false
     }
-  }, [])
+  }, [isSample])
 
-  const plan = row?.plan ?? null
+  const plan = isSample ? SAMPLE_PLAN : (row?.plan ?? null)
   const focal = plan?.oneThing ?? null
   // The optional remainder — everything in the sequence except the focal point.
   const rest: Action[] = plan ? plan.sequence.filter((a) => a.slug !== plan.oneThing.slug) : []
 
   // Optimistic check-off: the UI flips instantly, the write follows. A failed
   // write surfaces quietly and the evening reflection remains the safety net.
+  // Sample mode never writes — the check-offs are just for the feel of it.
   const persist = (slugs: string[]) => {
     setCompleted(slugs)
+    if (isSample) return
     setSaveError(null)
     saveCompletedSlugs(logicalDate(), slugs).catch(() => {
       setSaveError('Couldn’t save just now — tonight’s reflection will catch anything missed.')
@@ -93,6 +130,28 @@ export default function RoutineScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Loading label="Getting your morning…" />
       </SafeAreaView>
+    )
+  }
+
+  // ── Sample, phase 0: the populated Today home, exactly as the real one renders.
+  // START drops into the focal phase; the X returns to wherever they came from
+  // (the paywall, or the first-run Today page). ────────────────────────────────
+  if (isSample && phase === 'home') {
+    return (
+      <TodayHome
+        userName={profile?.first_name?.trim() || 'there'}
+        weather={null}
+        readiness={SAMPLE_READINESS}
+        dayDifficulty={SAMPLE_DAY_DIFFICULTY}
+        gapState={SAMPLE_PLAN.state}
+        plan={SAMPLE_PLAN}
+        completedSlugs={completed}
+        lastNight="Steady"
+        routineTime={`${SAMPLE_MINUTES} min`}
+        insightAction="stretch"
+        onStart={() => setPhase('focal')}
+        onClose={close}
+      />
     )
   }
 
@@ -125,9 +184,15 @@ export default function RoutineScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Header onClose={close} />
         <Animated.View entering={FadeIn.duration(400)} style={styles.focalWrap}>
+          {/* Sample mode: name the hypothetical so the routine reads as an example. */}
+          {isSample && (
+            <Text style={styles.sampleNote}>
+              A sample morning — ten minutes, built as if you woke up behind a demanding day.
+            </Text>
+          )}
           <View style={styles.focalHero}>
             <Feather name="sun" size={24} color={day.gold} />
-            <Text style={styles.eyebrow}>Your focal point</Text>
+            <Text style={styles.eyebrow}>{isSample ? 'Sample · your focal point' : 'Your focal point'}</Text>
             <Text style={styles.focalTitle}>{focal.title}</Text>
             {focal.example ? <Text style={styles.focalExample}>{focal.example}</Text> : null}
             {focal.description ? (
@@ -148,7 +213,10 @@ export default function RoutineScreen() {
               </LinearGradient>
             </Pressable>
             <Pressable style={styles.quietLink} onPress={close} accessibilityRole="button">
-              <Text style={styles.quietLabel}>Back to Today</Text>
+              {/* A paywall visitor's "back" is the paywall, not Today. */}
+              <Text style={styles.quietLabel}>
+                {isSample && !entitled ? 'Back' : 'Back to Today'}
+              </Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -221,11 +289,41 @@ export default function RoutineScreen() {
 
         <Animated.View entering={FadeInDown.duration(450).delay(300)}>
           {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-          <Pressable style={styles.button} onPress={close} accessibilityRole="button">
-            <LinearGradient colors={GOLD_GRADIENT} style={styles.buttonFill}>
-              <Text style={styles.buttonLabel}>Back to Today</Text>
-            </LinearGradient>
-          </Pressable>
+          {/* Sample mode hands off by origin: an entitled first-run user goes to
+              Reflect (the real loop starts by setting up tomorrow); a paywall
+              visitor gets the compounding pitch and returns to the paywall.
+              A real morning just returns to Today. */}
+          {isSample ? (
+            <>
+              <Text style={styles.sampleHandoff}>
+                {entitled
+                  ? 'That’s the shape of a morning. Yours will be built for how you actually wake up — starting tomorrow.'
+                  : 'That was a sample, built for no one in particular. Yours will be built from your own mornings — and every check-in and reflection makes it sharper.'}
+              </Text>
+              <Pressable
+                style={styles.button}
+                onPress={entitled ? () => router.replace('/reflect') : close}
+                accessibilityRole="button"
+              >
+                <LinearGradient colors={GOLD_GRADIENT} style={styles.buttonFill}>
+                  <Text style={styles.buttonLabel}>
+                    {entitled ? 'Set up tomorrow in Reflect' : 'Start your free week'}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+              {entitled && (
+                <Pressable style={styles.quietLink} onPress={close} accessibilityRole="button">
+                  <Text style={styles.quietLabel}>Back to Today</Text>
+                </Pressable>
+              )}
+            </>
+          ) : (
+            <Pressable style={styles.button} onPress={close} accessibilityRole="button">
+              <LinearGradient colors={GOLD_GRADIENT} style={styles.buttonFill}>
+                <Text style={styles.buttonLabel}>Back to Today</Text>
+              </LinearGradient>
+            </Pressable>
+          )}
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -272,6 +370,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 40, // optical centering: lifts the block slightly above true center
+  },
+  // Sample mode framing lines — quiet, editorial, never competing with the move.
+  sampleNote: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 21,
+    color: day.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    alignSelf: 'center',
+    maxWidth: 300,
+  },
+  sampleHandoff: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: day.muted,
+    textAlign: 'center',
+    marginTop: 26,
+    alignSelf: 'center',
+    maxWidth: 320,
   },
   eyebrow: {
     fontFamily: 'PlayfairDisplay_400Regular',

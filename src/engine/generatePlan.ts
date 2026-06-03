@@ -1,4 +1,4 @@
-import { GOAL_LIBRARY } from './goalLibrary'
+import { GET_UP_SLUG, GOAL_LIBRARY } from './goalLibrary'
 import type { Action, Goal, Intent, Plan, PlanInput, ReadinessState } from './types'
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
@@ -166,13 +166,33 @@ export function generatePlan(input: PlanInput): Plan {
     sequence.push(top.variants[top.variants.length - 1])
   }
 
+  // The One Thing is the highest-leverage move — locked in before any reorder.
+  const oneThing = sequence[0]
+
+  // Chronological invariant: getting out of bed can't follow anything else. If
+  // it made the cut, it leads the sequence (the One Thing above is unaffected).
+  orderGetUpFirst(sequence)
+
   return {
     state,
     gap,
     headline: framing.headline,
     subhead: framing.subhead,
-    oneThing: sequence[0],
+    oneThing,
     sequence,
     accent: framing.accent,
+  }
+}
+
+/**
+ * Reorder a sequence in place so "Get out of bed right away" is first whenever
+ * it's present — you can't do anything else before it. Shared by the
+ * deterministic packer and the personalized-plan validator.
+ */
+export function orderGetUpFirst(sequence: Action[]): void {
+  const i = sequence.findIndex((a) => a.slug === GET_UP_SLUG)
+  if (i > 0) {
+    const [getUp] = sequence.splice(i, 1)
+    sequence.unshift(getUp)
   }
 }

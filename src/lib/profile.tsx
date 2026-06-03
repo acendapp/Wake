@@ -50,7 +50,7 @@ export type OnboardingInput = {
   lastName?: string | null
   intent: Intent
   chronotype: Chronotype
-  frictionPoint: FrictionPoint
+  frictionPoint?: FrictionPoint | null
   routineMinutes: number
   constraints?: string[]
   ageRange?: AgeRange | null
@@ -92,7 +92,7 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
         last_name: input.lastName ?? null,
         intent: input.intent,
         chronotype: input.chronotype,
-        friction_point: input.frictionPoint,
+        friction_point: input.frictionPoint ?? null,
         routine_minutes: input.routineMinutes,
         constraints: input.constraints ?? [],
         age_range: input.ageRange ?? null,
@@ -160,14 +160,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       })
   }, [uid])
 
+  // Resolves the signed-in user at call time (not from the closure): callers that
+  // captured `refresh` before signing up — onboarding creates the account and then
+  // refreshes in the same async flow — would otherwise hold a stale `uid === null`
+  // no-op, leaving the gate waiting on a profile fetch that never comes.
   const refresh = useCallback(async () => {
-    if (uid === null) return
+    const { data } = await supabase.auth.getSession()
+    const currentUid = data.session?.user.id ?? null
+    if (currentUid === null) return
     const gen = ++fetchGen.current
     const p = await getProfile()
     if (gen !== fetchGen.current) return
     setProfile(p)
-    setLoadedFor(uid)
-  }, [uid])
+    setLoadedFor(currentUid)
+  }, [])
 
   return (
     <ProfileContext.Provider value={{ profile, loading, refresh }}>

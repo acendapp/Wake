@@ -82,6 +82,10 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     const onSignIn = pathname === '/sign-in'
     const onOnboarding = pathname === '/onboarding'
     const onPaywall = pathname === '/paywall'
+    // The routine screen doubles as the paywall's "view a sample routine" demo
+    // (?sample=1), so it stays reachable pre-purchase. A non-sample visit shows
+    // only the "no routine yet" empty state — nothing to leak.
+    const onRoutine = pathname === '/routine'
 
     // Signed out: the only allowed screens are the onboarding/welcome flow and
     // the sign-in screen (reachable from the welcome screen's "Sign in" link).
@@ -92,11 +96,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     }
     const onboarded = !!profile?.onboarding_completed_at
     if (!onboarded) {
-      if (!onOnboarding) router.replace('/onboarding')
+      // Signed in, but onboarding never finished (or its save failed). Send them
+      // straight to the questions — they already have an account; what's missing
+      // is the routine setup, and completing it is their path into the app. The
+      // marketing welcome beat would read as a dead end here.
+      if (!onOnboarding) {
+        router.replace({ pathname: '/onboarding', params: { start: 'questions' } })
+      }
       return
     }
     if (!entitled) {
-      if (!onPaywall) router.replace('/paywall')
+      if (!onPaywall && !onRoutine) router.replace('/paywall')
       return
     }
     // Fully set up — keep them out of the pre-app screens.

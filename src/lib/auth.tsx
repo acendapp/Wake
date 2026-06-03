@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Session } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { supabase } from './supabase'
+import { AUTH_STORAGE_KEY, supabase } from './supabase'
 
 // App-wide auth state, backed by Supabase. The session is restored from
 // AsyncStorage on launch (see supabase.ts) and kept live via onAuthStateChange,
@@ -60,7 +61,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message ?? null }
     },
     signOut: async () => {
-      await supabase.auth.signOut()
+      // Signing out must always work from this device's point of view. Supabase's
+      // signOut() keeps the local session whenever the server-side revocation
+      // fails (offline, an expired/invalid stored session, a slow network) — which
+      // would make a Sign out button appear to do nothing. So: best-effort
+      // revocation with a deadline, then a guaranteed local clear.
+      const revoke = supabase.auth
+        .signOut({ scope: 'local' })
+        .catch((e: unknown) => ({ error: e }))
+      const deadline = new Promise<{ error: Error }>((resolve) =>
+        setTimeout(() => resolve({ error: new Error('Sign out timed out') }), 4000),
+      )
+      const { error } = await Promise.race([revoke, deadline])
+      if (!error) return // success — the SIGNED_OUT event clears `session`
+
+      // Revocation failed or timed out: clear the persisted session ourselves and
+      // drop the in-memory one so the root gate navigates away immediately.
+      try {
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY)
+      } catch {
+        // Best-effort; the in-memory clear below still signs this session out.
+      }
+      setSession(null)
     },
   }
 

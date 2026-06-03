@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -24,7 +24,6 @@ import {
   useProfile,
   type AgeRange,
   type Chronotype,
-  type FrictionPoint,
   type Intent,
   type Sex,
 } from '@/lib/profile'
@@ -39,12 +38,30 @@ import { day } from '@/theme/colors'
 // refreshes it, and the root layout's gate redirects into the tabs (mirrors how
 // the sign-in screen leaves routing to the gate).
 
-type Choice<T extends string> = { value: T; title: string; blurb: string }
+type Choice<T extends string> = { value: T; title: string; blurb: string; info?: string }
 
+// Short blurbs on the cards; `info` opens behind the small ⓘ next to each title,
+// so a first-time user can tell which intent they actually need without the
+// cards getting wordy.
 const INTENTS: Choice<Intent>[] = [
-  { value: 'calm', title: 'Calm', blurb: 'Ease me into the day, gently.' },
-  { value: 'energize', title: 'Energy', blurb: 'Get me up and moving.' },
-  { value: 'focus', title: 'Focus', blurb: 'Sharpen me for what matters.' },
+  {
+    value: 'calm',
+    title: 'Calm',
+    blurb: 'Ease me into the day, gently.',
+    info: 'Best if your mornings feel rushed or anxious. Your routine starts slow and settled — easing you into the day instead of scrambling through it.',
+  },
+  {
+    value: 'energize',
+    title: 'Energy',
+    blurb: 'Get me up and moving.',
+    info: 'Best if you wake up groggy or heavy. Your routine gets your body going early, so you shake off sleep and feel awake sooner.',
+  },
+  {
+    value: 'focus',
+    title: 'Focus',
+    blurb: 'Sharpen me for what matters.',
+    info: 'Best if your mornings feel scattered. Your routine clears the fog and points your attention at what matters most today.',
+  },
 ]
 
 const CHRONOTYPES: Choice<Chronotype>[] = [
@@ -53,17 +70,9 @@ const CHRONOTYPES: Choice<Chronotype>[] = [
   { value: 'neither', title: 'In between', blurb: 'It depends on the day.' },
 ]
 
-// Where the morning tends to break down — answers stand on their own, no blurb.
-const FRICTION: { value: FrictionPoint; title: string }[] = [
-  { value: 'before_up', title: 'Before I’m even out of bed' },
-  { value: 'getting_ready', title: 'Once I’m up but before I’m out the door' },
-  { value: 'out_world', title: 'Out in the world' },
-  { value: 'all_morning', title: 'Honestly, all the way through' },
-]
-
-// Phrasings for the curation loader — the editorial beat reflects the three
-// leading signals back at the user (intent → chronotype → friction) plus the
-// time budget. Demographics stay silent, so a skip never leaves a blank line.
+// Phrasings for the curation loader — the editorial beat reflects the leading
+// signals back at the user (intent → chronotype) plus the time budget.
+// Demographics stay silent, so a skip never leaves a blank line.
 const INTENT_PHRASE: Record<Intent, string> = {
   calm: 'ease you into the day',
   energize: 'get you up and moving',
@@ -74,23 +83,15 @@ const CHRONO_PHRASE: Record<Chronotype, string> = {
   late: 'a slower climb',
   neither: 'however you wake',
 }
-const FRICTION_PHRASE: Record<FrictionPoint, string> = {
-  before_up: 'the struggle to get out of bed',
-  getting_ready: 'the rush before you’re out the door',
-  out_world: 'the chaos once you’re out',
-  all_morning: 'a morning that fights you throughout',
-}
 
 function curationLines(
   intent: Intent,
   chronotype: Chronotype,
-  friction: FrictionPoint,
   routineMinutes: number,
 ): string[] {
   return [
     `Building a morning sequence to ${INTENT_PHRASE[intent]}…`,
     `Mapping your energy curve to ${CHRONO_PHRASE[chronotype]}…`,
-    `Designing a buffer against ${FRICTION_PHRASE[friction]}…`,
     `Fitting it into your ${routineMinutes}-minute window…`,
   ]
 }
@@ -122,7 +123,7 @@ const PILLARS: {
 
 // Steps that count toward the progress bar (intro + finish sit outside it).
 const FIRST_QUESTION = 1
-const LAST_QUESTION = 5
+const LAST_QUESTION = 4
 const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
 
 export default function OnboardingScreen() {
@@ -135,40 +136,58 @@ export default function OnboardingScreen() {
   // to skip the welcome beat and open on the first question (step 1).
   const { start } = useLocalSearchParams<{ start?: string }>()
   const [step, setStep] = useState(start === 'questions' ? FIRST_QUESTION : 0)
+
+  // The root gate can also land here with ?start=questions while this screen is
+  // ALREADY mounted on the welcome beat (signing in with an account that never
+  // finished onboarding). Params don't re-run the useState initializer above, so
+  // nudge off the welcome beat when the param arrives.
+  useEffect(() => {
+    if (start === 'questions') setStep((s) => (s === 0 ? FIRST_QUESTION : s))
+  }, [start])
   const [intent, setIntent] = useState<Intent | null>(null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(null)
-  const [friction, setFriction] = useState<FrictionPoint | null>(null)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
 
-  // Name is captured at the end (step 7) and used to greet the user across the
+  // Name is captured at the end (step 6) and used to greet the user across the
   // app. First name is required; last name is optional.
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
 
-  // Account is created at the end of the flow (step 7), once the user is invested.
+  // Account is created at the end of the flow (step 6), once the user is invested.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scienceOpen, setScienceOpen] = useState(false)
+  // Which intent's ⓘ explainer is open on the first question (null = none).
+  const [intentInfo, setIntentInfo] = useState<Intent | null>(null)
 
   // Required questions gate Continue; the rest always advance.
   const canAdvance =
-    step === 1 ? intent !== null : step === 2 ? chronotype !== null : step === 3 ? friction !== null : true
+    step === 1 ? intent !== null : step === 2 ? chronotype !== null : true
+
+  // Whether the final step needs to create an account (vs. just save, for a user
+  // who was already signed in when they reached it). Tracked live until step 6,
+  // then FROZEN: signUp() flips `session` mid-save, and re-deriving this from the
+  // live session would flash the signed-in variant of the screen in the moment
+  // between account creation and the gate navigating to the paywall.
+  const needsAccountRef = useRef(!session)
+  if (step < 6) needsAccountRef.current = !session
+  const needsAccount = needsAccountRef.current
 
   // First name is required on the final step; the greeting depends on it.
   const nameReady = firstName.trim().length > 0
   const canCreateAccount =
     nameReady && email.trim().length > 3 && password.length >= 6 && !saving
 
-  // Step 7 normally creates an account; if the user is already signed in (e.g.
+  // Step 6 normally creates an account; if the user is already signed in (e.g.
   // they came in via the sign-in screen's create-account path), it just saves —
   // but a first name is still required either way.
   const buttonEnabled =
-    step === 7 ? (session ? nameReady && !saving : canCreateAccount) : canAdvance && !saving
+    step === 6 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -177,11 +196,11 @@ export default function OnboardingScreen() {
   // saveOnboarding stamps onboarding_completed_at; refresh() then flips the root
   // gate, which — since the new user isn't entitled yet — routes to /paywall.
   const createAccount = async () => {
-    if (!intent || !chronotype || !friction) return
+    if (!intent || !chronotype) return
     setSaving(true)
     setError(null)
     // Already signed in (came in via the sign-in screen) → skip straight to save.
-    if (!session) {
+    if (needsAccount) {
       const res = await signUp(email.trim(), password)
       if (res.error) {
         setError(res.error)
@@ -201,7 +220,6 @@ export default function OnboardingScreen() {
         lastName: lastName.trim() || null,
         intent,
         chronotype,
-        frictionPoint: friction,
         routineMinutes,
         ageRange,
         sex,
@@ -226,6 +244,8 @@ export default function OnboardingScreen() {
           style={StyleSheet.absoluteFill}
           contentFit="cover"
         />
+        {/* Soft cream wash so the sunrise sits further back and the copy leads. */}
+        <View style={[StyleSheet.absoluteFill, styles.welcomeWash]} />
 
         <SafeAreaView style={styles.welcomeSafe} edges={['top']}>
           <View style={styles.welcomeTop}>
@@ -266,7 +286,7 @@ export default function OnboardingScreen() {
               >
                 <Text style={styles.tabScienceLine}>
                   How you wake up shapes{'\n'}your long-term health.{' '}
-                  <Feather name="info" size={13} color={day.gold} />
+                  <Ionicons name="information-circle" size={15} color={day.gold} />
                 </Text>
               </Pressable>
             </View>
@@ -274,7 +294,9 @@ export default function OnboardingScreen() {
 
           <View style={[styles.welcomeFooter, { paddingBottom: insets.bottom + 18 }]}>
             <Pressable style={styles.button} onPress={next} accessibilityRole="button">
-              <Text style={styles.buttonLabel}>Build my routine</Text>
+              {/* A signed-in user here means onboarding was never finished — the
+                  CTA is about completing setup, not creating an account. */}
+              <Text style={styles.buttonLabel}>{session ? 'Finish setting up' : 'Sign up'}</Text>
             </Pressable>
             {/* Already signed in (e.g. a half-finished signup left a session) →
                 offer a way out instead of a pointless "Sign in". Signed out → the
@@ -333,11 +355,11 @@ export default function OnboardingScreen() {
 
   // The editorial curation beat — full-bleed, immersive, no chrome. Auto-advances
   // to account creation when the lines finish.
-  if (step === 6 && intent && chronotype && friction) {
+  if (step === 5 && intent && chronotype) {
     return (
       <CurationLoader
-        lines={curationLines(intent, chronotype, friction, routineMinutes)}
-        onDone={() => setStep(7)}
+        lines={curationLines(intent, chronotype, routineMinutes)}
+        onDone={() => setStep(6)}
       />
     )
   }
@@ -381,6 +403,7 @@ export default function OnboardingScreen() {
                 blurb={o.blurb}
                 selected={intent === o.value}
                 onPress={() => setIntent(o.value)}
+                onInfoPress={() => setIntentInfo(o.value)}
               />
             ))}
           </Question>
@@ -401,19 +424,6 @@ export default function OnboardingScreen() {
         )}
 
         {step === 3 && (
-          <Question title="Where do your mornings usually go wrong?">
-            {FRICTION.map((o) => (
-              <ChoiceCard
-                key={o.value}
-                title={o.title}
-                selected={friction === o.value}
-                onPress={() => setFriction(o.value)}
-              />
-            ))}
-          </Question>
-        )}
-
-        {step === 4 && (
           <Question
             title="How long can your morning routine run?"
             caption="A starting point — you’ll confirm it each evening."
@@ -429,7 +439,7 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 5 && (
+        {step === 4 && (
           <Question
             title="A little about you."
             caption="Age and gender meaningfully shape what a good morning looks like, so they help us get your routine right. Optional, and always private to you."
@@ -462,13 +472,13 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 7 && (
+        {step === 6 && (
           <View>
             <Text style={styles.questionTitle}>Your routine is ready.</Text>
             <Text style={styles.caption}>
-              {session
-                ? 'Save it and pick up tomorrow morning.'
-                : 'Create an account to save it and pick up tomorrow morning.'}
+              {needsAccount
+                ? 'Create an account to save it and pick up tomorrow morning.'
+                : 'Save it and pick up tomorrow morning.'}
             </Text>
             <View style={styles.accountForm}>
               <TextInput
@@ -495,7 +505,7 @@ export default function OnboardingScreen() {
                 textContentType="familyName"
                 editable={!saving}
               />
-              {!session && (
+              {needsAccount && (
                 <>
                   <TextInput
                     style={styles.input}
@@ -532,7 +542,7 @@ export default function OnboardingScreen() {
         <View style={styles.footer}>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          {step === 5 && (
+          {step === 4 && (
             <Pressable
               onPress={next}
               disabled={saving}
@@ -545,7 +555,7 @@ export default function OnboardingScreen() {
 
           <Pressable
             style={[styles.button, !buttonEnabled && styles.buttonDisabled]}
-            onPress={step === 7 ? createAccount : next}
+            onPress={step === 6 ? createAccount : next}
             disabled={!buttonEnabled}
             accessibilityRole="button"
           >
@@ -553,12 +563,35 @@ export default function OnboardingScreen() {
               <ActivityIndicator color={day.onAccent} />
             ) : (
               <Text style={styles.buttonLabel}>
-                {step === 7 ? (session ? 'Save my routine' : 'Create account') : 'Continue'}
+                {step === 6 ? (needsAccount ? 'Create account' : 'Save my routine') : 'Continue'}
               </Text>
             )}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {/* The ⓘ explainer for an intent on the first question. Same editorial
+          modal treatment as the welcome screen's science popup. */}
+      <Modal
+        visible={intentInfo !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIntentInfo(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setIntentInfo(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>
+              {INTENTS.find((o) => o.value === intentInfo)?.title}
+            </Text>
+            <Text style={styles.modalBody}>
+              {INTENTS.find((o) => o.value === intentInfo)?.info}
+            </Text>
+            <Pressable style={styles.modalClose} onPress={() => setIntentInfo(null)}>
+              <Text style={styles.modalCloseLabel}>Got it</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -602,11 +635,14 @@ function ChoiceCard({
   blurb,
   selected,
   onPress,
+  onInfoPress,
 }: {
   title: string
   blurb?: string
   selected: boolean
   onPress: () => void
+  /** Renders a small ⓘ next to the title that opens an explainer. */
+  onInfoPress?: () => void
 }) {
   return (
     <Pressable
@@ -616,7 +652,21 @@ function ChoiceCard({
       accessibilityState={{ selected }}
     >
       <View style={styles.cardText}>
-        <Text style={[styles.cardTitle, selected && styles.cardTitleOn]}>{title}</Text>
+        <View style={styles.cardTitleRow}>
+          <Text style={[styles.cardTitle, selected && styles.cardTitleOn]}>{title}</Text>
+          {onInfoPress && (
+            <Pressable
+              onPress={onInfoPress}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`About ${title}`}
+            >
+              <View style={styles.cardInfoBadge}>
+                <Text style={styles.cardInfoBadgeText}>i</Text>
+              </View>
+            </Pressable>
+          )}
+        </View>
         {blurb ? <Text style={styles.cardBlurb}>{blurb}</Text> : null}
       </View>
       {selected && <Feather name="check" size={20} color={day.gold} />}
@@ -687,6 +737,12 @@ const styles = StyleSheet.create({
   welcomeRoot: {
     flex: 1,
     backgroundColor: day.background,
+  },
+  // Fades the welcome photo back without flattening it — same cream as the app
+  // background. Heavier wash so the copy clearly leads and the sunrise reads as
+  // a backdrop, not a photo.
+  welcomeWash: {
+    backgroundColor: 'rgba(250, 248, 244, 0.45)',
   },
   welcomeSafe: {
     flex: 1,
@@ -780,7 +836,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   tabScienceLine: {
-    fontFamily: 'PlayfairDisplay_500Medium',
+    fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 13,
     lineHeight: 18,
     color: day.gold,
@@ -859,10 +915,34 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardTitle: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 18,
     color: day.text,
+  },
+  // The small ⓘ next to a choice title — a circled serif italic "i", matching
+  // the editorial info marks elsewhere in the app.
+  cardInfoBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardInfoBadgeText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontStyle: 'italic',
+    fontSize: 11,
+    lineHeight: 12,
+    color: day.gold,
+    includeFontPadding: false,
   },
   cardTitleOn: {
     color: day.gold,

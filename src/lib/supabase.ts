@@ -13,8 +13,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+// The storage key the session persists under. Pinned to the same value supabase
+// derives by default (`sb-<project-ref>-auth-token`) so existing sessions stay
+// valid — made explicit so sign-out can force-remove it when supabase's own
+// signOut() fails (it keeps the local session whenever server revocation fails).
+export const AUTH_STORAGE_KEY = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
+    storageKey: AUTH_STORAGE_KEY,
     // AsyncStorage persists the session on native between launches. On web we
     // omit it so supabase uses localStorage in a real browser and falls back to
     // in-memory during static (server-side) web rendering. Passing AsyncStorage
