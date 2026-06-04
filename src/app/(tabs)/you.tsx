@@ -20,8 +20,16 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { TrendChart } from '@/components/you/TrendChart'
 import { useAuth } from '@/lib/auth'
-import { completedDayCount } from '@/lib/days'
+import { daysForStats, logicalDate } from '@/lib/days'
 import { useProfile } from '@/lib/profile'
+import {
+  computeYouStats,
+  METRICS,
+  METRIC_LABEL,
+  type GapKey,
+  type Metric,
+  type YouStats,
+} from '@/lib/stats'
 import { day } from '@/theme/colors'
 
 // The You page — who you're becoming. The mirror to Today's "what to do now":
@@ -37,94 +45,78 @@ import { day } from '@/theme/colors'
 // Motion: sections cascade in on first open; the streak counts up; the chart
 // draws itself and morphs between metrics; pills give spring feedback.
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cold-start gate. Until the real stats pipeline lands, the rich layout shows
-// SAMPLE numbers (the block below) — so PREVIEW_WITH_SAMPLE_DATA=true forces it
-// regardless of history. Flip to false to see the honest cold-start experience.
-// When real stats land, delete the flag and the sample block together.
-// ─────────────────────────────────────────────────────────────────────────────
-const PREVIEW_WITH_SAMPLE_DATA = true
 const MIN_MORNINGS_FOR_TRENDS = 3
 
+// Label + color for each gap-mix segment; the stats pipeline supplies the pcts.
+const GAP_META: Record<GapKey, { label: string; color: string }> = {
+  deficit: { label: 'In a deficit', color: day.negative },
+  aligned: { label: 'Aligned', color: day.gold },
+  surplus: { label: 'In surplus', color: day.positive },
+}
+const GAP_ORDER: GapKey[] = ['deficit', 'aligned', 'surplus']
+
 // ─────────────────────────────────────────────────────────────────────────────
-// PLACEHOLDER DATA — sample/static values for the rich layout. Wire to real
-// `days` history (src/lib/days.ts) when the stats pipeline lands. The profile
-// (name, intent, created_at), the day count, and Sign out are real.
+// TEMPORARY — marketing footage only. When PREVIEW_WITH_SAMPLE_DATA is true, the
+// You page renders these sample numbers (fully populated streak, trends, graphs)
+// instead of the user's real history — the name still comes from the real
+// profile. The real pipeline (computeYouStats) stays wired and untouched.
+// ⚠️ SET BACK TO false BEFORE SHIPPING.
 // ─────────────────────────────────────────────────────────────────────────────
-
-type Metric = 'energy' | 'mood' | 'focus'
-
-const TREND: Record<Metric, number[]> = {
-  energy: [5.2, 5.8, 5.1, 6.4, 6.0, 5.6, 6.8, 6.2, 7.1, 6.6, 7.4, 7.0, 7.8, 8.2],
-  mood: [5.8, 6.2, 5.6, 6.0, 6.6, 7.0, 6.4, 6.8, 7.2, 6.9, 7.0, 7.6, 7.4, 8.0],
-  focus: [4.8, 5.2, 5.8, 5.4, 6.2, 5.9, 6.6, 6.1, 6.8, 7.2, 6.9, 7.5, 7.9, 7.6],
-}
-
-const TREND_DELTA: Record<Metric, string> = {
-  energy: 'Energy is running 12% above the week before.',
-  mood: 'Mood is running 8% above the week before.',
-  focus: 'Focus is running 15% above the week before.',
-}
-
-const METRIC_LABEL: Record<Metric, string> = {
-  energy: 'Energy',
-  mood: 'Mood',
-  focus: 'Focus',
-}
-
-const STREAK = { current: 12, best: 18 }
-
-// The current week, Monday-first. 'done' | 'missed' | 'ahead' (not yet reached).
-const WEEK: { initial: string; status: 'done' | 'missed' | 'ahead' }[] = [
-  { initial: 'M', status: 'done' },
-  { initial: 'T', status: 'done' },
-  { initial: 'W', status: 'done' },
-  { initial: 'T', status: 'done' },
-  { initial: 'F', status: 'missed' },
-  { initial: 'S', status: 'done' },
-  { initial: 'S', status: 'ahead' },
-]
-
-// How the user has been arriving to their days, as a share of mornings.
-const GAP_MIX = [
-  { key: 'deficit', label: 'In a deficit', pct: 23, color: day.negative },
-  { key: 'aligned', label: 'Aligned', pct: 58, color: day.gold },
-  { key: 'surplus', label: 'In surplus', pct: 19, color: day.positive },
-] as const
-
-const PATTERNS: {
-  icon: React.ComponentProps<typeof Feather>['name']
-  title: string
-  body: string
-}[] = [
-  {
-    icon: 'trending-up',
-    title: 'Movement compounds',
-    body: 'Mornings that start with your body moving run about 18% higher energy through the afternoon.',
+const PREVIEW_WITH_SAMPLE_DATA = false
+const SAMPLE_STATS: YouStats = {
+  trend: {
+    energy: [5.2, 5.8, 5.1, 6.4, 6.0, 5.6, 6.8, 6.2, 7.1, 6.6, 7.4, 7.0, 7.8, 8.2],
+    mood: [5.8, 6.2, 5.6, 6.0, 6.6, 7.0, 6.4, 6.8, 7.2, 6.9, 7.0, 7.6, 7.4, 8.0],
+    focus: [4.8, 5.2, 5.8, 5.4, 6.2, 5.9, 6.6, 6.1, 6.8, 7.2, 6.9, 7.5, 7.9, 7.6],
   },
-  {
-    icon: 'sun',
-    title: 'Light is your lever',
-    body: 'When you get outside light in the first hour, your mood holds past 3pm instead of dipping.',
+  trendLabels: [
+    'May 21', 'May 22', 'May 23', 'May 24', 'May 25', 'May 26', 'May 27',
+    'May 28', 'May 29', 'May 30', 'May 31', 'Jun 1', 'Jun 2', 'Today',
+  ],
+  trendDelta: {
+    energy: 'Energy is running 12% above the week before.',
+    mood: 'Mood is running 8% above the week before.',
+    focus: 'Focus is running 15% above the week before.',
   },
-]
-
-const PORTFOLIO = [
-  { value: '34', label: 'mornings built' },
-  { value: '7.2h', label: 'invested in you' },
-  { value: 'Tue', label: 'strongest day' },
-  { value: '86%', label: 'follow-through' },
-]
+  hasTrend: true,
+  reflectionCount: 14,
+  streak: { current: 12, best: 18 },
+  week: [
+    { initial: 'M', status: 'done' },
+    { initial: 'T', status: 'done' },
+    { initial: 'W', status: 'done' },
+    { initial: 'T', status: 'done' },
+    { initial: 'F', status: 'missed' },
+    { initial: 'S', status: 'done' },
+    { initial: 'S', status: 'ahead' },
+  ],
+  gapMix: [
+    { key: 'deficit', pct: 23 },
+    { key: 'aligned', pct: 58 },
+    { key: 'surplus', pct: 19 },
+  ],
+  gapRead:
+    "Most mornings, you're matched to what your day asks. The work now is turning deficits into alignment.",
+  portfolio: { morningsBuilt: 34, hoursInvested: '7.2h', strongestDay: 'Tue', followThrough: '86%' },
+  patterns: [
+    {
+      icon: 'trending-up',
+      title: 'Movement compounds',
+      body: 'Mornings that start with your body moving run about 18% higher energy through the afternoon.',
+    },
+    {
+      icon: 'sun',
+      title: 'Light is your lever',
+      body: 'When you get outside light in the first hour, your mood holds past 3pm instead of dipping.',
+    },
+  ],
+}
 
 // ── Real-data helpers ────────────────────────────────────────────────────────
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
-]
-const SHORT_MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ]
 
 // "Building calmer mornings" — the identity line under the name, from intent.
@@ -139,17 +131,6 @@ function memberSince(createdAt: string | undefined): string | null {
   const d = new Date(createdAt)
   if (Number.isNaN(d.getTime())) return null
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-}
-
-/** Calendar labels for the chart's scrub readout: "May 18" … "Today". */
-function lastNDayLabels(n: number): string[] {
-  const out: string[] = []
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    out.push(i === 0 ? 'Today' : `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`)
-  }
-  return out
 }
 
 // ── Motion helpers ───────────────────────────────────────────────────────────
@@ -225,18 +206,24 @@ export default function YouScreen() {
   // runs (it can take a moment offline before the local fallback kicks in).
   const [signingOut, setSigningOut] = useState(false)
 
-  // Real history count → drives the cold-start gate. Refreshed on focus so the
-  // page advances as mornings accumulate.
+  // Real stats, computed from the user's `days` history. Refreshed on focus so
+  // the page advances as mornings accumulate. `dayCount` (activity days) drives
+  // the cold-start gate; null while the first load is in flight.
+  const [stats, setStats] = useState<YouStats | null>(null)
   const [dayCount, setDayCount] = useState<number | null>(null)
   useFocusEffect(
     useCallback(() => {
       let active = true
-      completedDayCount()
-        .then((c) => {
-          if (active) setDayCount(c)
+      daysForStats()
+        .then((rows) => {
+          if (!active) return
+          setDayCount(rows.length) // rows are already filtered to activity days
+          setStats(computeYouStats(rows, logicalDate()))
         })
         .catch(() => {
-          if (active) setDayCount(0)
+          if (!active) return
+          setDayCount(0)
+          setStats(null)
         })
       return () => {
         active = false
@@ -255,15 +242,17 @@ export default function YouScreen() {
   }, [settings])
 
   const count = dayCount ?? 0
+  // PREVIEW swaps in sample stats for marketing footage; real path otherwise.
+  const viewStats = PREVIEW_WITH_SAMPLE_DATA ? SAMPLE_STATS : stats
   const hasHistory = PREVIEW_WITH_SAMPLE_DATA || count >= MIN_MORNINGS_FOR_TRENDS
+  const loadingStats = !PREVIEW_WITH_SAMPLE_DATA && stats === null && dayCount === null
 
   const firstName = profile?.first_name?.trim() || 'You'
   const becoming = INTENT_PHRASE[profile?.intent ?? ''] ?? 'better mornings'
   const since = memberSince(profile?.created_at)
   const email = session?.user.email ?? '—'
 
-  const streakValue = useCountUp(hasHistory ? STREAK.current : 0)
-  const chartLabels = lastNDayLabels(TREND[metric].length)
+  const streakValue = useCountUp(hasHistory && viewStats ? viewStats.streak.current : 0)
 
   // Chart canvas: screen minus the page padding and the card's inner padding.
   const chartWidth = screenWidth - PAGE_PAD * 2 - CARD_PAD * 2
@@ -301,7 +290,13 @@ export default function YouScreen() {
           </View>
         </Section>
 
-        {hasHistory ? (
+        {loadingStats ? (
+          <Section delay={90}>
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={day.gold} />
+            </View>
+          </Section>
+        ) : hasHistory && viewStats ? (
           <>
             {/* ── Streak hero ──────────────────────────────────────────────── */}
             <Section delay={90}>
@@ -312,13 +307,13 @@ export default function YouScreen() {
                 </View>
                 <View style={styles.streakDivider} />
                 <View>
-                  <Text style={styles.streakBest}>{STREAK.best}</Text>
+                  <Text style={styles.streakBest}>{viewStats.streak.best}</Text>
                   <Text style={styles.streakBestLabel}>your best</Text>
                 </View>
               </View>
 
               <View style={styles.weekRow}>
-                {WEEK.map((d, i) => (
+                {viewStats.week.map((d, i) => (
                   <View key={`${d.initial}-${i}`} style={styles.weekDay}>
                     <View
                       style={[
@@ -343,7 +338,7 @@ export default function YouScreen() {
                 <Text style={styles.cardEyebrow}>The last 14 mornings</Text>
 
                 <View style={styles.pillRow}>
-                  {(Object.keys(TREND) as Metric[]).map((m) => (
+                  {METRICS.map((m) => (
                     <SpringPill
                       key={m}
                       label={METRIC_LABEL[m]}
@@ -353,26 +348,37 @@ export default function YouScreen() {
                   ))}
                 </View>
 
-                <View style={styles.chartWrap}>
-                  <TrendChart
-                    data={TREND[metric]}
-                    labels={chartLabels}
-                    width={chartWidth}
-                    height={150}
-                    color={day.gold}
-                  />
-                </View>
+                {viewStats.hasTrend ? (
+                  <>
+                    <View style={styles.chartWrap}>
+                      <TrendChart
+                        data={viewStats.trend[metric]}
+                        labels={viewStats.trendLabels}
+                        width={chartWidth}
+                        height={150}
+                        color={day.gold}
+                      />
+                    </View>
 
-                <View style={styles.chartAxis}>
-                  <Text style={styles.chartAxisLabel}>2 weeks ago</Text>
-                  <Text style={styles.chartAxisHint}>Press &amp; drag to explore</Text>
-                  <Text style={styles.chartAxisLabel}>Today</Text>
-                </View>
+                    <View style={styles.chartAxis}>
+                      <Text style={styles.chartAxisLabel}>{viewStats.trendLabels[0]}</Text>
+                      <Text style={styles.chartAxisHint}>Press &amp; drag to explore</Text>
+                      <Text style={styles.chartAxisLabel}>Today</Text>
+                    </View>
 
-                <View style={styles.deltaRow}>
-                  <Feather name="trending-up" size={14} color={day.positive} />
-                  <Text style={styles.deltaText}>{TREND_DELTA[metric]}</Text>
-                </View>
+                    {viewStats.trendDelta[metric] ? (
+                      <View style={styles.deltaRow}>
+                        <Feather name="trending-up" size={14} color={day.positive} />
+                        <Text style={styles.deltaText}>{viewStats.trendDelta[metric]}</Text>
+                      </View>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text style={styles.coldCardCopy}>
+                    Your trend draws itself as you reflect in the evening —{' '}
+                    {viewStats.reflectionCount} logged so far.
+                  </Text>
+                )}
               </View>
             </Section>
 
@@ -381,58 +387,92 @@ export default function YouScreen() {
               <View style={styles.card}>
                 <Text style={styles.cardEyebrow}>How you arrive to your days</Text>
 
-                <View style={styles.mixBar}>
-                  {GAP_MIX.map((seg, i) => (
-                    <View
-                      key={seg.key}
-                      style={[
-                        styles.mixSegment,
-                        { flex: seg.pct, backgroundColor: seg.color },
-                        i === 0 && styles.mixSegmentFirst,
-                        i === GAP_MIX.length - 1 && styles.mixSegmentLast,
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                <View style={styles.mixLegend}>
-                  {GAP_MIX.map((seg) => (
-                    <View key={seg.key} style={styles.mixLegendRow}>
-                      <View style={[styles.mixSwatch, { backgroundColor: seg.color }]} />
-                      <Text style={styles.mixLabel}>{seg.label}</Text>
-                      <Text style={styles.mixPct}>{seg.pct}%</Text>
+                {viewStats.gapMix ? (
+                  <>
+                    <View style={styles.mixBar}>
+                      {viewStats.gapMix
+                        .filter((seg) => seg.pct > 0)
+                        .map((seg, i, arr) => (
+                          <View
+                            key={seg.key}
+                            style={[
+                              styles.mixSegment,
+                              { flex: seg.pct, backgroundColor: GAP_META[seg.key].color },
+                              i === 0 && styles.mixSegmentFirst,
+                              i === arr.length - 1 && styles.mixSegmentLast,
+                            ]}
+                          />
+                        ))}
                     </View>
-                  ))}
-                </View>
 
-                <Text style={styles.mixRead}>
-                  Most mornings, you&rsquo;re matched to what your day asks. The work now is
-                  turning deficits into alignment.
-                </Text>
+                    <View style={styles.mixLegend}>
+                      {viewStats.gapMix.map((seg) => (
+                        <View key={seg.key} style={styles.mixLegendRow}>
+                          <View
+                            style={[styles.mixSwatch, { backgroundColor: GAP_META[seg.key].color }]}
+                          />
+                          <Text style={styles.mixLabel}>{GAP_META[seg.key].label}</Text>
+                          <Text style={styles.mixPct}>{seg.pct}%</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {viewStats.gapRead ? <Text style={styles.mixRead}>{viewStats.gapRead}</Text> : null}
+                  </>
+                ) : (
+                  <Text style={styles.coldCardCopy}>
+                    Check in on a morning and Wake starts tracking how you arrive — in
+                    deficit, aligned, or in surplus.
+                  </Text>
+                )}
               </View>
             </Section>
 
             {/* ── Patterns ─────────────────────────────────────────────────── */}
             <Section delay={360}>
               <Text style={styles.sectionEyebrow}>Patterns we&rsquo;re seeing</Text>
-              {PATTERNS.map((p) => (
-                <View key={p.title} style={styles.patternCard}>
+              {viewStats.patterns.length > 0 ? (
+                viewStats.patterns.map((p) => (
+                  <View key={p.title} style={styles.patternCard}>
+                    <View style={styles.patternIcon}>
+                      <Feather
+                        name={p.icon as React.ComponentProps<typeof Feather>['name']}
+                        size={16}
+                        color={day.gold}
+                      />
+                    </View>
+                    <View style={styles.patternText}>
+                      <Text style={styles.patternTitle}>{p.title}</Text>
+                      <Text style={styles.patternBody}>{p.body}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.patternCard}>
                   <View style={styles.patternIcon}>
-                    <Feather name={p.icon} size={16} color={day.gold} />
+                    <Feather name="eye" size={16} color={day.gold} />
                   </View>
                   <View style={styles.patternText}>
-                    <Text style={styles.patternTitle}>{p.title}</Text>
-                    <Text style={styles.patternBody}>{p.body}</Text>
+                    <Text style={styles.patternTitle}>Still taking shape.</Text>
+                    <Text style={styles.patternBody}>
+                      A few more mornings and Wake will surface what actually moves your
+                      energy, mood, and focus.
+                    </Text>
                   </View>
                 </View>
-              ))}
+              )}
             </Section>
 
             {/* ── Portfolio ────────────────────────────────────────────────── */}
             <Section delay={450}>
               <Text style={styles.sectionEyebrow}>Your mornings so far</Text>
               <View style={styles.statGrid}>
-                {PORTFOLIO.map((s) => (
+                {[
+                  { value: String(viewStats.portfolio.morningsBuilt), label: 'mornings built' },
+                  { value: viewStats.portfolio.hoursInvested, label: 'invested in you' },
+                  { value: viewStats.portfolio.strongestDay, label: 'strongest day' },
+                  { value: viewStats.portfolio.followThrough, label: 'follow-through' },
+                ].map((s) => (
                   <View key={s.label} style={styles.statCell}>
                     <Text style={styles.statValue}>{s.value}</Text>
                     <Text style={styles.statLabel}>{s.label}</Text>
@@ -487,10 +527,10 @@ export default function YouScreen() {
                 <Text style={styles.cardEyebrow}>How you arrive to your days</Text>
                 <View style={styles.coldMixBar} />
                 <View style={styles.mixLegend}>
-                  {GAP_MIX.map((seg) => (
-                    <View key={seg.key} style={styles.mixLegendRow}>
-                      <View style={[styles.mixSwatch, { backgroundColor: seg.color }]} />
-                      <Text style={styles.mixLabel}>{seg.label}</Text>
+                  {GAP_ORDER.map((key) => (
+                    <View key={key} style={styles.mixLegendRow}>
+                      <View style={[styles.mixSwatch, { backgroundColor: GAP_META[key].color }]} />
+                      <Text style={styles.mixLabel}>{GAP_META[key].label}</Text>
                       <Text style={styles.mixPctEmpty}>—</Text>
                     </View>
                   ))}
@@ -896,6 +936,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Cold start ──────────────────────────────────────────────────────────────
+  loadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
   coldHero: {
     alignItems: 'center',
     marginTop: 30,

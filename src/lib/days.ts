@@ -1,4 +1,5 @@
 import type { DayReads, Lookback, Plan, ReadinessState } from '@/engine/types'
+import type { StatsDay } from './stats'
 import { supabase } from './supabase'
 import { logicalNow } from './time'
 
@@ -158,6 +159,30 @@ export async function completedDayCount(): Promise<number> {
     .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
   if (error) throw error
   return count ?? 0
+}
+
+// The stats row shape lives in stats.ts (kept pure/testable); re-export it here so
+// callers can get it alongside `daysForStats`. Type-only — no runtime dependency.
+export type { StatsDay }
+
+/**
+ * Every day with any activity, oldest → newest — the source for the You page's
+ * real stats (streak, trends, gap mix, portfolio). Bounded to a generous window
+ * so the query stays light; an early-stage user is well within it.
+ */
+export async function daysForStats(limit = 400): Promise<StatsDay[]> {
+  const userId = await currentUserId()
+  const { data, error } = await supabase
+    .from('days')
+    .select(
+      'local_date, morning_completed_at, evening_completed_at, state, energy, mood, focus, routine_minutes, plan, completed_slugs',
+    )
+    .eq('user_id', userId)
+    .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
+    .order('local_date', { ascending: true })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as StatsDay[]
 }
 
 /**
