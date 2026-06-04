@@ -181,6 +181,7 @@ export function generatePlan(input: PlanInput): Plan {
     oneThing,
     sequence,
     accent: framing.accent,
+    source: 'deterministic',
   }
 }
 

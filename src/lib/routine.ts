@@ -99,10 +99,11 @@ async function personalizeState(
     })
     if (error || typeof data?.text !== 'string') throw error ?? new Error('No model text')
     const { sequence, oneThing } = parsePersonalizedSequence(data.text, state, budget)
-    // Reuse the deterministic framing; swap in the personalized moves.
-    return { ...fallback, sequence, oneThing }
+    // Reuse the deterministic framing; swap in the personalized moves. Mark the
+    // plan as Claude-built so the dev indicator can tell it apart from a fallback.
+    return { ...fallback, sequence, oneThing, source: 'claude' }
   } catch {
-    return fallback
+    return fallback // already source: 'deterministic' from generatePlan
   }
 }
 

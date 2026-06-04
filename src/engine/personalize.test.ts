@@ -52,6 +52,19 @@ describe('parsePersonalizedSequence', () => {
     expect(oneThing.slug).toBe('move-body-3')
   })
 
+  it('parses JSON wrapped in markdown code fences (real Haiku output)', () => {
+    // Haiku frequently wraps its JSON in ```json … ``` despite "no markdown".
+    const fenced = '```json\n' + JSON.stringify(validResponse) + '\n```'
+    const { oneThing } = parsePersonalizedSequence(fenced, 'deficit', 20)
+    expect(oneThing.slug).toBe('move-body-3')
+  })
+
+  it('parses JSON with a stray line of prose around it', () => {
+    const noisy = 'Here is the routine:\n' + JSON.stringify(validResponse) + '\nLet me know!'
+    const { oneThing } = parsePersonalizedSequence(noisy, 'deficit', 20)
+    expect(oneThing.slug).toBe('move-body-3')
+  })
+
   it('rejects an unknown move slug', () => {
     const bad = { ...validResponse, moves: [{ slug: 'not-a-real-move', example: 'x' }], leadSlug: 'not-a-real-move' }
     expect(() => parsePersonalizedSequence(bad, 'deficit', 20)).toThrow(/unknown move/)

@@ -201,9 +201,37 @@ export function TodayHome({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top-right affordance: the Today tab passes onSettings (gear → You →
+        {/* Top row: a dev-only "who built this plan" badge on the left, and the
+            top-right affordance — the Today tab passes onSettings (gear → You →
             Settings); the sample flow passes onClose (X → back where you came). */}
         <View style={styles.iconRow}>
+          <View>
+            {__DEV__ && plan?.source ? (
+              <View
+                style={[
+                  styles.devBadge,
+                  plan.source === 'claude' ? styles.devBadgeClaude : styles.devBadgeFallback,
+                ]}
+              >
+                <Feather
+                  name={plan.source === 'claude' ? 'zap' : 'cpu'}
+                  size={10}
+                  color={plan.source === 'claude' ? '#FFFFFF' : COLORS.tagline}
+                />
+                <Text
+                  style={[
+                    styles.devBadgeText,
+                    plan.source === 'claude'
+                      ? styles.devBadgeTextClaude
+                      : styles.devBadgeTextFallback,
+                  ]}
+                >
+                  {plan.source === 'claude' ? 'Claude' : 'Fallback'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
           {onSettings ? (
             <Pressable
               hitSlop={10}
@@ -222,7 +250,9 @@ export function TodayHome({
             >
               <Feather name="x" size={20} color={COLORS.tagline} />
             </Pressable>
-          ) : null}
+          ) : (
+            <View />
+          )}
         </View>
 
         <View style={styles.titleBlock}>
@@ -517,10 +547,39 @@ const styles = StyleSheet.create({
   },
   iconRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between', // dev badge on the left, affordance on the right
     alignItems: 'center',
     paddingTop: 8,
     minHeight: 26, // keeps the title block put even when there's no icon
+  },
+  // Dev-only "who built this plan" badge. Never renders in production (__DEV__).
+  devBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 11,
+  },
+  devBadgeClaude: {
+    backgroundColor: COLORS.gold, // earned it — gold, like the accent
+  },
+  devBadgeFallback: {
+    backgroundColor: COLORS.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.divider,
+  },
+  devBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  devBadgeTextClaude: {
+    color: '#FFFFFF',
+  },
+  devBadgeTextFallback: {
+    color: COLORS.tagline,
   },
   titleBlock: {
     alignItems: 'center',

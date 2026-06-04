@@ -167,4 +167,11 @@ export interface Plan {
   sequence: Action[]
   /** UI tone for the state. */
   accent: 'amber' | 'neutral' | 'bright'
+  /**
+   * Who built this plan: 'claude' when the personalization layer produced and
+   * validated it, 'deterministic' when the engine packer did (the fallback, and
+   * the sample routine). Used only by a dev-only indicator so we can see whether
+   * personalization actually ran — never shown to real users.
+   */
+  source?: 'claude' | 'deterministic'
 }

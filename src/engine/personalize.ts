@@ -115,8 +115,26 @@ export function buildMessages(
   return { system: SYSTEM_PROMPT, user }
 }
 
+/**
+ * Pull the JSON object out of a model's raw text. Even with "no markdown" in the
+ * prompt, models (Haiku especially) often wrap the JSON in ```json fences or add
+ * a stray line of prose. Strip a fenced block if present, otherwise slice from
+ * the first `{` to the last `}`. Without this, JSON.parse throws on the backticks
+ * and the whole personalization silently falls back to the deterministic plan.
+ */
+function extractJsonObject(raw: string): string {
+  const trimmed = raw.trim()
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  const body = (fenced ? fenced[1] : trimmed).trim()
+  if (body.startsWith('{') && body.endsWith('}')) return body
+  const start = body.indexOf('{')
+  const end = body.lastIndexOf('}')
+  if (start !== -1 && end > start) return body.slice(start, end + 1)
+  return body // let JSON.parse throw a clear error if there's no object at all
+}
+
 function parseResponse(raw: string | PersonalizedResponse): PersonalizedResponse {
-  const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
+  const obj = typeof raw === 'string' ? JSON.parse(extractJsonObject(raw)) : raw
   if (!obj || typeof obj !== 'object') throw new Error('Personalization: response not an object')
   const moves = (obj as PersonalizedResponse).moves
   const leadSlug = (obj as PersonalizedResponse).leadSlug
