@@ -47,6 +47,12 @@ type Props = {
 
 type Pt = { x: number; y: number }
 
+// Curve tension: how far each control point reaches toward its neighbours. The
+// textbook Catmull-Rom value is 1/6 ≈ 0.167, which reads as nearly-straight,
+// sharp-cornered segments. A higher value bows the connections into the soft,
+// rounded curve a wellness chart wants. ~0.27 is round without overshooting wildly.
+const CURVE_TENSION = 0.27
+
 /** Catmull-Rom → cubic bezier, for a naturally smooth curve through every point. */
 function buildLine(points: Pt[]): string {
   'worklet'
@@ -57,10 +63,10 @@ function buildLine(points: Pt[]): string {
     const p1 = points[i]
     const p2 = points[i + 1]
     const p3 = points[Math.min(points.length - 1, i + 2)]
-    const cp1x = p1.x + (p2.x - p0.x) / 6
-    const cp1y = p1.y + (p2.y - p0.y) / 6
-    const cp2x = p2.x - (p3.x - p1.x) / 6
-    const cp2y = p2.y - (p3.y - p1.y) / 6
+    const cp1x = p1.x + (p2.x - p0.x) * CURVE_TENSION
+    const cp1y = p1.y + (p2.y - p0.y) * CURVE_TENSION
+    const cp2x = p2.x - (p3.x - p1.x) * CURVE_TENSION
+    const cp2y = p2.y - (p3.y - p1.y) * CURVE_TENSION
     d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
   }
   return d
