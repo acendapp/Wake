@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeYouStats, type StatsDay } from './stats'
+import { computeTodayInsight, computeYouStats, type StatsDay } from './stats'
 import type { Plan } from '../engine/types'
 
 // A throwaway plan whose focal slug we control, for follow-through / patterns.
@@ -190,5 +190,25 @@ describe('computeYouStats — patterns', () => {
       ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { plan: plan('a'), completed_slugs: [], energy: 5 })),
     ]
     expect(computeYouStats(rows, '2026-06-30').patterns).toHaveLength(0)
+  })
+})
+
+describe('computeTodayInsight', () => {
+  it('returns a line when focal completion clearly tracks higher energy', () => {
+    const rows = [
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { plan: plan('a'), completed_slugs: ['a'], energy: 8 })),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { plan: plan('a'), completed_slugs: [], energy: 5 })),
+    ]
+    expect(computeTodayInsight(rows)).toBe(
+      'Days you finish your focal point, your energy runs about 3.0 higher.',
+    )
+  })
+
+  it('returns null when the data is too thin or the gap is small', () => {
+    expect(computeTodayInsight([])).toBeNull()
+    const flat = Array(6)
+      .fill(0)
+      .map((_, i) => mk(`2026-06-0${i + 1}`, { plan: plan('a'), completed_slugs: i < 3 ? ['a'] : [], energy: 6 }))
+    expect(computeTodayInsight(flat)).toBeNull() // no lift
   })
 })

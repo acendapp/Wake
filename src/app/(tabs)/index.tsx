@@ -21,7 +21,7 @@ import type { ReadinessState } from '@/engine/types'
 import { resolveMorningPlan } from '@/lib/routine'
 import {
   addDays,
-  completedDayCount,
+  daysForStats,
   getDay,
   logicalDate,
   saveMorning,
@@ -29,6 +29,7 @@ import {
 } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
 import { useProfile } from '@/lib/profile'
+import { computeTodayInsight } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { getWeather, type Weather } from '@/lib/weather'
 
@@ -91,6 +92,10 @@ export default function Index() {
   // never see the welcome flash while the count loads.
   const [hasHistory, setHasHistory] = useState(true)
 
+  // A real one-line insight from history for the Focal Point card; null until
+  // there's enough data, where the card shows an honest "patterns forming" line.
+  const [insight, setInsight] = useState<string | null>(null)
+
   // Morning check-in inputs (used only until checked in). `forceCheckIn` lets the
   // evening "log today anyway" link drop into the check-in past the pivot.
   const [readinessInput, setReadinessInput] = useState(6)
@@ -104,14 +109,15 @@ export default function Index() {
     void getWeather().then(setWeather)
     try {
       const date = logicalDate()
-      const [t, y, count] = await Promise.all([
+      const [t, y, rows] = await Promise.all([
         getDay(date),
         getDay(addDays(date, -1)),
-        completedDayCount(),
+        daysForStats(),
       ])
       setToday(t)
       setYesterday(y)
-      setHasHistory(count > 0)
+      setHasHistory(rows.length > 0) // rows are already filtered to activity days
+      setInsight(computeTodayInsight(rows))
     } catch (e) {
       setLoadError(errorMessage(e, 'Could not load today.'))
     } finally {
@@ -419,6 +425,7 @@ export default function Index() {
       completedSlugs={row.completed_slugs ?? []}
       lastNight={lastNightWord(yesterday?.energy)}
       routineTime={row.routine_minutes != null ? `${row.routine_minutes} min` : '—'}
+      insight={insight}
       onStart={() => router.push('/routine')}
       // Settings gear (same as the You page's) — jumps to You → Settings. The
       // fresh timestamp param makes every tap re-trigger the scroll there.

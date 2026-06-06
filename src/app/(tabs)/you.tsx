@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
-import { useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
@@ -199,6 +199,7 @@ export default function YouScreen() {
   const { session, signOut } = useAuth()
   const { width: screenWidth } = useWindowDimensions()
   const scrollRef = useRef<ScrollView>(null)
+  const router = useRouter()
 
   const [metric, setMetric] = useState<Metric>('energy')
 
@@ -579,7 +580,12 @@ export default function YouScreen() {
         <Section delay={hasHistory ? 630 : 540}>
           <Text style={styles.sectionEyebrow}>Settings</Text>
           <View style={styles.settingsCard}>
-            <SettingsRow icon="sliders" title="Morning signals" sub="Intent, time budget, chronotype" />
+            <SettingsRow
+              icon="sliders"
+              title="Morning signals"
+              sub="Intent, time budget, chronotype"
+              onPress={() => router.push('/morning-signals')}
+            />
             <View style={styles.settingsSeparator} />
             <SettingsRow icon="bell" title="Notifications" sub="Wake-up nudge, evening reminder" />
             <View style={styles.settingsSeparator} />
@@ -616,19 +622,21 @@ export default function YouScreen() {
   )
 }
 
-// A quiet settings row — icon chip, title + subline, chevron. Not yet wired:
-// these become real screens when their features land.
+// A quiet settings row — icon chip, title + subline, chevron. Rows without an
+// onPress are still inert (their feature hasn't landed yet).
 function SettingsRow({
   icon,
   title,
   sub,
+  onPress,
 }: {
   icon: React.ComponentProps<typeof Feather>['name']
   title: string
   sub: string
+  onPress?: () => void
 }) {
   return (
-    <Pressable style={styles.settingsRow} accessibilityRole="button">
+    <Pressable style={styles.settingsRow} onPress={onPress} accessibilityRole="button">
       <View style={styles.settingsIcon}>
         <Feather name={icon} size={15} color={day.text} />
       </View>

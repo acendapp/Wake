@@ -148,7 +148,7 @@ export default function RoutineScreen() {
         completedSlugs={completed}
         lastNight="Steady"
         routineTime={`${SAMPLE_MINUTES} min`}
-        insightAction="stretch"
+        insight="Days you finish your focal point, your energy runs about 2 points higher."
         onStart={() => setPhase('focal')}
         onClose={close}
       />

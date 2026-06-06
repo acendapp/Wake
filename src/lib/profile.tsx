@@ -107,6 +107,32 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
   return data as ProfileRow
 }
 
+/**
+ * Patch a subset of the signed-in user's standing signals (the Morning signals
+ * settings screen). Only the provided fields are written; the row already exists
+ * for any onboarded user. These feed the personalization layer, so changing them
+ * shapes the next routine.
+ */
+export async function updateProfile(patch: {
+  intent?: Intent
+  chronotype?: Chronotype
+  routineMinutes?: number
+}): Promise<ProfileRow> {
+  const userId = await currentUserId()
+  const dbPatch: Record<string, unknown> = {}
+  if (patch.intent !== undefined) dbPatch.intent = patch.intent
+  if (patch.chronotype !== undefined) dbPatch.chronotype = patch.chronotype
+  if (patch.routineMinutes !== undefined) dbPatch.routine_minutes = patch.routineMinutes
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(dbPatch)
+    .eq('id', userId)
+    .select()
+    .single()
+  if (error) throw error
+  return data as ProfileRow
+}
+
 // ── provider ─────────────────────────────────────────────────────────────────
 
 type ProfileContextValue = {

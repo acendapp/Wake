@@ -272,3 +272,23 @@ function computePatterns(rows: StatsDay[]): PatternCard[] {
     },
   ]
 }
+
+/**
+ * A short, real one-liner for the Today screen's insight slot — or null when the
+ * data can't yet support an honest one. Same conservative basis as the You-page
+ * pattern (focal-completion vs that day's energy): ≥3 days in each group and a
+ * ≥0.5-point gap, phrased as a same-day association, never a causal claim.
+ */
+export function computeTodayInsight(rows: StatsDay[]): string | null {
+  const usable = rows.filter((r) => r.plan != null && r.energy != null)
+  const done: number[] = []
+  const skip: number[] = []
+  for (const r of usable) {
+    const focal = (r.plan as NonNullable<StatsDay['plan']>).oneThing.slug
+    ;((r.completed_slugs ?? []).includes(focal) ? done : skip).push(r.energy as number)
+  }
+  if (done.length < 3 || skip.length < 3) return null
+  const lift = avg(done) - avg(skip)
+  if (lift < 0.5) return null
+  return `Days you finish your focal point, your energy runs about ${lift.toFixed(1)} higher.`
+}

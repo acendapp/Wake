@@ -117,9 +117,19 @@ const WEATHER_ICON: Record<WeatherCondition, React.ComponentProps<typeof Ionicon
   storm: 'thunderstorm-outline',
 }
 
+// ⚠️ TEMP (marketing footage): forces the greeting so screen-recordings always
+// read "Good morning" regardless of the real clock. Set back to null to ship.
+const FORCE_GREETING: string | null = null
+
+// ⚠️ TEMP (marketing footage): forces the styled sample insight line on the
+// Focal Point card so it looks populated on camera. Set back to false to ship —
+// the card then shows the real computed `insight` (or the honest fallback).
+const FORCE_SAMPLE_INSIGHT = false
+
 // Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
 // at 1am "Good evening" is right even though the app still treats it as yesterday).
 function greetingWord(hours: number): string {
+  if (FORCE_GREETING) return FORCE_GREETING
   if (hours >= 5 && hours < 12) return 'Good morning'
   if (hours >= 12 && hours < 17) return 'Good afternoon'
   return 'Good evening'
@@ -143,10 +153,11 @@ export type TodayHomeProps = {
   /** Display string for the routine length ("10 min", "—"). */
   routineTime: string
   /**
-   * The action named in the (still mocked) pattern insight — "When you ___, your
-   * focus hits 8+". The sample passes "stretch" to match its focal move.
+   * A real one-line insight from the user's history (see computeTodayInsight),
+   * or null when there isn't enough data yet — in which case the slot shows an
+   * honest "your patterns will show here" line instead of a fabricated stat.
    */
-  insightAction?: string
+  insight?: string | null
   /** The START pill. */
   onStart: () => void
   /** Settings gear, top-right (the Today tab). Mutually exclusive with onClose. */
@@ -165,7 +176,7 @@ export function TodayHome({
   completedSlugs,
   lastNight,
   routineTime,
-  insightAction = 'walk',
+  insight = null,
   onStart,
   onSettings,
   onClose,
@@ -190,9 +201,6 @@ export function TodayHome({
   const activityExample = plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
   const dayDemand = `${dayDifficulty}/10`
-
-  // The pattern insight is still mocked — the real stats pipeline replaces this.
-  const hasInsight = true
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -296,14 +304,16 @@ export function TodayHome({
                   <Feather name="trending-up" size={14} color={COLORS.gold} />
                 </View>
 
-                {hasInsight ? (
+                {FORCE_SAMPLE_INSIGHT ? (
                   <Text style={styles.insightText}>
-                    When you {insightAction}, your focus hits{' '}
-                    <Text style={styles.insightPos}>8+</Text>. Skipping it:{' '}
-                    <Text style={styles.insightNeg}>under 5</Text>.
+                    When you walk, your focus hits{' '}
+                    <Text style={{ color: COLORS.positive }}>8+</Text>. Skipping it:{' '}
+                    <Text style={{ color: COLORS.negative }}>under 5</Text>.
                   </Text>
                 ) : (
-                  <Text style={styles.insightText}>Your patterns will show here soon</Text>
+                  <Text style={styles.insightText}>
+                    {insight ?? 'Your patterns will show here as you check in.'}
+                  </Text>
                 )}
               </View>
             </View>
@@ -871,12 +881,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: COLORS.tagline, // same gray as the day/date
-  },
-  insightPos: {
-    color: COLORS.positive, // green — the upside ("8+")
-  },
-  insightNeg: {
-    color: COLORS.negative, // red — the downside ("under 5")
   },
   gapButton: {
     width: 72,
