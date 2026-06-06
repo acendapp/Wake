@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -103,10 +103,27 @@ export default function Index() {
   const [forceCheckIn, setForceCheckIn] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // Liveness guards. `mounted` blocks any setState after the screen leaves;
+  // `loadGen` makes the newest load() the only one allowed to commit, so two
+  // focus-reloads racing can't resolve out of order and clobber fresh data
+  // with stale.
+  const mounted = useRef(true)
+  const loadGen = useRef(0)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   const load = useCallback(async () => {
+    const gen = ++loadGen.current
+    const live = () => mounted.current && gen === loadGen.current
     setLoadError(null)
     // Weather rides along with every (re)load but never blocks it.
-    void getWeather().then(setWeather)
+    void getWeather().then((w) => {
+      if (live()) setWeather(w)
+    })
     try {
       const date = logicalDate()
       const [t, y, rows] = await Promise.all([
@@ -114,14 +131,17 @@ export default function Index() {
         getDay(addDays(date, -1)),
         daysForStats(),
       ])
+      if (!live()) return
       setToday(t)
       setYesterday(y)
       setHasHistory(rows.length > 0) // rows are already filtered to activity days
       setInsight(computeTodayInsight(rows))
+      setLoadError(null)
     } catch (e) {
+      if (!live()) return
       setLoadError(errorMessage(e, 'Could not load today.'))
     } finally {
-      setLoading(false)
+      if (live()) setLoading(false)
     }
   }, [])
 
@@ -160,11 +180,13 @@ export default function Index() {
         options: today?.plan_options,
       })
       const row = await saveMorning(logicalDate(), { readiness: readinessInput, dayDifficulty, plan })
+      if (!mounted.current) return
       setToday(row)
     } catch (e) {
+      if (!mounted.current) return
       setSubmitError(errorMessage(e, 'Could not save your check-in.'))
     } finally {
-      setSubmitting(false)
+      if (mounted.current) setSubmitting(false)
     }
   }
 
@@ -426,6 +448,9 @@ export default function Index() {
       lastNight={lastNightWord(yesterday?.energy)}
       routineTime={row.routine_minutes != null ? `${row.routine_minutes} min` : '—'}
       insight={insight}
+      // A failed focus-reload (stale data still showing) surfaces here, tap to retry.
+      notice={loadError ? 'Couldn’t refresh just now.' : null}
+      onNoticePress={() => load()}
       onStart={() => router.push('/routine')}
       // Settings gear (same as the You page's) — jumps to You → Settings. The
       // fresh timestamp param makes every tap re-trigger the scroll there.

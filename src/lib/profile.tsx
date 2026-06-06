@@ -173,17 +173,33 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       return
     }
     const gen = ++fetchGen.current
-    getProfile()
-      .then((p) => {
-        if (gen !== fetchGen.current) return
-        setProfile(p)
-        setLoadedFor(uid)
-      })
-      .catch(() => {
-        if (gen !== fetchGen.current) return
-        setProfile(null)
-        setLoadedFor(uid)
-      })
+    let cancelled = false
+    const stale = () => cancelled || gen !== fetchGen.current
+    ;(async () => {
+      // Retry transient failures (a network blip at launch). Critically, a fetch
+      // ERROR is never treated as an empty profile: nulling it here would make the
+      // root gate read an onboarded user as "not onboarded" and bounce them back
+      // into onboarding. So on success we set the profile; on persistent failure
+      // we only mark this uid loaded (to release the splash) and leave any prior
+      // profile intact — we never overwrite a real profile with null on error.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const p = await getProfile()
+          if (stale()) return
+          setProfile(p)
+          setLoadedFor(uid)
+          return
+        } catch {
+          if (stale()) return
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)))
+        }
+      }
+      if (stale()) return
+      setLoadedFor(uid)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [uid])
 
   // Resolves the signed-in user at call time (not from the closure): callers that

@@ -218,7 +218,15 @@ export async function recentReflections(limit = 5): Promise<DayRow[]> {
   return (data as DayRow[]) ?? []
 }
 
-/** Evening reflection: writes today's review and tomorrow's setup in one go. */
+/**
+ * Evening reflection: writes today's review and tomorrow's setup.
+ *
+ * Order matters — these are two non-atomic writes, so tomorrow's setup is
+ * written FIRST and today's `evening_completed_at` stamp LAST. That way the
+ * completion stamp is the commit point: if the first write fails, today is never
+ * marked done, and the user simply retries (both upserts are idempotent). A
+ * "done" day therefore always implies tomorrow is set up — never a half state.
+ */
 export async function saveEvening(
   date: string,
   input: {
@@ -231,6 +239,10 @@ export async function saveEvening(
   },
 ): Promise<void> {
   const userId = await currentUserId()
+  await upsertDay(userId, addDays(date, 1), {
+    day_difficulty: input.tomorrowDemand,
+    routine_minutes: input.routineMinutes,
+  })
   await upsertDay(userId, date, {
     lookback: input.lookback,
     energy: input.reads.energy,
@@ -239,9 +251,5 @@ export async function saveEvening(
     note: input.note ?? null,
     completed_slugs: input.completedSlugs ?? [],
     evening_completed_at: new Date().toISOString(),
-  })
-  await upsertDay(userId, addDays(date, 1), {
-    day_difficulty: input.tomorrowDemand,
-    routine_minutes: input.routineMinutes,
   })
 }

@@ -158,6 +158,12 @@ export type TodayHomeProps = {
    * honest "your patterns will show here" line instead of a fabricated stat.
    */
   insight?: string | null
+  /**
+   * A non-blocking notice pinned above the page — e.g. a failed background
+   * refresh, so stale data never updates silently. Tapping it runs onNoticePress.
+   */
+  notice?: string | null
+  onNoticePress?: () => void
   /** The START pill. */
   onStart: () => void
   /** Settings gear, top-right (the Today tab). Mutually exclusive with onClose. */
@@ -177,6 +183,8 @@ export function TodayHome({
   lastNight,
   routineTime,
   insight = null,
+  notice = null,
+  onNoticePress,
   onStart,
   onSettings,
   onClose,
@@ -204,6 +212,19 @@ export function TodayHome({
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Non-blocking notice pinned above the scroll — a failed background refresh
+          surfaces here (tap to retry) rather than silently showing stale data. */}
+      {notice ? (
+        <Pressable
+          style={styles.notice}
+          onPress={onNoticePress}
+          accessibilityRole={onNoticePress ? 'button' : undefined}
+        >
+          <Feather name="wifi-off" size={13} color={COLORS.tagline} />
+          <Text style={styles.noticeText}>{notice}</Text>
+          {onNoticePress ? <Text style={styles.noticeAction}>Retry</Text> : null}
+        </Pressable>
+      ) : null}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -544,6 +565,31 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  // Non-blocking refresh-failure notice, pinned above the scroll.
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginTop: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F3EEE4', // a slightly deeper cream so it reads as a tray
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.iconBorder,
+  },
+  noticeText: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12.5,
+    color: COLORS.tagline,
+  },
+  noticeAction: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 12.5,
+    color: COLORS.gold,
   },
   scroll: {
     flex: 1, // bounds the scroll viewport to the screen so the stack can scroll

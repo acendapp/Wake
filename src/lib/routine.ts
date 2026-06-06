@@ -156,7 +156,11 @@ export function resolveMorningPlan(input: {
     intent: input.intent,
   })
   const cached = input.options?.[fallback.state]
-  if (!cached) return fallback
+  // Trust the cache only if it was actually built for this state. A plan stored
+  // under the wrong key (e.g. the impossible-state slot at a demand extreme, or
+  // any future labeling drift) would otherwise leak the wrong state's moves;
+  // ignore it and use the deterministic plan instead.
+  if (!cached || cached.state !== fallback.state) return fallback
   // The cached plan was framed at pre-gen time; correct the gap and framing to
   // the realized morning.
   return { ...cached, gap: fallback.gap, ...framingFor(fallback.state) }
