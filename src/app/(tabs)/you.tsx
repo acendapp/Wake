@@ -635,8 +635,16 @@ function SettingsRow({
   sub: string
   onPress?: () => void
 }) {
+  // An inert row (no onPress yet) shouldn't read as a tappable button to a
+  // screen reader — present it as plain text and drop the chevron affordance.
+  const interactive = !!onPress
   return (
-    <Pressable style={styles.settingsRow} onPress={onPress} accessibilityRole="button">
+    <Pressable
+      style={styles.settingsRow}
+      onPress={onPress}
+      disabled={!interactive}
+      accessibilityRole={interactive ? 'button' : 'text'}
+    >
       <View style={styles.settingsIcon}>
         <Feather name={icon} size={15} color={day.text} />
       </View>
@@ -644,7 +652,7 @@ function SettingsRow({
         <Text style={styles.settingsTitle}>{title}</Text>
         <Text style={styles.settingsSub}>{sub}</Text>
       </View>
-      <Feather name="chevron-right" size={18} color={day.border} />
+      {interactive && <Feather name="chevron-right" size={18} color={day.border} />}
     </Pressable>
   )
 }

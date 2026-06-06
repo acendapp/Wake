@@ -209,6 +209,10 @@ export function TodayHome({
   const activityExample = plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
   const dayDemand = `${dayDifficulty}/10`
+  // Clamp before driving the bar flex — an out-of-range value would otherwise
+  // make a fill vanish (flex 0) or invert the bar (negative remainder).
+  const youBar = Math.max(0, Math.min(10, readiness))
+  const dayBar = Math.max(0, Math.min(10, dayDifficulty))
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -427,8 +431,8 @@ export function TodayHome({
             <View style={styles.gapBarRow}>
               <Text style={styles.gapBarLabel}>You</Text>
               <View style={styles.gapTrack}>
-                <View style={[styles.gapFillYou, { flex: readiness }]} />
-                <View style={{ flex: 10 - readiness }} />
+                <View style={[styles.gapFillYou, { flex: youBar }]} />
+                <View style={{ flex: 10 - youBar }} />
               </View>
               <Text style={styles.gapBarValue}>{readiness}</Text>
             </View>
@@ -436,8 +440,8 @@ export function TodayHome({
             <View style={styles.gapBarRow}>
               <Text style={styles.gapBarLabel}>Day</Text>
               <View style={styles.gapTrack}>
-                <View style={[styles.gapFillDay, { flex: dayDifficulty }]} />
-                <View style={{ flex: 10 - dayDifficulty }} />
+                <View style={[styles.gapFillDay, { flex: dayBar }]} />
+                <View style={{ flex: 10 - dayBar }} />
               </View>
               <Text style={styles.gapBarValue}>{dayDifficulty}</Text>
             </View>

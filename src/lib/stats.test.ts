@@ -131,12 +131,21 @@ describe('computeYouStats — trend', () => {
     expect(s.trend.energy[0]).toBe(6) // dropped the first 6
   })
 
-  it('computes a delta line only with enough points', () => {
+  it('computes a delta line only with two full weeks of reflections', () => {
     const sparse = computeYouStats(
       ['2026-06-01', '2026-06-02'].map((d) => mk(d, { evening_completed_at: M, energy: 5, mood: 5, focus: 5 })),
       '2026-06-02',
     )
     expect(sparse.trendDelta.energy).toBeNull()
+
+    // 10 points is still a partial prior week → no delta (would be misleading).
+    const partial = computeYouStats(
+      Array.from({ length: 10 }, (_, i) =>
+        mk(`2026-06-${String(i + 1).padStart(2, '0')}`, { evening_completed_at: M, energy: 6, mood: 6, focus: 6 }),
+      ),
+      '2026-06-10',
+    )
+    expect(partial.trendDelta.energy).toBeNull()
 
     // 14 points: prior week avg 4, recent week avg 8 → +100% above.
     const rows = Array.from({ length: 14 }, (_, i) =>

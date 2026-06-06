@@ -110,6 +110,16 @@ export default function ReflectScreen() {
     [morningSequence.length, trackedInMorning],
   )
 
+  // Freeze the step list once the user is in the flow. The mount load can flip
+  // whether the 'completion' beat exists; if that landed mid-flow it would shift
+  // every step index and silently jump the user to a different question. While in
+  // flow we use the list as it was when flow began.
+  const stepsRef = useRef(steps)
+  useEffect(() => {
+    if (phase !== 'flow') stepsRef.current = steps
+  }, [steps, phase])
+  const activeSteps = phase === 'flow' ? stepsRef.current : steps
+
   // Answers.
   const [lookback, setLookback] = useState<Lookback | null>(null)
   const [energy, setEnergy] = useState(6)
@@ -128,6 +138,7 @@ export default function ReflectScreen() {
     Promise.all([getDay(logicalDate()), getDay(addDays(logicalDate(), 1))])
       .then(([row, tomorrow]) => {
         if (!active) return
+        const restoring = !!row?.evening_completed_at
         if (row) {
           if (row.state && row.day_difficulty != null) {
             setMorningCall(recapLine(row.state, row.day_difficulty))
@@ -138,7 +149,7 @@ export default function ReflectScreen() {
             // Tracked live this morning → the evening never re-asks.
             setTrackedInMorning(true)
           }
-          if (row.evening_completed_at) {
+          if (restoring) {
             // Tonight's reflection is already saved (e.g. the app reloaded since):
             // restore every answer and resume on the done screen — never a blank
             // intro. "Edit tonight's check-in" reopens the flow with these values.
@@ -153,21 +164,16 @@ export default function ReflectScreen() {
             setPhase('done')
           }
         }
+        // Fresh reflection only: seed the routine length from the standing
+        // preference. Skipped when restoring, so it can never clobber the length
+        // actually saved for tomorrow (the two used to race in separate effects).
+        if (!restoring) {
+          getPreferredRoutineMinutes().then((m) => {
+            if (active) setRoutineMinutes(m)
+          })
+        }
       })
       .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [])
-
-  // Seed the routine stepper with the user's standing preference, so each evening
-  // defaults to their usual length (adjustable per night). First run falls back to
-  // DEFAULT_ROUTINE_MINUTES inside the helper.
-  useEffect(() => {
-    let active = true
-    getPreferredRoutineMinutes().then((m) => {
-      if (active) setRoutineMinutes(m)
-    })
     return () => {
       active = false
     }
@@ -195,8 +201,8 @@ export default function ReflectScreen() {
     Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: true }).start()
   }, [phase, step, fade])
 
-  const key = steps[step]
-  const isLast = step === steps.length - 1
+  const key = activeSteps[step]
+  const isLast = step === activeSteps.length - 1
   const isOptional = OPTIONAL_STEPS.includes(key)
   const canContinue = key !== 'lookback' || lookback !== null
 
@@ -358,7 +364,7 @@ export default function ReflectScreen() {
       >
         <RitualHeader onClose={close} onBack={back}>
           <View style={styles.dots}>
-            {steps.map((s, i) => (
+            {activeSteps.map((s, i) => (
               <View key={s} style={[styles.dot, i <= step ? styles.dotOn : styles.dotOff]} />
             ))}
           </View>

@@ -21,7 +21,22 @@ export function Scale({ label, value, onChange, lowLabel, highLabel, max = 10 }:
         <Text style={styles.value}>{value}</Text>
       </View>
 
-      <View style={styles.track}>
+      {/* One adjustable control for the whole scale — a screen reader swipes up/
+          down to change the value and hears it once, instead of meeting 10
+          separate "adjustable" bars. The individual bars stay tappable for
+          sighted users but are hidden from the accessibility tree. */}
+      <View
+        style={styles.track}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={label}
+        accessibilityValue={{ min: 1, max, now: value }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'increment') onChange(Math.min(max, value + 1))
+          else if (e.nativeEvent.actionName === 'decrement') onChange(Math.max(1, value - 1))
+        }}
+      >
         {Array.from({ length: max }, (_, i) => {
           const n = i + 1
           return (
@@ -30,8 +45,8 @@ export function Scale({ label, value, onChange, lowLabel, highLabel, max = 10 }:
               style={styles.cell}
               hitSlop={6}
               onPress={() => onChange(n)}
-              accessibilityRole="adjustable"
-              accessibilityLabel={`${label}: ${n} of ${max}`}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
             >
               <View style={[styles.bar, n <= value ? styles.barOn : styles.barOff]} />
             </Pressable>

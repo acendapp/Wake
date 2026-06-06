@@ -232,10 +232,11 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
 
 /** "<Metric> is running X% above/below the week before." Null when too sparse. */
 function deltaLine(metric: Metric, series: number[]): string | null {
-  if (series.length < 6) return null
+  // Need two full 7-day weeks to honestly compare "this week vs the week before".
+  // Below 14 points the prior window would be a partial week, making the % a lie.
+  if (series.length < 14) return null
   const recent = series.slice(-7)
   const prior = series.slice(-14, -7)
-  if (prior.length < 2 || recent.length < 2) return null
   const pct = Math.round(((avg(recent) - avg(prior)) / avg(prior)) * 100)
   const label = METRIC_LABEL[metric]
   if (pct >= 1) return `${label} is running ${pct}% above the week before.`
