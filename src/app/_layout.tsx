@@ -14,9 +14,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
 import { ProfileProvider, useProfile } from '@/lib/profile'
+import { day } from '@/theme/colors'
 
 // Warm pale cream that fills the whole app.
-const BACKGROUND = '#FAF8F4'
+const BACKGROUND = day.background
 
 // Keep the native splash up until our fonts are ready, so the serif title
 // never flashes in a fallback face. Called in global scope per Expo's docs.

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { Plan, ReadinessState } from '@/engine/types'
 import { logicalNow } from '@/lib/time'
 import type { Weather, WeatherCondition } from '@/lib/weather'
+import { day, goldGradient } from '@/theme/colors'
 
 // The populated Today home — the "beautiful home page": Wake wordmark, greeting
 // card with the Focal Point + START, Where You Stand, The Gap, and the full
@@ -27,25 +28,23 @@ import type { Weather, WeatherCondition } from '@/lib/weather'
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
 // not a tech app.
 
-// Mirrors src/theme/colors.ts `day` plus this screen's extras; consolidation
-// into the theme module is a standing follow-up.
+// Local aliases onto the shared theme (src/theme/colors.ts) — the hex now lives
+// only there. `icon` (pure black glyphs) is the one intentional non-theme value.
 const COLORS = {
-  background: '#FAF8F4', // soft warm cream, set on the screen + root layout
-  charcoal: '#2A2A2A', // the "Wake" wordmark
-  tagline: '#8A7B6A', // muted warm brown/gray
-  iconCircle: '#EAEAEA', // light grey chip behind each icon
-  iconBorder: '#DCDCDC', // subtle grey edge so the chip reads on cream
-  icon: '#000000', // black glyphs
-  divider: '#C4C4C4', // thin rule inside the card
-  gold: '#8A6D2F', // deep antique gold — the greeting
-  goldButton: '#9A7340', // warm antique gold — the START button base
-  positive: '#2E7D4F', // muted green — the upside in a data insight
-  negative: '#B23B3B', // muted red — the downside in a data insight
+  background: day.background,
+  charcoal: day.text,
+  tagline: day.muted,
+  iconCircle: day.iconCircle,
+  iconBorder: day.border,
+  icon: '#000000',
+  divider: day.divider,
+  gold: day.gold,
+  goldButton: day.goldButton,
+  positive: day.positive,
+  negative: day.negative,
 }
 
-// Subtle top→bottom sheen for the START button — brackets the antique gold
-// above (lighter at top, darker at bottom) for a little depth.
-const GOLD_GRADIENT = ['#A87F4A', '#8C6736'] as const
+const GOLD_GRADIENT = goldGradient
 
 // Media card: left half stays the card's background color, then fades across the
 // right half to reveal the image. The last stop is the bg color at 0 alpha (not
@@ -318,10 +317,10 @@ export function TodayHome({
           <View style={styles.gapRow}>
             <View style={styles.gapText}>
               <Text style={styles.focalLabel}>Focal Point</Text>
-              <Text style={styles.gapPrompt}>{PROMPTS[gapState]}</Text>
-              <Text style={styles.gapActivity}>{activity}</Text>
+              <Text style={styles.gapPrompt} numberOfLines={1}>{PROMPTS[gapState]}</Text>
+              <Text style={styles.gapActivity} numberOfLines={2}>{activity}</Text>
               {activityExample ? (
-                <Text style={styles.gapExample}>{activityExample}</Text>
+                <Text style={styles.gapExample} numberOfLines={2}>{activityExample}</Text>
               ) : null}
 
               <View style={styles.insightRow}>
@@ -330,13 +329,13 @@ export function TodayHome({
                 </View>
 
                 {FORCE_SAMPLE_INSIGHT ? (
-                  <Text style={styles.insightText}>
+                  <Text style={styles.insightText} numberOfLines={2}>
                     When you walk, your focus hits{' '}
                     <Text style={{ color: COLORS.positive }}>8+</Text>. Skipping it:{' '}
                     <Text style={{ color: COLORS.negative }}>under 5</Text>.
                   </Text>
                 ) : (
-                  <Text style={styles.insightText}>
+                  <Text style={styles.insightText} numberOfLines={2}>
                     {insight ?? 'Your patterns will show here as you check in.'}
                   </Text>
                 )}

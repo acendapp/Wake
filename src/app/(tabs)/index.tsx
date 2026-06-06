@@ -32,6 +32,7 @@ import { useProfile } from '@/lib/profile'
 import { computeTodayInsight } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { getWeather, type Weather } from '@/lib/weather'
+import { day as theme, goldGradient } from '@/theme/colors'
 
 // The Today tab. The populated home (greeting card, Focal Point, The Gap, full
 // sequence) lives in the shared TodayHome component — this file owns the data
@@ -39,17 +40,16 @@ import { getWeather, type Weather } from '@/lib/weather'
 // evening pivot, the morning check-in, and the reflection-done close-out.
 //
 // Visual direction: calm, elite, editorial, warm — a high-end wellness brand,
-// not a tech app.
+// not a tech app. Colors alias the shared theme (src/theme/colors.ts).
 const COLORS = {
-  background: '#FAF8F4', // soft warm cream, set on the screen + root layout
-  charcoal: '#2A2A2A', // the "Wake" wordmark
-  tagline: '#8A7B6A', // muted warm brown/gray
-  gold: '#8A6D2F', // deep antique gold — the greeting
-  negative: '#B23B3B', // muted red — error text
+  background: theme.background,
+  charcoal: theme.text,
+  tagline: theme.muted,
+  gold: theme.gold,
+  negative: theme.negative,
 }
 
-// Subtle top→bottom sheen for the gold buttons (matches TodayHome's START pill).
-const GOLD_GRADIENT = ['#A87F4A', '#8C6736'] as const
+const GOLD_GRADIENT = goldGradient
 
 // The valley watercolor (1777x885 landscape) that grounds the evening states. Its
 // soft edges already fade to cream, so it sits on the background with no gradient:

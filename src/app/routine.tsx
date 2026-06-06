@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   itemRowDone: {
     borderColor: day.gold,
-    backgroundColor: '#FBF6EC', // a whisper of gold so done rows read as settled
+    backgroundColor: day.goldTint, // a whisper of gold so done rows read as settled
   },
   checkCircle: {
     width: 26,

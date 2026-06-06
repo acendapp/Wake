@@ -16,10 +16,18 @@ export const day = {
   text: '#2A2A2A', // charcoal — the "Wake" wordmark
   muted: '#8A7B6A', // muted warm brown/gray (taglines, secondary)
   gold: '#8A6D2F', // deep antique gold — the accent
+  goldButton: '#9A7340', // warm antique gold — the START button base
+  goldTint: '#FBF6EC', // a whisper of gold — settled/done rows on cream
   border: '#DCDCDC', // subtle grey edge
+  divider: '#C4C4C4', // slightly darker hairline rule inside cards
+  iconCircle: '#EAEAEA', // light grey chip behind icons
   onAccent: '#FFFFFF', // text/icons sitting on the gold accent
   positive: '#2E7D4F', // muted green
   negative: '#B23B3B', // muted red
 } as const
 
 export type Palette = typeof day
+
+// The START / commit button's top→bottom sheen (lighter above, darker below).
+// Shared so the Today card, the routine screen, and the evening pivots all match.
+export const goldGradient = ['#A87F4A', '#8C6736'] as const

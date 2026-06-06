@@ -15,6 +15,8 @@ import Svg, {
   Stop,
 } from 'react-native-svg'
 
+import { day } from '@/theme/colors'
+
 // A smooth editorial area chart — one metric over time. No gridlines, no axes,
 // no chart-library chrome: a single calm line with a soft wash beneath it, the
 // way a print magazine would set a trend.
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
-    color: '#8A7B6A',
+    color: day.muted,
     marginTop: 1,
   },
 })

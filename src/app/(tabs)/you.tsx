@@ -55,6 +55,15 @@ const GAP_META: Record<GapKey, { label: string; color: string }> = {
 }
 const GAP_ORDER: GapKey[] = ['deficit', 'aligned', 'surplus']
 
+// Monday-first weekday names + readable statuses, for the week-strip a11y labels
+// (the single 'M'/'T'/… initials are ambiguous to a screen reader).
+const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const WEEK_STATUS_LABEL: Record<'done' | 'missed' | 'ahead', string> = {
+  done: 'checked in',
+  missed: 'missed',
+  ahead: 'upcoming',
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPORARY — marketing footage only. When PREVIEW_WITH_SAMPLE_DATA is true, the
 // You page renders these sample numbers (fully populated streak, trends, graphs)
@@ -315,7 +324,12 @@ export default function YouScreen() {
 
               <View style={styles.weekRow}>
                 {viewStats.week.map((d, i) => (
-                  <View key={`${d.initial}-${i}`} style={styles.weekDay}>
+                  <View
+                    key={`${d.initial}-${i}`}
+                    style={styles.weekDay}
+                    accessible
+                    accessibilityLabel={`${WEEKDAY_NAMES[i]}: ${WEEK_STATUS_LABEL[d.status]}`}
+                  >
                     <View
                       style={[
                         styles.weekDot,

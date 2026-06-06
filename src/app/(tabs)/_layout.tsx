@@ -2,14 +2,14 @@ import { Feather } from '@expo/vector-icons'
 import { Tabs } from 'expo-router'
 import { StyleSheet } from 'react-native'
 
-// Bottom-tab palette. Mirrors the values in the Today screen's COLORS until those
-// move into a shared theme module — see [[shared-theme-colors-followup]]. Gold is
-// the app's accent (greeting + START button), so it marks the active tab; muted
-// warm brown marks the rest.
-const ACTIVE = '#8A6D2F' // deep antique gold
-const INACTIVE = '#8A7B6A' // muted warm brown/gray
-const SURFACE = '#FAF8F4' // the cream that fills the app
-const HAIRLINE = '#DCDCDC' // subtle grey edge
+import { day } from '@/theme/colors'
+
+// Bottom-tab palette, from the shared theme. Gold is the app's accent (greeting +
+// START button), so it marks the active tab; muted warm brown marks the rest.
+const ACTIVE = day.gold // deep antique gold
+const INACTIVE = day.muted // muted warm brown/gray
+const SURFACE = day.background // the cream that fills the app
+const HAIRLINE = day.border // subtle grey edge
 
 // A touch smaller than React Navigation's default (24) so the glyphs sit quieter
 // in the bar and don't crowd the Playfair labels.

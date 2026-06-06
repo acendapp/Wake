@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   },
   tagIntent: {
     borderColor: day.gold,
-    backgroundColor: '#FBF6EC',
+    backgroundColor: day.goldTint,
   },
   tagIntentLabel: {
     fontFamily: 'PlayfairDisplay_500Medium',

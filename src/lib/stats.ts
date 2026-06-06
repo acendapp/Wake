@@ -167,7 +167,10 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
     const counts = keys.map((k) => withState.filter((r) => r.state === k).length)
     const pcts = toPercents(counts)
     gapMix = keys.map((key, i) => ({ key, pct: pcts[i] }))
-    const dominant = keys[counts.indexOf(Math.max(...counts))]
+    // Dominant state drives the read; on a tie prefer 'aligned' (the steady,
+    // non-alarming framing) rather than letting indexOf default to 'deficit'.
+    const maxCount = Math.max(...counts)
+    const dominant: GapKey = counts[1] === maxCount ? 'aligned' : keys[counts.indexOf(maxCount)]
     gapRead =
       dominant === 'aligned'
         ? "Most mornings, you're matched to what your day asks. The work now is turning deficits into alignment."

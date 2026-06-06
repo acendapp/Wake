@@ -19,7 +19,7 @@ import { day } from '@/theme/colors'
 // the session and the root layout redirects into the app — so the sign-in itself
 // never navigates. New users don't create an account here: "Create an account"
 // sends them into onboarding, which builds their routine first and creates the
-// account at the end (step 7).
+// account at the final step.
 export default function SignInScreen() {
   const { signIn, resetPassword } = useAuth()
   const router = useRouter()
