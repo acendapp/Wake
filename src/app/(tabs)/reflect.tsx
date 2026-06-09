@@ -1,8 +1,8 @@
 import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -73,6 +73,17 @@ const OPTIONAL_STEPS: StepKey[] = ['note']
 type Phase = 'intro' | 'flow' | 'done'
 
 export default function ReflectScreen() {
+  // Recompute the clock-derived values on every focus: the tab can sit mounted
+  // across the 5pm evening threshold (or the 3am rollover), and without this the
+  // gate would stay shut — or the weekday header stale — until some other state
+  // change forced a re-render.
+  const [, setFocusTick] = useState(0)
+  useFocusEffect(
+    useCallback(() => {
+      setFocusTick((t) => t + 1)
+    }, []),
+  )
+
   // Logical clock: until 3am, "tonight" still belongs to yesterday's date, so
   // the weekday header, the evening gate, and every row read/write agree.
   const weekday = WEEKDAYS[logicalNow().getDay()]
@@ -130,6 +141,16 @@ export default function ReflectScreen() {
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Guards the post-await setState in finish() — the only place that mutates state
+  // after an awaited write, so a close mid-save can't set state on an unmounted tree.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   // Load today's stored row (and tomorrow's, for a saved reflection's setup half).
   // Runs once on mount — after every state hook above so the restore can seed them.
@@ -227,11 +248,11 @@ export default function ReflectScreen() {
       // Pre-generate tomorrow's personalized routine in the background (best-effort,
       // off the hot path) so the morning open is instant. Never blocks the ritual.
       void pregenerateTomorrow(logicalDate())
-      setPhase('done')
+      if (mounted.current) setPhase('done')
     } catch (e) {
-      setSaveError(errorMessage(e, 'Could not save. Please try again.'))
+      if (mounted.current) setSaveError(errorMessage(e, 'Could not save. Please try again.'))
     } finally {
-      setSaving(false)
+      if (mounted.current) setSaving(false)
     }
   }
 
@@ -532,6 +553,7 @@ function renderStep(key: StepKey, p: StepProps) {
             multiline
             maxLength={140}
           />
+          <Text style={styles.noteCounter}>{p.note.length}/140</Text>
         </StepHeader>
       )
 
@@ -872,6 +894,13 @@ const styles = StyleSheet.create({
     borderBottomColor: day.border,
     paddingBottom: 10,
     minHeight: 60,
+  },
+  noteCounter: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12,
+    color: day.muted,
+    textAlign: 'right',
+    marginTop: 8,
   },
 
   // Routine duration

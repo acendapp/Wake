@@ -86,6 +86,15 @@ function labelFor(d: string, today: string): string {
 }
 const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length
 
+/**
+ * A day's focal-point slug, or null when the row has no usable plan. `plan` is a
+ * JSON column, so an older/hand-edited/corrupt row could be missing `oneThing` —
+ * read it defensively so a single bad row can never crash the whole You page.
+ */
+function focalSlug(r: StatsDay): string | null {
+  return r.plan?.oneThing?.slug ?? null
+}
+
 /** Integer percentages that sum to exactly 100 (largest-remainder rounding). */
 function toPercents(counts: number[]): number[] {
   const total = counts.reduce((a, b) => a + b, 0)
@@ -206,12 +215,10 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   }
 
   // Follow-through: share of built mornings whose focal point got checked off.
-  const withPlan = rows.filter((r) => r.plan != null)
+  const withPlan = rows.filter((r) => focalSlug(r) != null)
   let followThrough = '—'
   if (withPlan.length > 0) {
-    const done = withPlan.filter((r) =>
-      (r.completed_slugs ?? []).includes((r.plan as NonNullable<StatsDay['plan']>).oneThing.slug),
-    ).length
+    const done = withPlan.filter((r) => (r.completed_slugs ?? []).includes(focalSlug(r)!)).length
     followThrough = `${Math.round((done / withPlan.length) * 100)}%`
   }
 
@@ -233,18 +240,24 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   }
 }
 
-/** "<Metric> is running X% above/below the week before." Null when too sparse. */
+/**
+ * "<Metric> is running X% above/below the seven before." Null when too sparse.
+ *
+ * Compares the last 7 reflection reads against the 7 before them. Because users
+ * skip days, those aren't guaranteed to be consecutive calendar weeks — so the
+ * copy says "your previous seven," which is exactly what's measured, rather than
+ * claiming a literal week-over-week comparison the gaps wouldn't support.
+ */
 function deltaLine(metric: Metric, series: number[]): string | null {
-  // Need two full 7-day weeks to honestly compare "this week vs the week before".
-  // Below 14 points the prior window would be a partial week, making the % a lie.
+  // Need 14 reads so the prior window is a full seven, not a partial comparison.
   if (series.length < 14) return null
   const recent = series.slice(-7)
   const prior = series.slice(-14, -7)
   const pct = Math.round(((avg(recent) - avg(prior)) / avg(prior)) * 100)
   const label = METRIC_LABEL[metric]
-  if (pct >= 1) return `${label} is running ${pct}% above the week before.`
-  if (pct <= -1) return `${label} is running ${Math.abs(pct)}% below the week before.`
-  return `${label} is holding steady week to week.`
+  if (pct >= 1) return `${label} is running ${pct}% above your previous seven.`
+  if (pct <= -1) return `${label} is running ${Math.abs(pct)}% below your previous seven.`
+  return `${label} is holding steady across your last fourteen.`
 }
 
 /**
@@ -255,12 +268,11 @@ function deltaLine(metric: Metric, series: number[]): string | null {
  * an honest "still learning" card instead of inventing a pattern.
  */
 function computePatterns(rows: StatsDay[]): PatternCard[] {
-  const usable = rows.filter((r) => r.plan != null && r.energy != null)
+  const usable = rows.filter((r) => focalSlug(r) != null && r.energy != null)
   const doneEnergy: number[] = []
   const skipEnergy: number[] = []
   for (const r of usable) {
-    const focal = (r.plan as NonNullable<StatsDay['plan']>).oneThing.slug
-    const did = (r.completed_slugs ?? []).includes(focal)
+    const did = (r.completed_slugs ?? []).includes(focalSlug(r)!)
     ;(did ? doneEnergy : skipEnergy).push(r.energy as number)
   }
   if (doneEnergy.length < 3 || skipEnergy.length < 3) return []
@@ -284,12 +296,11 @@ function computePatterns(rows: StatsDay[]): PatternCard[] {
  * ≥0.5-point gap, phrased as a same-day association, never a causal claim.
  */
 export function computeTodayInsight(rows: StatsDay[]): string | null {
-  const usable = rows.filter((r) => r.plan != null && r.energy != null)
+  const usable = rows.filter((r) => focalSlug(r) != null && r.energy != null)
   const done: number[] = []
   const skip: number[] = []
   for (const r of usable) {
-    const focal = (r.plan as NonNullable<StatsDay['plan']>).oneThing.slug
-    ;((r.completed_slugs ?? []).includes(focal) ? done : skip).push(r.energy as number)
+    ;((r.completed_slugs ?? []).includes(focalSlug(r)!) ? done : skip).push(r.energy as number)
   }
   if (done.length < 3 || skip.length < 3) return null
   const lift = avg(done) - avg(skip)

@@ -22,13 +22,27 @@ export function DurationStepper({
 }: Props) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n))
   return (
-    <View style={styles.row}>
+    // One adjustable control for a screen reader (swipe to change, hears the new
+    // length once) rather than two unlabelled-by-value buttons. The +/- stay
+    // tappable for sighted users but are hidden from the accessibility tree.
+    <View
+      style={styles.row}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel="Routine length"
+      accessibilityValue={{ min, max, now: value, text: `${value} minutes` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'increment') onChange(clamp(value + stepMinutes))
+        else if (e.nativeEvent.actionName === 'decrement') onChange(clamp(value - stepMinutes))
+      }}
+    >
       <Pressable
         style={styles.button}
         hitSlop={10}
         onPress={() => onChange(clamp(value - stepMinutes))}
-        accessibilityRole="button"
-        accessibilityLabel="Shorter"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       >
         <Feather name="minus" size={22} color={day.text} />
       </Pressable>
@@ -39,8 +53,8 @@ export function DurationStepper({
         style={styles.button}
         hitSlop={10}
         onPress={() => onChange(clamp(value + stepMinutes))}
-        accessibilityRole="button"
-        accessibilityLabel="Longer"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       >
         <Feather name="plus" size={22} color={day.text} />
       </Pressable>

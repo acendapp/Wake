@@ -2,8 +2,9 @@ import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -107,55 +108,70 @@ export default function LibraryScreen() {
   const [selected, setSelected] = useState<Goal | null>(null)
   const [reading, setReading] = useState<Article | null>(null)
   const [collection, setCollection] = useState<CollectionEntry[]>([])
+  const [collectionLoading, setCollectionLoading] = useState(true)
+  const [collectionError, setCollectionError] = useState(false)
+
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   // Build the collection from real history: every plan the engine has produced
-  // for this user, and what they checked off. Refreshed on focus so a morning
-  // check-in or a /routine check-off shows immediately.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      daysWithPlans()
-        .then((rows) => {
-          if (!active) return
-          const today = logicalDate()
-          const byGoal = new Map<string, CollectionEntry>()
-          for (const row of rows) {
-            const sequence = row.plan?.sequence ?? []
-            const completedSlugs = row.completed_slugs ?? []
-            for (const action of sequence) {
-              const goal = goalForActionSlug(action.slug)
-              if (!goal) continue
-              const entry = byGoal.get(goal.slug) ?? {
-                goal,
-                prescribed: 0,
-                completed: 0,
-                inToday: false,
-                doneToday: false,
-              }
-              entry.prescribed += 1
-              const done = completedSlugs.includes(action.slug)
-              if (done) entry.completed += 1
-              if (row.local_date === today) {
-                entry.inToday = true
-                entry.doneToday = done
-              }
-              byGoal.set(goal.slug, entry)
+  // for this user, and what they checked off. A load failure surfaces as a
+  // retryable error rather than silently falling through to the cold-start empty
+  // state (which would tell a returning user they have no routines).
+  const loadCollection = useCallback(() => {
+    setCollectionLoading(true)
+    setCollectionError(false)
+    daysWithPlans()
+      .then((rows) => {
+        if (!mounted.current) return
+        const today = logicalDate()
+        const byGoal = new Map<string, CollectionEntry>()
+        for (const row of rows) {
+          const sequence = row.plan?.sequence ?? []
+          const completedSlugs = row.completed_slugs ?? []
+          for (const action of sequence) {
+            const goal = goalForActionSlug(action.slug)
+            if (!goal) continue
+            const entry = byGoal.get(goal.slug) ?? {
+              goal,
+              prescribed: 0,
+              completed: 0,
+              inToday: false,
+              doneToday: false,
             }
+            entry.prescribed += 1
+            const done = completedSlugs.includes(action.slug)
+            if (done) entry.completed += 1
+            if (row.local_date === today) {
+              entry.inToday = true
+              entry.doneToday = done
+            }
+            byGoal.set(goal.slug, entry)
           }
-          // Today's moves first, then most-completed, then most-prescribed.
-          const sorted = [...byGoal.values()].sort((a, b) => {
-            if (a.inToday !== b.inToday) return a.inToday ? -1 : 1
-            if (a.completed !== b.completed) return b.completed - a.completed
-            return b.prescribed - a.prescribed
-          })
-          setCollection(sorted)
+        }
+        // Today's moves first, then most-completed, then most-prescribed.
+        const sorted = [...byGoal.values()].sort((a, b) => {
+          if (a.inToday !== b.inToday) return a.inToday ? -1 : 1
+          if (a.completed !== b.completed) return b.completed - a.completed
+          return b.prescribed - a.prescribed
         })
-        .catch(() => {})
-      return () => {
-        active = false
-      }
-    }, []),
-  )
+        setCollection(sorted)
+        setCollectionLoading(false)
+      })
+      .catch(() => {
+        if (!mounted.current) return
+        setCollectionError(true)
+        setCollectionLoading(false)
+      })
+  }, [])
+
+  // Refreshed on focus so a morning check-in or a /routine check-off shows up.
+  useFocusEffect(loadCollection)
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -205,7 +221,14 @@ export default function LibraryScreen() {
         {view === 'learn' ? (
           <LearnFeed key="learn" onRead={setReading} />
         ) : (
-          <MovesCollection key="moves" collection={collection} onOpen={setSelected} />
+          <MovesCollection
+            key="moves"
+            collection={collection}
+            loading={collectionLoading}
+            error={collectionError}
+            onRetry={loadCollection}
+            onOpen={setSelected}
+          />
         )}
       </ScrollView>
 
@@ -384,11 +407,38 @@ function ArticleReader({ article, onClose }: { article: Article; onClose: () => 
 
 function MovesCollection({
   collection,
+  loading,
+  error,
+  onRetry,
   onOpen,
 }: {
   collection: CollectionEntry[]
+  loading: boolean
+  error: boolean
+  onRetry: () => void
   onOpen: (goal: Goal) => void
 }) {
+  if (loading && collection.length === 0) {
+    return (
+      <View style={styles.emptyWrap}>
+        <ActivityIndicator color={day.gold} />
+      </View>
+    )
+  }
+
+  if (error && collection.length === 0) {
+    return (
+      <View style={styles.emptyWrap}>
+        <Feather name="cloud-off" size={24} color={day.muted} />
+        <Text style={styles.emptyTitle}>Couldn’t load your routines.</Text>
+        <Text style={styles.emptyBody}>Check your connection and try again.</Text>
+        <Pressable style={styles.retryButton} onPress={onRetry} accessibilityRole="button">
+          <Text style={styles.retryLabel}>Try again</Text>
+        </Pressable>
+      </View>
+    )
+  }
+
   return (
     <Animated.View entering={FadeIn.duration(350)}>
       {collection.length === 0 ? (
@@ -789,6 +839,19 @@ const styles = StyleSheet.create({
     color: day.muted,
     textAlign: 'center',
     marginTop: 10,
+  },
+  retryButton: {
+    marginTop: 20,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderWidth: 1.5,
+    borderColor: day.gold,
+  },
+  retryLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 15,
+    color: day.gold,
   },
 
   // ── Bottom sheet ────────────────────────────────────────────────────────────

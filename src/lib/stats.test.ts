@@ -157,7 +157,7 @@ describe('computeYouStats — trend', () => {
       }),
     )
     const rich = computeYouStats(rows, '2026-06-14')
-    expect(rich.trendDelta.energy).toBe('Energy is running 100% above the week before.')
+    expect(rich.trendDelta.energy).toBe('Energy is running 100% above your previous seven.')
   })
 })
 

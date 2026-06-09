@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '@/lib/auth'
+import { isValidEmail } from '@/lib/errors'
 import { day } from '@/theme/colors'
 
 // Email + password gate for *returning* users. On success the auth listener flips
@@ -29,7 +31,7 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null)
 
-  const canSubmit = email.trim().length > 3 && password.length >= 6 && !busy
+  const canSubmit = isValidEmail(email) && password.length >= 6 && !busy
 
   const submit = async () => {
     setBusy(true)
@@ -70,7 +72,11 @@ export default function SignInScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.wrap}>
+        <ScrollView
+          contentContainerStyle={styles.wrap}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View>
             <Text style={styles.title}>Wake</Text>
             <Text style={styles.tagline}>Welcome back.</Text>
@@ -134,7 +140,7 @@ export default function SignInScreen() {
           <Pressable onPress={createAccount} style={styles.toggle} accessibilityRole="button">
             <Text style={styles.toggleLabel}>New here? Create an account</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )
@@ -149,7 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   wrap: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 28,
     paddingVertical: 48,
     justifyContent: 'space-between',

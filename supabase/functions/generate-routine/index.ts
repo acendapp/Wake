@@ -48,6 +48,21 @@ Deno.serve(async (req) => {
   const { data: userData, error: userErr } = await supabase.auth.getUser()
   if (userErr || !userData?.user) return json({ error: 'Unauthorized' }, 401)
 
+  // Per-user daily cap so a single account can't loop the proxy and burn Anthropic
+  // credits. Legitimate use is ~3 calls/evening (one per readiness state); 60/day
+  // leaves generous headroom for retries. RLS scopes the count to this caller.
+  const DAILY_CALL_CAP = 60
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count, error: countErr } = await supabase
+    .from('routine_call_log')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', since)
+  if (!countErr && (count ?? 0) >= DAILY_CALL_CAP) {
+    return json({ error: 'Daily routine limit reached. Try again tomorrow.' }, 429)
+  }
+  // Record this call (best-effort; user_id defaults to auth.uid() under RLS).
+  await supabase.from('routine_call_log').insert({})
+
   let payload: { system?: unknown; user?: unknown; model?: unknown }
   try {
     payload = await req.json()

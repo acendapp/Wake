@@ -30,7 +30,7 @@ export function Scale({ label, value, onChange, lowLabel, highLabel, max = 10 }:
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel={label}
-        accessibilityValue={{ min: 1, max, now: value }}
+        accessibilityValue={{ min: 1, max, now: value, text: `${value} of ${max}` }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === 'increment') onChange(Math.min(max, value + 1))

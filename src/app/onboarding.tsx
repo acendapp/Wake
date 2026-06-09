@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { useAuth } from '@/lib/auth'
+import { isValidEmail } from '@/lib/errors'
 import {
   saveOnboarding,
   useProfile,
@@ -181,7 +182,7 @@ export default function OnboardingScreen() {
   // First name is required on the final step; the greeting depends on it.
   const nameReady = firstName.trim().length > 0
   const canCreateAccount =
-    nameReady && email.trim().length > 3 && password.length >= 6 && !saving
+    nameReady && isValidEmail(email) && password.length >= 6 && !saving
 
   // Step 6 normally creates an account; if the user is already signed in (e.g.
   // they came in via the sign-in screen's create-account path), it just saves —
@@ -208,8 +209,11 @@ export default function OnboardingScreen() {
         return
       }
       if (res.needsConfirmation) {
-        // Email confirmation must be OFF in Supabase for this single-flow signup.
-        setError('Please disable email confirmation in Supabase to continue.')
+        // The single-flow signup expects email confirmation to be off; if it's on,
+        // signUp returns no session. Show the user something actionable rather than
+        // a developer instruction (and leave a dev note for the real cause).
+        if (__DEV__) console.warn('[onboarding] signUp returned needsConfirmation — disable email confirmation in Supabase for the single-flow signup.')
+        setError('Check your email to confirm your account, then sign in to finish setting up.')
         setSaving(false)
         return
       }

@@ -221,25 +221,35 @@ export default function YouScreen() {
   // the cold-start gate; null while the first load is in flight.
   const [stats, setStats] = useState<YouStats | null>(null)
   const [dayCount, setDayCount] = useState<number | null>(null)
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      daysForStats()
-        .then((rows) => {
-          if (!active) return
-          setDayCount(rows.length) // rows are already filtered to activity days
-          setStats(computeYouStats(rows, logicalDate()))
-        })
-        .catch(() => {
-          if (!active) return
-          setDayCount(0)
-          setStats(null)
-        })
-      return () => {
-        active = false
-      }
-    }, []),
-  )
+  const [statsError, setStatsError] = useState(false)
+
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  const loadStats = useCallback(() => {
+    setStatsError(false)
+    daysForStats()
+      .then((rows) => {
+        if (!mounted.current) return
+        setDayCount(rows.length) // rows are already filtered to activity days
+        setStats(computeYouStats(rows, logicalDate()))
+      })
+      .catch(() => {
+        // A failed load is NOT zero history — leaving dayCount/stats as-is keeps any
+        // data already on screen and routes a first-load failure to a retry, never
+        // to the cold-start "your story starts now" that would misread real history.
+        if (!mounted.current) return
+        setStatsError(true)
+      })
+  }, [])
+
+  // Refreshed on focus so the page advances as mornings accumulate.
+  useFocusEffect(loadStats)
 
   // Settings gears on other tabs land here with a fresh ?settings=<timestamp>
   // param; each new value scrolls down to the settings section. The delay lets
@@ -255,7 +265,10 @@ export default function YouScreen() {
   // PREVIEW swaps in sample stats for marketing footage; real path otherwise.
   const viewStats = PREVIEW_WITH_SAMPLE_DATA ? SAMPLE_STATS : stats
   const hasHistory = PREVIEW_WITH_SAMPLE_DATA || count >= MIN_MORNINGS_FOR_TRENDS
-  const loadingStats = !PREVIEW_WITH_SAMPLE_DATA && stats === null && dayCount === null
+  const loadingStats =
+    !PREVIEW_WITH_SAMPLE_DATA && stats === null && dayCount === null && !statsError
+  // First-load failure with nothing to show yet → a retry, not a fake cold start.
+  const showStatsError = !PREVIEW_WITH_SAMPLE_DATA && statsError && !viewStats
 
   const firstName = profile?.first_name?.trim() || 'You'
   const becoming = INTENT_PHRASE[profile?.intent ?? ''] ?? 'better mornings'
@@ -304,6 +317,16 @@ export default function YouScreen() {
           <Section delay={90}>
             <View style={styles.loadingWrap}>
               <ActivityIndicator color={day.gold} />
+            </View>
+          </Section>
+        ) : showStatsError ? (
+          <Section delay={90}>
+            <View style={styles.loadingWrap}>
+              <Feather name="cloud-off" size={24} color={day.muted} />
+              <Text style={styles.coldBody}>Couldn’t load your stats just now.</Text>
+              <Pressable style={styles.retryButton} onPress={loadStats} accessibilityRole="button">
+                <Text style={styles.retryLabel}>Try again</Text>
+              </Pressable>
             </View>
           </Section>
         ) : hasHistory && viewStats ? (
@@ -372,6 +395,7 @@ export default function YouScreen() {
                         width={chartWidth}
                         height={150}
                         color={day.gold}
+                        seriesLabel={METRIC_LABEL[metric]}
                       />
                     </View>
 
@@ -603,7 +627,12 @@ export default function YouScreen() {
             <View style={styles.settingsSeparator} />
             <SettingsRow icon="bell" title="Notifications" sub="Wake-up nudge, evening reminder" />
             <View style={styles.settingsSeparator} />
-            <SettingsRow icon="user" title="Account" sub={email} />
+            <SettingsRow
+              icon="user"
+              title="Account"
+              sub={email}
+              onPress={() => router.push('/account')}
+            />
             <View style={styles.settingsSeparator} />
             <Pressable
               style={styles.settingsRow}
@@ -970,6 +999,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
+    gap: 12,
+  },
+  retryButton: {
+    marginTop: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderWidth: 1.5,
+    borderColor: day.gold,
+  },
+  retryLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 15,
+    color: day.gold,
   },
   coldHero: {
     alignItems: 'center',

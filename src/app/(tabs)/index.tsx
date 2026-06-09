@@ -120,6 +120,10 @@ export default function Index() {
     const gen = ++loadGen.current
     const live = () => mounted.current && gen === loadGen.current
     setLoadError(null)
+    // Clear any "log today anyway" override on every (re)focus: a user who tapped
+    // it, then left without checking in, should return to the evening pivot rather
+    // than be stuck on the demoted check-in form for the rest of the session.
+    setForceCheckIn(false)
     // Weather rides along with every (re)load but never blocks it.
     void getWeather().then((w) => {
       if (live()) setWeather(w)

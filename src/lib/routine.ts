@@ -102,7 +102,11 @@ async function personalizeState(
     // Reuse the deterministic framing; swap in the personalized moves. Mark the
     // plan as Claude-built so the dev indicator can tell it apart from a fallback.
     return { ...fallback, sequence, oneThing, source: 'claude' }
-  } catch {
+  } catch (e) {
+    // Every personalization failure degrades silently to the deterministic plan,
+    // so a permanently broken Edge Function (bad deploy, missing key) would be
+    // invisible. Surface it in development; production still falls back cleanly.
+    if (__DEV__) console.warn(`[personalize] ${state} fell back to deterministic:`, e)
     return fallback // already source: 'deterministic' from generatePlan
   }
 }
@@ -156,11 +160,20 @@ export function resolveMorningPlan(input: {
     intent: input.intent,
   })
   const cached = input.options?.[fallback.state]
-  // Trust the cache only if it was actually built for this state. A plan stored
-  // under the wrong key (e.g. the impossible-state slot at a demand extreme, or
-  // any future labeling drift) would otherwise leak the wrong state's moves;
-  // ignore it and use the deterministic plan instead.
-  if (!cached || cached.state !== fallback.state) return fallback
+  // Trust the cache only if it was actually built for this state AND is structurally
+  // complete. `plan_options` is a JSON column, so a partial/older-shape entry (e.g. a
+  // pre-gen interrupted mid-write) could have `state` set but no `oneThing`/`sequence` —
+  // letting it through would crash saveMorning, which reads `plan.oneThing.slug`. A plan
+  // stored under the wrong key would also leak the wrong state's moves. Either way,
+  // fall back to the deterministic plan.
+  if (
+    !cached ||
+    cached.state !== fallback.state ||
+    !cached.oneThing?.slug ||
+    !Array.isArray(cached.sequence) ||
+    cached.sequence.length === 0
+  )
+    return fallback
   // The cached plan was framed at pre-gen time; correct the gap and framing to
   // the realized morning.
   return { ...cached, gap: fallback.gap, ...framingFor(fallback.state) }

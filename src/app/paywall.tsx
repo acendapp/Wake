@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useEntitlement } from '@/lib/entitlement'
+import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { day } from '@/theme/colors'
 
 // The paywall. Gate-driven: the root layout sends any onboarded-but-unentitled
@@ -60,6 +61,15 @@ export default function PaywallScreen() {
     // No setBusy(false): the screen unmounts as the gate navigates away.
   }
 
+  // The annual plan carries the 7-day trial; monthly bills immediately. Keep the
+  // fine print and the CTA honest about whichever plan is actually selected.
+  const isAnnual = selected === 'annual'
+  const monthlyPrice = PLANS.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
+  const legalCopy = isAnnual
+    ? 'Try your custom sequence free for 7 days. You won’t be charged until your trial ends. Cancel anytime in your system settings.'
+    : `Billed ${monthlyPrice}, auto-renewing until you cancel. No free trial on the monthly plan. Cancel anytime in your system settings.`
+  const ctaCopy = isAnnual ? 'Start Your Free Week' : 'Subscribe Monthly'
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
@@ -107,10 +117,7 @@ export default function PaywallScreen() {
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <Text style={styles.legal}>
-          Try your custom sequence free for 7 days. You won’t be charged until your trial
-          ends. Cancel anytime with a single tap in your system settings.
-        </Text>
+        <Text style={styles.legal}>{legalCopy}</Text>
 
         <Pressable
           style={[styles.cta, busy && styles.ctaDisabled]}
@@ -121,7 +128,7 @@ export default function PaywallScreen() {
           {busy ? (
             <ActivityIndicator color={day.onAccent} />
           ) : (
-            <Text style={styles.ctaLabel}>Start Your Free Week</Text>
+            <Text style={styles.ctaLabel}>{ctaCopy}</Text>
           )}
         </Pressable>
 
@@ -135,26 +142,31 @@ export default function PaywallScreen() {
           </Pressable>
         )}
 
-        {/* The taste-before-you-commit valve: one demo morning, then back here. */}
+        {/* The taste-before-you-commit valve: one demo morning, then back here.
+            Disabled mid-purchase so it can't push the sample on top of the gate's
+            navigation into the tabs. */}
         <Pressable
           onPress={() => router.push({ pathname: '/routine', params: { sample: '1' } })}
-          style={styles.sampleLink}
+          disabled={busy}
+          style={[styles.sampleLink, busy && styles.ctaDisabled]}
           accessibilityRole="button"
         >
           <Text style={styles.sampleLinkLabel}>View a sample routine</Text>
         </Pressable>
 
         <View style={styles.links}>
-          {/* MOCK: wire these to real URLs / restore when billing is real. */}
+          {/* Restore stays inert until real billing (RevenueCat) lands in the dev
+              build; Terms + Privacy open the hosted documents (placeholder URLs in
+              src/lib/legal.ts until the real ones exist). */}
           <Pressable accessibilityRole="link">
             <Text style={styles.linkText}>Restore Purchase</Text>
           </Pressable>
           <Text style={styles.linkDot}>·</Text>
-          <Pressable accessibilityRole="link">
+          <Pressable onPress={() => openLegal(TERMS_OF_SERVICE_URL)} accessibilityRole="link">
             <Text style={styles.linkText}>Terms of Service</Text>
           </Pressable>
           <Text style={styles.linkDot}>·</Text>
-          <Pressable accessibilityRole="link">
+          <Pressable onPress={() => openLegal(PRIVACY_POLICY_URL)} accessibilityRole="link">
             <Text style={styles.linkText}>Privacy Policy</Text>
           </Pressable>
         </View>

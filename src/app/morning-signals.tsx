@@ -61,6 +61,17 @@ export default function MorningSignalsScreen() {
     }
   }, [])
 
+  // Pre-fill the choices once the profile arrives. The `useState` seeds capture
+  // only the first render's value, so if the provider is still mid-fetch when this
+  // screen mounts the selections would otherwise stay blank (and Save stay
+  // disabled). Functional updates fill only while still null, never clobbering an
+  // edit the user has already made.
+  useEffect(() => {
+    if (!profile) return
+    setIntent((prev) => prev ?? profile.intent ?? null)
+    setChronotype((prev) => prev ?? profile.chronotype ?? null)
+  }, [profile])
+
   const close = () => router.back()
 
   const canSave = intent !== null && chronotype !== null && !saving

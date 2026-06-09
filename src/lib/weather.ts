@@ -18,9 +18,13 @@ export type Weather = {
   condition: WeatherCondition
 }
 
-// Weather doesn't move fast — cache the last read so tab focus changes and
-// re-renders don't hit the network (or the GPS) again for half an hour.
+// Weather doesn't move fast — cache the last real read so tab focus changes and
+// re-renders don't hit the network (or the GPS) again for half an hour. A failed
+// read (permission denied, offline, no fix) is cached only briefly, so granting
+// permission or regaining network recovers on the next visit instead of being
+// stuck on a stale `null` for the full window.
 const CACHE_MS = 30 * 60 * 1000
+const NEGATIVE_CACHE_MS = 2 * 60 * 1000
 let cached: { at: number; value: Weather | null } | null = null
 
 /** Coarse condition from the WMO weather code Open-Meteo returns. */
@@ -68,9 +72,12 @@ async function fetchWeather(): Promise<Weather | null> {
   }
 }
 
-/** The current local weather, or null when it can't be known. Cached for 30 min. */
+/** The current local weather, or null when it can't be known. Real reads cached 30 min, failures 2 min. */
 export async function getWeather(): Promise<Weather | null> {
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.value
+  if (cached) {
+    const ttl = cached.value ? CACHE_MS : NEGATIVE_CACHE_MS
+    if (Date.now() - cached.at < ttl) return cached.value
+  }
   const value = await fetchWeather()
   cached = { at: Date.now(), value }
   return value

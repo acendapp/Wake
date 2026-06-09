@@ -43,6 +43,8 @@ type Props = {
   color: string
   /** Color for the scrub readout text. Defaults to the line color. */
   readoutColor?: string
+  /** Metric name for the screen-reader summary (e.g. "Energy"). */
+  seriesLabel?: string
 }
 
 type Pt = { x: number; y: number }
@@ -84,8 +86,10 @@ function toPoints(data: number[], width: number, height: number): Pt[] {
   const lo = Math.min(...data)
   const hi = Math.max(...data)
   const range = hi - lo || 1
+  // Guard the single-point case: i/(length-1) would be 0/0 = NaN with one entry.
+  const span = data.length > 1 ? data.length - 1 : 1
   return data.map((v, i) => ({
-    x: (i / (data.length - 1)) * innerW,
+    x: (i / span) * innerW,
     y: PAD_TOP + innerH - ((v - lo) / range) * innerH,
   }))
 }
@@ -97,6 +101,7 @@ export function TrendChart({
   height,
   color,
   readoutColor,
+  seriesLabel,
 }: Props) {
   // Morph state: where the curve is animating from. null = first mount, where it
   // rises out of a flat baseline.
@@ -183,9 +188,19 @@ export function TrendChart({
   const readoutLeft =
     active != null ? Math.max(0, Math.min(width - READOUT_W, active.x - READOUT_W / 2)) : 0
 
+  // A spoken summary of the otherwise pointer-only chart (the scrub is unreachable
+  // by a screen reader, so describe the shape instead).
+  const a11yLabel = `${seriesLabel ? `${seriesLabel} trend` : 'Trend'} over ${data.length} mornings. Latest ${data[data.length - 1].toFixed(1)}, ranging ${Math.min(...data).toFixed(1)} to ${Math.max(...data).toFixed(1)}.`
+
   return (
     // The whole block (readout lane + canvas) is one touch surface for scrubbing.
-    <View style={{ width }} {...pan.panHandlers}>
+    <View
+      style={{ width }}
+      {...pan.panHandlers}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={a11yLabel}
+    >
       {/* The readout floats above the canvas so it never collides with the curve. */}
       <View style={styles.readoutLane} pointerEvents="none">
         {active != null && activeIndex != null && (

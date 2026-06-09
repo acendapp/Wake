@@ -211,10 +211,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     const currentUid = data.session?.user.id ?? null
     if (currentUid === null) return
     const gen = ++fetchGen.current
-    const p = await getProfile()
-    if (gen !== fetchGen.current) return
-    setProfile(p)
-    setLoadedFor(currentUid)
+    // Mirror the session-load effect: retry transient failures and never throw —
+    // refresh() is awaited inside the onboarding save flow, so an unguarded reject
+    // here would surface as an unhandled rejection right after a successful save.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const p = await getProfile()
+        if (gen !== fetchGen.current) return
+        setProfile(p)
+        setLoadedFor(currentUid)
+        return
+      } catch {
+        if (gen !== fetchGen.current) return
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 600 * (attempt + 1)))
+      }
+    }
+    // Persisted failure: release the gate for this uid; the profile re-reads on the
+    // next session-change or screen visit rather than leaving the splash hung.
+    if (gen === fetchGen.current) setLoadedFor(currentUid)
   }, [])
 
   return (

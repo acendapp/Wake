@@ -169,6 +169,10 @@ export type { StatsDay }
  * Every day with any activity, oldest → newest — the source for the You page's
  * real stats (streak, trends, gap mix, portfolio). Bounded to a generous window
  * so the query stays light; an early-stage user is well within it.
+ *
+ * The query orders NEWEST-first so the `limit` keeps the most recent days (past
+ * the cap it's the oldest history that drops off, never today's data); the result
+ * is reversed back to oldest → newest for the stats pipeline.
  */
 export async function daysForStats(limit = 400): Promise<StatsDay[]> {
   const userId = await currentUserId()
@@ -179,10 +183,10 @@ export async function daysForStats(limit = 400): Promise<StatsDay[]> {
     )
     .eq('user_id', userId)
     .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
-    .order('local_date', { ascending: true })
+    .order('local_date', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return (data ?? []) as StatsDay[]
+  return ((data ?? []) as StatsDay[]).reverse()
 }
 
 /**
@@ -239,9 +243,18 @@ export async function saveEvening(
   },
 ): Promise<void> {
   const userId = await currentUserId()
+  // Clamp to the column's CHECK range (0–240) so a stray stored preference can
+  // never make the write throw a constraint violation and block the reflection.
+  const routineMinutes = Math.max(0, Math.min(240, Math.round(input.routineMinutes)))
   await upsertDay(userId, addDays(date, 1), {
     day_difficulty: input.tomorrowDemand,
-    routine_minutes: input.routineMinutes,
+    routine_minutes: routineMinutes,
+    // Invalidate any cached pre-gen for tomorrow: editing the reflection can change
+    // demand/length, and a plan built for the old inputs must not survive. pregenerate-
+    // Tomorrow (fired right after this in finish()) repopulates; if it can't (offline),
+    // the morning safely falls back to a deterministic plan rather than serving a
+    // stale one that mismatches the row.
+    plan_options: null,
   })
   await upsertDay(userId, date, {
     lookback: input.lookback,

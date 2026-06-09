@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -65,18 +65,28 @@ export default function RoutineScreen() {
   const { profile } = useProfile()
 
   const [loading, setLoading] = useState(!isSample)
+  const [loadError, setLoadError] = useState(false)
   const [row, setRow] = useState<DayRow | null>(null)
   const [completed, setCompleted] = useState<string[]>([])
   // The sample opens on the beautiful Today home; a real morning opens on focal.
   const [phase, setPhase] = useState<Phase>(isSample ? 'home' : 'focal')
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const mounted = useRef(true)
   useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  const load = useCallback(() => {
     if (isSample) return // nothing to load — the sample plan is fixed
-    let active = true
+    setLoading(true)
+    setLoadError(false)
     getDay(logicalDate())
       .then((r) => {
-        if (!active) return
+        if (!mounted.current) return
         setRow(r)
         const slugs = r?.completed_slugs ?? []
         setCompleted(slugs)
@@ -85,13 +95,18 @@ export default function RoutineScreen() {
         setLoading(false)
       })
       .catch(() => {
-        if (!active) return
+        if (!mounted.current) return
+        // A real fetch failure is distinct from "not checked in yet" (which loads
+        // fine and just has no plan) — surface it as a retryable error, not the
+        // "no routine yet" empty state that would wrongly send them to Today.
+        setLoadError(true)
         setLoading(false)
       })
-    return () => {
-      active = false
-    }
   }, [isSample])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const plan = isSample ? SAMPLE_PLAN : (row?.plan ?? null)
   const focal = plan?.oneThing ?? null
@@ -101,13 +116,22 @@ export default function RoutineScreen() {
   // Optimistic check-off: the UI flips instantly, the write follows. A failed
   // write surfaces quietly and the evening reflection remains the safety net.
   // Sample mode never writes — the check-offs are just for the feel of it.
+  //
+  // Writes are chained so rapid taps persist in tap order: each save waits for the
+  // previous to settle, so an earlier request can't land after a later one and
+  // leave `completed_slugs` stale relative to what's on screen.
+  const writeChain = useRef<Promise<unknown>>(Promise.resolve())
   const persist = (slugs: string[]) => {
     setCompleted(slugs)
     if (isSample) return
     setSaveError(null)
-    saveCompletedSlugs(logicalDate(), slugs).catch(() => {
-      setSaveError('Couldn’t save just now — tonight’s reflection will catch anything missed.')
-    })
+    writeChain.current = writeChain.current
+      .catch(() => {})
+      .then(() => saveCompletedSlugs(logicalDate(), slugs))
+      .catch(() => {
+        if (mounted.current)
+          setSaveError('Couldn’t save just now — tonight’s reflection will catch anything missed.')
+      })
   }
 
   const completeFocal = () => {
@@ -129,6 +153,25 @@ export default function RoutineScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Loading label="Getting your morning…" />
+      </SafeAreaView>
+    )
+  }
+
+  // ── Load failed (network/store error, not "not checked in") ──────────────────
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <Header onClose={close} />
+        <View style={styles.emptyWrap}>
+          <Feather name="cloud-off" size={26} color={day.muted} />
+          <Text style={styles.emptyTitle}>Couldn’t load your morning.</Text>
+          <Text style={styles.emptyBody}>Check your connection and try again.</Text>
+          <Pressable style={styles.button} onPress={load} accessibilityRole="button">
+            <LinearGradient colors={GOLD_GRADIENT} style={styles.buttonFill}>
+              <Text style={styles.buttonLabel}>Try again</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
       </SafeAreaView>
     )
   }

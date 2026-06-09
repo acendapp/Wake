@@ -9,3 +9,11 @@ export function errorMessage(e: unknown, fallback: string): string {
   }
   return fallback
 }
+
+// A pragmatic email-shape check for gating sign-in / sign-up before a network
+// round-trip — "something@something.tld", no spaces. Not RFC-exhaustive (no
+// validator that gates real users should be); the server is the real authority.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email.trim())
+}
