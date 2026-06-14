@@ -111,21 +111,29 @@ async function personalizeState(
   }
 }
 
+// In-flight guard, keyed by target date: focus/launch can fire the safety-net
+// re-arm repeatedly, and the evening hook could overlap it — never run two
+// pre-gens for the same date at once (each is three Claude calls).
+const inFlight = new Set<string>()
+
 /**
- * Evening pre-generation: build and cache tomorrow's routine for all three
- * states. Call after the evening reflection writes tomorrow's demand + budget.
- * Best-effort — swallows errors so it never blocks the reflection from saving.
+ * Build and cache one date's routine for all three readiness states via Claude,
+ * reading that date's demand + budget (defaults when the row isn't set yet).
+ * Best-effort — swallows errors so it never blocks the caller. Returns true only
+ * when fresh options were actually written, so a caller can reload to pick them
+ * up (and skip reloading when nothing changed, avoiding a refetch loop).
  */
-export async function pregenerateTomorrow(today: string): Promise<void> {
+export async function pregeneratePlansFor(targetDate: string): Promise<boolean> {
+  if (inFlight.has(targetDate)) return false
+  inFlight.add(targetDate)
   try {
-    const tomorrow = addDays(today, 1)
-    const [profile, reflectionRows, tomorrowRow] = await Promise.all([
+    const [profile, reflectionRows, targetRow] = await Promise.all([
       fetchProfile(),
       recentReflections(5),
-      getDay(tomorrow),
+      getDay(targetDate),
     ])
-    const dayDifficulty = tomorrowRow?.day_difficulty ?? DEFAULT_DEMAND
-    const budget = tomorrowRow?.routine_minutes ?? DEFAULT_BUDGET
+    const dayDifficulty = targetRow?.day_difficulty ?? DEFAULT_DEMAND
+    const budget = targetRow?.routine_minutes ?? DEFAULT_BUDGET
     const reflections = reflectionRows.map(toReflectionSummary)
 
     const plans = await Promise.all(
@@ -135,10 +143,23 @@ export async function pregenerateTomorrow(today: string): Promise<void> {
     STATES.forEach((state, i) => {
       options[state] = plans[i]
     })
-    await savePlanOptions(tomorrow, options)
+    await savePlanOptions(targetDate, options)
+    return true
   } catch {
     // Pre-gen is an optimization; the morning falls back to a deterministic plan.
+    return false
+  } finally {
+    inFlight.delete(targetDate)
   }
+}
+
+/**
+ * Evening pre-generation: build and cache tomorrow's routine for all three
+ * states. Call after the evening reflection writes tomorrow's demand + budget.
+ * Best-effort — swallows errors so it never blocks the reflection from saving.
+ */
+export function pregenerateTomorrow(today: string): Promise<boolean> {
+  return pregeneratePlansFor(addDays(today, 1))
 }
 
 /**

@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { TrendChart } from '@/components/you/TrendChart'
 import { useAuth } from '@/lib/auth'
 import { daysForStats, logicalDate } from '@/lib/days'
+import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { useProfile } from '@/lib/profile'
 import {
   computeYouStats,
@@ -658,6 +659,26 @@ export default function YouScreen() {
                 {signingOut ? 'Signing out…' : 'Sign out'}
               </Text>
             </Pressable>
+          </View>
+        </Section>
+
+        {/* ── Legal ─────────────────────────────────────────────────────────── */}
+        <Section delay={hasHistory ? 720 : 630}>
+          <Text style={styles.sectionEyebrow}>Legal</Text>
+          <View style={styles.settingsCard}>
+            <SettingsRow
+              icon="file-text"
+              title="Terms of Service"
+              sub="The agreement you use Wake under"
+              onPress={() => openLegal(TERMS_OF_SERVICE_URL)}
+            />
+            <View style={styles.settingsSeparator} />
+            <SettingsRow
+              icon="shield"
+              title="Privacy Policy"
+              sub="What we collect and how it's used"
+              onPress={() => openLegal(PRIVACY_POLICY_URL)}
+            />
           </View>
         </Section>
       </ScrollView>

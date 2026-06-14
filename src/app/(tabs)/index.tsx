@@ -18,7 +18,7 @@ import { Scale } from '@/components/reflect/Scale'
 import { TodayHome } from '@/components/today/TodayHome'
 import { classifyState } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
-import { resolveMorningPlan } from '@/lib/routine'
+import { pregeneratePlansFor, resolveMorningPlan } from '@/lib/routine'
 import {
   addDays,
   daysForStats,
@@ -109,6 +109,10 @@ export default function Index() {
   // with stale.
   const mounted = useRef(true)
   const loadGen = useRef(0)
+  // Dates we've already tried to back-fill plan options for this session, so the
+  // safety-net re-arm (below) fires at most once per day even across refocuses —
+  // and never loops when a generation attempt fails to write.
+  const pregenTried = useRef<Set<string>>(new Set())
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -141,6 +145,20 @@ export default function Index() {
       setHasHistory(rows.length > 0) // rows are already filtered to activity days
       setInsight(computeTodayInsight(rows))
       setLoadError(null)
+
+      // Safety net: personalization is pre-generated the evening before, so a
+      // missed or failed evening pre-gen (e.g. an outage) leaves today with no
+      // Claude options and the morning silently falls back to deterministic. If
+      // the check-in isn't done yet and today has no options, build them now in
+      // the background, then reload to pick them up. Guarded to once per day per
+      // session so it can't loop when generation fails to write.
+      const noOptions = !t?.plan_options || Object.keys(t.plan_options).length === 0
+      if (!t?.readiness && noOptions && !pregenTried.current.has(date)) {
+        pregenTried.current.add(date)
+        void pregeneratePlansFor(date).then((wrote) => {
+          if (wrote && live()) load()
+        })
+      }
     } catch (e) {
       if (!live()) return
       setLoadError(errorMessage(e, 'Could not load today.'))
