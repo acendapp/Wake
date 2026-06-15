@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons'
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
 import { useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +17,7 @@ import { WakeTimePicker } from '@/components/WakeTimePicker'
 import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable, VOICES, type Voice } from '@/lib/alarm'
 import { errorMessage } from '@/lib/errors'
 import { updateProfile, useProfile } from '@/lib/profile'
+import { VOICE_PREVIEW_CLIP } from '@/lib/wakeAudio'
 import { day } from '@/theme/colors'
 
 // The "Wake alarm" settings screen, opened from the You page. Lets a user turn
@@ -34,6 +36,30 @@ export default function WakeAlarmScreen() {
   const [voice, setVoice] = useState(profile?.wake_voice ?? DEFAULT_VOICE)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Voice preview playback. One reusable player; tapping a voice plays its sample,
+  // replacing whatever was playing. Audible even on silent so the preview works.
+  const playerRef = useRef<AudioPlayer | null>(null)
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
+    return () => {
+      playerRef.current?.remove()
+      playerRef.current = null
+    }
+  }, [])
+
+  const previewVoice = (voiceId: string) => {
+    const src = VOICE_PREVIEW_CLIP[voiceId]
+    if (!src) return
+    try {
+      playerRef.current?.remove()
+      const player = createAudioPlayer(src)
+      playerRef.current = player
+      player.play()
+    } catch {
+      // Preview is best-effort — never let it interrupt the screen.
+    }
+  }
 
   // Pre-fill once the profile arrives — the useState seeds capture only the first
   // render, so if the provider is still mid-fetch the toggle/time would otherwise
@@ -128,6 +154,7 @@ export default function WakeAlarmScreen() {
                     setTouched(true)
                     setVoice(v.id)
                   }}
+                  onPreview={() => previewVoice(v.id)}
                 />
               ))}
             </View>
@@ -143,6 +170,7 @@ export default function WakeAlarmScreen() {
                     setTouched(true)
                     setVoice(v.id)
                   }}
+                  onPreview={() => previewVoice(v.id)}
                 />
               ))}
             </View>
@@ -173,10 +201,12 @@ function VoiceCard({
   voice,
   selected,
   onPress,
+  onPreview,
 }: {
   voice: Voice
   selected: boolean
   onPress: () => void
+  onPreview: () => void
 }) {
   return (
     <Pressable
@@ -186,6 +216,15 @@ function VoiceCard({
       accessibilityState={{ selected }}
       accessibilityLabel={`${voice.name}. ${voice.tagline}`}
     >
+      <Pressable
+        style={styles.previewBtn}
+        onPress={onPreview}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={`Preview ${voice.name}`}
+      >
+        <Feather name="play" size={14} color={day.gold} />
+      </Pressable>
       <View style={styles.voiceText}>
         <Text style={[styles.voiceName, selected && styles.voiceNameOn]}>{voice.name}</Text>
         <Text style={styles.voiceTagline}>{voice.tagline}</Text>
@@ -306,6 +345,16 @@ const styles = StyleSheet.create({
   voiceCardOn: {
     borderColor: day.gold,
     borderWidth: 1.5,
+  },
+  previewBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: day.goldTint,
+    marginRight: 14,
+    paddingLeft: 2, // optically center the play triangle
   },
   voiceText: {
     flex: 1,
