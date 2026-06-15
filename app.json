@@ -8,8 +8,10 @@
     "scheme": "wake",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.acendapp.wake",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAlarmKitUsageDescription": "Wake schedules a gentle voice alarm to wake you at the time you choose."
       }
     },
     "android": {
@@ -40,6 +42,14 @@
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "18.0"
           }
         }
       ]
