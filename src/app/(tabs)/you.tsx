@@ -626,7 +626,12 @@ export default function YouScreen() {
               onPress={() => router.push('/morning-signals')}
             />
             <View style={styles.settingsSeparator} />
-            <SettingsRow icon="bell" title="Notifications" sub="Wake-up nudge, evening reminder" />
+            <SettingsRow
+              icon="bell"
+              title="Wake alarm"
+              sub={formatWakeSummary(profile?.wake_enabled, profile?.wake_time)}
+              onPress={() => router.push('/wake-alarm')}
+            />
             <View style={styles.settingsSeparator} />
             <SettingsRow
               icon="user"
@@ -684,6 +689,16 @@ export default function YouScreen() {
       </ScrollView>
     </SafeAreaView>
   )
+}
+
+// The wake-alarm row's subline: "On · 7:00 AM" / "Off", from the stored 24h time.
+function formatWakeSummary(enabled?: boolean, time?: string | null): string {
+  if (!enabled || !time) return 'Off'
+  const [h, m] = time.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return 'On'
+  const period = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `On · ${h12}:${String(m).padStart(2, '0')} ${period}`
 }
 
 // A quiet settings row — icon chip, title + subline, chevron. Rows without an

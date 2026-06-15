@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -18,6 +19,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { DurationStepper } from '@/components/reflect/DurationStepper'
+import { WakeTimePicker } from '@/components/WakeTimePicker'
+import { applyWakeAlarm, isAlarmAvailable } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
 import {
@@ -123,9 +126,13 @@ const PILLARS: {
 ]
 
 // Steps that count toward the progress bar (intro + finish sit outside it).
+// 1 intent · 2 chronotype · 3 routine length · 4 demographics · 5 wake alarm.
 const FIRST_QUESTION = 1
-const LAST_QUESTION = 4
+const LAST_QUESTION = 5
 const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
+
+// Where the wake-time picker starts before the user adjusts it.
+const DEFAULT_WAKE_TIME = '07:00'
 
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
@@ -150,6 +157,10 @@ export default function OnboardingScreen() {
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
+  // The wake-alarm opt-in (step 5). Off by default; turning it on reveals the
+  // time picker, pre-filled with a sensible default.
+  const [wakeEnabled, setWakeEnabled] = useState(false)
+  const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
 
   // Name is captured at the end (step 6) and used to greet the user across the
   // app. First name is required; last name is optional.
@@ -176,7 +187,7 @@ export default function OnboardingScreen() {
   // live session would flash the signed-in variant of the screen in the moment
   // between account creation and the gate navigating to the paywall.
   const needsAccountRef = useRef(!session)
-  if (step < 6) needsAccountRef.current = !session
+  if (step < 7) needsAccountRef.current = !session
   const needsAccount = needsAccountRef.current
 
   // First name is required on the final step; the greeting depends on it.
@@ -188,7 +199,7 @@ export default function OnboardingScreen() {
   // they came in via the sign-in screen's create-account path), it just saves —
   // but a first name is still required either way.
   const buttonEnabled =
-    step === 6 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
+    step === 7 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -227,9 +238,14 @@ export default function OnboardingScreen() {
         routineMinutes,
         ageRange,
         sex,
+        wakeEnabled,
+        wakeTime: wakeEnabled ? wakeTime : null,
       })
       // Seed the device-local default so the evening routine stepper starts here.
       await setPreferredRoutineMinutes(routineMinutes)
+      // Arm the wake alarm if opted in (no-op until the native tier exists; the
+      // preference is already persisted above for a later dev build to pick up).
+      await applyWakeAlarm({ enabled: wakeEnabled, time: wakeEnabled ? wakeTime : null })
       await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
       // No setSaving(false): the screen unmounts as the gate navigates away.
     } catch (e) {
@@ -359,11 +375,11 @@ export default function OnboardingScreen() {
 
   // The editorial curation beat — full-bleed, immersive, no chrome. Auto-advances
   // to account creation when the lines finish.
-  if (step === 5 && intent && chronotype) {
+  if (step === 6 && intent && chronotype) {
     return (
       <CurationLoader
         lines={curationLines(intent, chronotype, routineMinutes)}
-        onDone={() => setStep(6)}
+        onDone={() => setStep(7)}
       />
     )
   }
@@ -476,7 +492,36 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 6 && (
+        {step === 5 && (
+          <Question
+            title="Want Wake to wake you?"
+            caption="A gentle voice alarm that eases you out of bed — the very start of your morning. Optional, and you can change it anytime."
+          >
+            <View style={styles.wakeToggleRow}>
+              <Text style={styles.wakeToggleLabel}>Wake me with a voice alarm</Text>
+              <Switch
+                value={wakeEnabled}
+                onValueChange={setWakeEnabled}
+                trackColor={{ true: day.gold, false: day.border }}
+                thumbColor={day.surface}
+                ios_backgroundColor={day.border}
+              />
+            </View>
+            {wakeEnabled && (
+              <View style={styles.wakePickerWrap}>
+                <WakeTimePicker value={wakeTime} onChange={setWakeTime} />
+                {!isAlarmAvailable() && (
+                  <Text style={styles.wakeNote}>
+                    We&rsquo;ll save your wake time now — the voice alarm activates in the
+                    full Wake app.
+                  </Text>
+                )}
+              </View>
+            )}
+          </Question>
+        )}
+
+        {step === 7 && (
           <View>
             <Text style={styles.questionTitle}>Your routine is ready.</Text>
             <Text style={styles.caption}>
@@ -559,7 +604,7 @@ export default function OnboardingScreen() {
 
           <Pressable
             style={[styles.button, !buttonEnabled && styles.buttonDisabled]}
-            onPress={step === 6 ? createAccount : next}
+            onPress={step === 7 ? createAccount : next}
             disabled={!buttonEnabled}
             accessibilityRole="button"
           >
@@ -567,7 +612,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color={day.onAccent} />
             ) : (
               <Text style={styles.buttonLabel}>
-                {step === 6 ? (needsAccount ? 'Create account' : 'Save my routine') : 'Continue'}
+                {step === 7 ? (needsAccount ? 'Create account' : 'Save my routine') : 'Continue'}
               </Text>
             )}
           </Pressable>
@@ -963,6 +1008,42 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 22,
     paddingVertical: 22,
+  },
+  wakeToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  wakeToggleLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 16,
+    color: day.text,
+    flex: 1,
+    marginRight: 12,
+  },
+  wakePickerWrap: {
+    marginTop: 18,
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    borderRadius: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
+    alignItems: 'center',
+  },
+  wakeNote: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    color: day.muted,
+    textAlign: 'center',
+    marginTop: 18,
+    lineHeight: 19,
   },
   accountForm: {
     marginTop: 28,
