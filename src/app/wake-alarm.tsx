@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons'
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
 import { useRouter } from 'expo-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -13,11 +12,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { VoicePicker } from '@/components/VoicePicker'
 import { WakeTimePicker } from '@/components/WakeTimePicker'
-import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable, VOICES, type Voice } from '@/lib/alarm'
+import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable } from '@/lib/alarm'
 import { errorMessage } from '@/lib/errors'
 import { updateProfile, useProfile } from '@/lib/profile'
-import { VOICE_PREVIEW_CLIP } from '@/lib/wakeAudio'
 import { day } from '@/theme/colors'
 
 // The "Wake alarm" settings screen, opened from the You page. Lets a user turn
@@ -36,52 +35,6 @@ export default function WakeAlarmScreen() {
   const [voice, setVoice] = useState(profile?.wake_voice ?? DEFAULT_VOICE)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Voice preview playback. One reusable player so clips never overlap; the card
-  // for the playing voice shows a pause icon. `playingVoice` is the id currently
-  // sounding (null = nothing). Audible even on silent so the preview works.
-  const playerRef = useRef<AudioPlayer | null>(null)
-  const [playingVoice, setPlayingVoice] = useState<string | null>(null)
-
-  useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
-    return () => {
-      playerRef.current?.remove()
-      playerRef.current = null
-    }
-  }, [])
-
-  const stopPreview = () => {
-    playerRef.current?.remove()
-    playerRef.current = null
-    setPlayingVoice(null)
-  }
-
-  const previewVoice = (voiceId: string) => {
-    // Tapping the voice that's already playing → stop it (toggle to play icon).
-    if (playingVoice === voiceId) {
-      stopPreview()
-      return
-    }
-    const src = VOICE_PREVIEW_CLIP[voiceId]
-    if (!src) return
-    try {
-      // Stop whatever was playing first so two clips never overlap; that card
-      // reverts to its play icon as `playingVoice` moves to the new one.
-      playerRef.current?.remove()
-      const player = createAudioPlayer(src)
-      playerRef.current = player
-      // Revert to the play icon when the clip finishes on its own.
-      player.addListener('playbackStatusUpdate', (status) => {
-        if (status?.didJustFinish && playerRef.current === player) stopPreview()
-      })
-      player.play()
-      setPlayingVoice(voiceId)
-    } catch {
-      // Preview is best-effort — never let it interrupt the screen.
-      stopPreview()
-    }
-  }
 
   // Pre-fill once the profile arrives — the useState seeds capture only the first
   // render, so if the provider is still mid-fetch the toggle/time would otherwise
@@ -165,39 +118,13 @@ export default function WakeAlarmScreen() {
               so it never feels canned.
             </Text>
 
-            <Text style={styles.groupLabel}>Women</Text>
-            <View style={styles.voiceList}>
-              {VOICES.filter((v) => v.gender === 'female').map((v) => (
-                <VoiceCard
-                  key={v.id}
-                  voice={v}
-                  selected={voice === v.id}
-                  onPress={() => {
-                    setTouched(true)
-                    setVoice(v.id)
-                  }}
-                  onPreview={() => previewVoice(v.id)}
-                  playing={playingVoice === v.id}
-                />
-              ))}
-            </View>
-
-            <Text style={[styles.groupLabel, styles.groupLabelGap]}>Men</Text>
-            <View style={styles.voiceList}>
-              {VOICES.filter((v) => v.gender === 'male').map((v) => (
-                <VoiceCard
-                  key={v.id}
-                  voice={v}
-                  selected={voice === v.id}
-                  onPress={() => {
-                    setTouched(true)
-                    setVoice(v.id)
-                  }}
-                  onPreview={() => previewVoice(v.id)}
-                  playing={playingVoice === v.id}
-                />
-              ))}
-            </View>
+            <VoicePicker
+              value={voice}
+              onChange={(id) => {
+                setTouched(true)
+                setVoice(id)
+              }}
+            />
           </>
         )}
       </ScrollView>
@@ -218,49 +145,6 @@ export default function WakeAlarmScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
-  )
-}
-
-function VoiceCard({
-  voice,
-  selected,
-  onPress,
-  onPreview,
-  playing,
-}: {
-  voice: Voice
-  selected: boolean
-  onPress: () => void
-  onPreview: () => void
-  playing: boolean
-}) {
-  return (
-    <Pressable
-      style={[styles.voiceCard, selected && styles.voiceCardOn]}
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={`${voice.name}. ${voice.tagline}`}
-    >
-      <Pressable
-        style={[styles.previewBtn, playing && styles.previewBtnOn]}
-        onPress={onPreview}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={`${playing ? 'Stop' : 'Preview'} ${voice.name}`}
-      >
-        <Feather
-          name={playing ? 'pause' : 'play'}
-          size={14}
-          color={playing ? day.onAccent : day.gold}
-        />
-      </Pressable>
-      <View style={styles.voiceText}>
-        <Text style={[styles.voiceName, selected && styles.voiceNameOn]}>{voice.name}</Text>
-        <Text style={styles.voiceTagline}>{voice.tagline}</Text>
-      </View>
-      {selected && <Feather name="check" size={20} color={day.gold} />}
-    </Pressable>
   )
 }
 
@@ -346,68 +230,6 @@ const styles = StyleSheet.create({
     color: day.muted,
     marginTop: 6,
     marginBottom: 18,
-  },
-  groupLabel: {
-    fontFamily: 'PlayfairDisplay_500Medium',
-    fontSize: 14,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: day.muted,
-    marginBottom: 12,
-  },
-  groupLabelGap: {
-    marginTop: 24,
-  },
-  voiceList: {
-    gap: 12,
-  },
-  voiceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  voiceCardOn: {
-    borderColor: day.gold,
-    borderWidth: 1.5,
-  },
-  previewBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: day.goldTint,
-    marginRight: 14,
-    paddingLeft: 2, // optically center the play triangle
-  },
-  previewBtnOn: {
-    backgroundColor: day.gold,
-    paddingLeft: 0, // the pause glyph is symmetric — no optical nudge
-  },
-  voiceText: {
-    flex: 1,
-    gap: 3,
-    marginRight: 12,
-  },
-  voiceName: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 17,
-    color: day.text,
-  },
-  voiceNameOn: {
-    color: day.gold,
-  },
-  voiceTagline: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    lineHeight: 19,
-    color: day.muted,
   },
   footer: {
     paddingHorizontal: 28,

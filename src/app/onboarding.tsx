@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { DurationStepper } from '@/components/reflect/DurationStepper'
+import { VoicePicker } from '@/components/VoicePicker'
 import { WakeTimePicker } from '@/components/WakeTimePicker'
 import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
@@ -161,6 +162,7 @@ export default function OnboardingScreen() {
   // time picker, pre-filled with a sensible default.
   const [wakeEnabled, setWakeEnabled] = useState(false)
   const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
+  const [wakeVoice, setWakeVoice] = useState(DEFAULT_VOICE)
 
   // Name is captured at the end (step 6) and used to greet the user across the
   // app. First name is required; last name is optional.
@@ -240,6 +242,7 @@ export default function OnboardingScreen() {
         sex,
         wakeEnabled,
         wakeTime: wakeEnabled ? wakeTime : null,
+        wakeVoice,
       })
       // Seed the device-local default so the evening routine stepper starts here.
       await setPreferredRoutineMinutes(routineMinutes)
@@ -248,7 +251,7 @@ export default function OnboardingScreen() {
       await applyWakeAlarm({
         enabled: wakeEnabled,
         time: wakeEnabled ? wakeTime : null,
-        voice: DEFAULT_VOICE,
+        voice: wakeVoice,
       })
       await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
       // No setSaving(false): the screen unmounts as the gate navigates away.
@@ -498,8 +501,8 @@ export default function OnboardingScreen() {
 
         {step === 5 && (
           <Question
-            title="Want Wake to wake you?"
-            caption="A gentle voice alarm that eases you out of bed — the very start of your morning. Optional, and you can change it anytime."
+            title="Now, how you wake."
+            caption="This is what makes Wake different: a real alarm that greets you by voice and eases you into the day — not a jarring buzzer. Choose your time and the voice you want to hear."
           >
             <View style={styles.wakeToggleRow}>
               <Text style={styles.wakeToggleLabel}>Wake me with a voice alarm</Text>
@@ -512,15 +515,19 @@ export default function OnboardingScreen() {
               />
             </View>
             {wakeEnabled && (
-              <View style={styles.wakePickerWrap}>
-                <WakeTimePicker value={wakeTime} onChange={setWakeTime} />
-                {!isAlarmAvailable() && (
-                  <Text style={styles.wakeNote}>
-                    We&rsquo;ll save your wake time now — the voice alarm activates in the
-                    full Wake app.
-                  </Text>
-                )}
-              </View>
+              <>
+                <View style={styles.wakePickerWrap}>
+                  <WakeTimePicker value={wakeTime} onChange={setWakeTime} />
+                  {!isAlarmAvailable() && (
+                    <Text style={styles.wakeNote}>
+                      We&rsquo;ll save your wake time now — the voice alarm activates in the
+                      full Wake app.
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.wakeVoiceHeading}>Pick your voice</Text>
+                <VoicePicker value={wakeVoice} onChange={setWakeVoice} />
+              </>
             )}
           </Question>
         )}
@@ -1048,6 +1055,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 18,
     lineHeight: 19,
+  },
+  wakeVoiceHeading: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 18,
+    color: day.text,
+    marginTop: 28,
+    marginBottom: 16,
   },
   accountForm: {
     marginTop: 28,
