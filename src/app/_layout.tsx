@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useEffect, useRef } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
+import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
 import { ProfileProvider, useProfile } from '@/lib/profile'
@@ -77,6 +78,19 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   useEffect(() => {
     if (ready) SplashScreen.hideAsync()
   }, [ready])
+
+  // Re-arm the wake alarm on every launch when it's enabled. A repeating AlarmKit
+  // alarm keeps the single soundName it was scheduled with, so re-arming here is
+  // what advances the daily clip rotation. No-op on Tier 0 (Expo Go / non-26.1),
+  // where the stored preference simply waits for a capable build.
+  useEffect(() => {
+    if (!profile?.wake_enabled || !profile.wake_time) return
+    void applyWakeAlarm({
+      enabled: true,
+      time: profile.wake_time,
+      voice: profile.wake_voice ?? DEFAULT_VOICE,
+    })
+  }, [profile?.wake_enabled, profile?.wake_time, profile?.wake_voice])
 
   useEffect(() => {
     if (!ready) return

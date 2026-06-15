@@ -479,6 +479,11 @@ export default function Index() {
       onSettings={() =>
         router.push({ pathname: '/you', params: { settings: String(Date.now()) } })
       }
+      // The voice alarm, surfaced in the daily loop — tap to manage.
+      wakeEnabled={profile?.wake_enabled ?? false}
+      wakeTime={profile?.wake_time ?? null}
+      wakeVoiceId={profile?.wake_voice ?? null}
+      onWakePress={() => router.push('/wake-alarm')}
     />
   )
 }

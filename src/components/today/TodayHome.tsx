@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import type { Plan, ReadinessState } from '@/engine/types'
+import { VOICES } from '@/lib/alarmCore'
 import { logicalNow } from '@/lib/time'
 import type { Weather, WeatherCondition } from '@/lib/weather'
 import { day, goldGradient } from '@/theme/colors'
@@ -134,6 +135,15 @@ function greetingWord(hours: number): string {
   return 'Good evening'
 }
 
+/** "07:00" → "7:00 AM" for display. */
+function formatClock(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm
+  const period = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+
 export type TodayHomeProps = {
   userName: string
   /** Live local weather; null hides the block. */
@@ -169,6 +179,12 @@ export type TodayHomeProps = {
   onSettings?: () => void
   /** Close X, top-right (the sample flow). */
   onClose?: () => void
+  /** Wake-alarm state for the home card. Card only renders when onWakePress is set
+   *  (the Today tab), never in the sample flow. */
+  wakeEnabled?: boolean
+  wakeTime?: string | null // "HH:MM" 24h
+  wakeVoiceId?: string | null
+  onWakePress?: () => void
 }
 
 export function TodayHome({
@@ -187,6 +203,10 @@ export function TodayHome({
   onStart,
   onSettings,
   onClose,
+  wakeEnabled = false,
+  wakeTime = null,
+  wakeVoiceId = null,
+  onWakePress,
 }: TodayHomeProps) {
   // Whether the "i" popup explaining the Gap model is open.
   const [infoOpen, setInfoOpen] = useState(false)
@@ -208,6 +228,10 @@ export function TodayHome({
   const activityExample = plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
   const dayDemand = `${dayDifficulty}/10`
+  // Wake-alarm home card display.
+  const wakeVoiceName = VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null
+  const wakeTimeLabel = wakeTime ? formatClock(wakeTime) : null
+  const wakeArmed = wakeEnabled && !!wakeTimeLabel
   // Clamp before driving the bar flex — an out-of-range value would otherwise
   // make a fill vanish (flex 0) or invert the bar (negative remainder).
   const youBar = Math.max(0, Math.min(10, readiness))
@@ -368,6 +392,41 @@ export function TodayHome({
             </Pressable>
           </View>
         </View>
+
+        {/* Wake-alarm card — the differentiator, surfaced in the daily loop (not
+            buried in Settings). Today tab only (sample flow passes no onWakePress). */}
+        {onWakePress ? (
+          <Pressable
+            style={[styles.card, styles.wakeCard]}
+            onPress={onWakePress}
+            accessibilityRole="button"
+            accessibilityLabel={
+              wakeArmed
+                ? `${wakeVoiceName} wakes you at ${wakeTimeLabel}. Change wake alarm.`
+                : 'Set up your wake alarm'
+            }
+          >
+            <View style={styles.wakeIcon}>
+              <Feather name="sunrise" size={18} color={COLORS.gold} />
+            </View>
+            <View style={styles.wakeText}>
+              {wakeArmed ? (
+                <>
+                  <Text style={styles.wakeTitle} numberOfLines={1}>
+                    {wakeVoiceName} wakes you at {wakeTimeLabel}
+                  </Text>
+                  <Text style={styles.wakeSub}>Your voice alarm is on · tap to change</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.wakeTitle}>Wake up to a voice you choose</Text>
+                  <Text style={styles.wakeSub}>Set your morning alarm →</Text>
+                </>
+              )}
+            </View>
+            <Feather name="chevron-right" size={18} color={COLORS.tagline} />
+          </Pressable>
+        ) : null}
 
         <View style={[styles.card, styles.cardMedia]}>
           <View style={styles.cardMediaClip}>
@@ -679,6 +738,38 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
+  },
+  wakeCard: {
+    // Slim row card overriding the tall default card height.
+    marginTop: 16,
+    height: 78,
+    paddingVertical: 0,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  wakeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: day.goldTint,
+    marginRight: 14,
+  },
+  wakeText: {
+    flex: 1,
+  },
+  wakeTitle: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 16,
+    color: COLORS.charcoal,
+  },
+  wakeSub: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 12.5,
+    color: COLORS.tagline,
+    marginTop: 2,
   },
   cardGap: {
     // The "THE GAP" box below WHERE YOU STAND — the You-vs-Day bars. Height sized
