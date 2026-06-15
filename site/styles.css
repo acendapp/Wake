@@ -110,6 +110,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; }
 .nav__links a { color: var(--muted); font-size: 0.95rem; }
 .nav__links a:hover { color: var(--gold); }
 .nav__links .btn { font-size: 0.9rem; padding: 0.55rem 1.15rem; }
+.nav__links .btn--gold { color: #fff; }
 @media (max-width: 40rem) {
   .nav__links a:not(.btn) { display: none; }
 }
