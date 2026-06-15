@@ -57,7 +57,8 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "./plugins/withWakeAudio"
     ],
     "experiments": {
       "typedRoutes": true,
