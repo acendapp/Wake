@@ -19,8 +19,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { Scale } from '@/components/reflect/Scale'
+import { WakeTimePicker } from '@/components/WakeTimePicker'
 import type { Action, Lookback, ReadinessState } from '@/engine/types'
 import { windDownSequence } from '@/engine/windDown'
+import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { addDays, getDay, logicalDate, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
@@ -29,8 +31,11 @@ import {
   getPreferredRoutineMinutes,
   setPreferredRoutineMinutes,
 } from '@/lib/prefs'
+import { updateProfile, useProfile } from '@/lib/profile'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { day } from '@/theme/colors'
+
+const DEFAULT_WAKE_TIME = '07:00'
 
 // Intro background fade: a top→bottom gradient that holds the app's cream over
 // the top ~15%, fades out by ~40% down, and is transparent below — so the image
@@ -66,7 +71,7 @@ const LOOKBACK_OPTIONS: { value: Lookback; label: string; sub: string }[] = [
 // there was a morning check-in to look back on (no plan → nothing to tick off),
 // so the live list is filtered per-session. Optional beats sit at the end so the
 // required core stays short; they can be skipped.
-const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'routine', 'windDown', 'note'] as const
+const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'routine', 'wake', 'windDown', 'note'] as const
 type StepKey = (typeof ALL_STEPS)[number]
 const OPTIONAL_STEPS: StepKey[] = ['note']
 
@@ -88,6 +93,12 @@ export default function ReflectScreen() {
   // the weekday header, the evening gate, and every row read/write agree.
   const weekday = WEEKDAYS[logicalNow().getDay()]
   const isEvening = isEveningNow()
+
+  // Wake-alarm: the nightly ritual confirms tomorrow's wake time for users who've
+  // turned the voice alarm on (set up in onboarding / Settings). Standing prefs,
+  // so they live on the profile, not the per-day row.
+  const { profile, refresh: refreshProfile } = useProfile()
+  const wakeEnabled = profile?.wake_enabled ?? false
 
   // This morning's call + the sequence it prescribed, loaded from today's stored
   // row. The call anchors the look-back recap; the sequence drives the completion
@@ -115,10 +126,14 @@ export default function ReflectScreen() {
   // /routine screen never gets re-asked "which of these did you do?".
   const steps = useMemo(
     () =>
-      ALL_STEPS.filter(
-        (s) => s !== 'completion' || (morningSequence.length > 0 && !trackedInMorning),
-      ),
-    [morningSequence.length, trackedInMorning],
+      ALL_STEPS.filter((s) => {
+        // The completion beat only when there was a morning plan not already tracked.
+        if (s === 'completion') return morningSequence.length > 0 && !trackedInMorning
+        // The wake-time beat only for users who've enabled the voice alarm.
+        if (s === 'wake') return wakeEnabled
+        return true
+      }),
+    [morningSequence.length, trackedInMorning, wakeEnabled],
   )
 
   // Freeze the step list once the user is in the flow. The mount load can flip
@@ -131,6 +146,12 @@ export default function ReflectScreen() {
   }, [steps, phase])
   const activeSteps = phase === 'flow' ? stepsRef.current : steps
 
+  // Seed the wake time from the standing profile pref (outside the flow, so an
+  // in-progress edit is never clobbered when the provider refreshes).
+  useEffect(() => {
+    if (phase !== 'flow' && profile?.wake_time) setWakeTime(profile.wake_time)
+  }, [profile?.wake_time, phase])
+
   // Answers.
   const [lookback, setLookback] = useState<Lookback | null>(null)
   const [energy, setEnergy] = useState(6)
@@ -139,6 +160,7 @@ export default function ReflectScreen() {
   const [note, setNote] = useState('')
   const [demand, setDemand] = useState(5)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
+  const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -245,6 +267,21 @@ export default function ReflectScreen() {
       })
       // Remember this length as the new standing default for next time.
       void setPreferredRoutineMinutes(routineMinutes)
+      // Persist tomorrow's wake time + re-arm the alarm (best-effort — the
+      // reflection itself is already saved, so a failure here never blocks it).
+      if (wakeEnabled) {
+        try {
+          await updateProfile({ wakeTime })
+          await applyWakeAlarm({
+            enabled: true,
+            time: wakeTime,
+            voice: profile?.wake_voice ?? DEFAULT_VOICE,
+          })
+          void refreshProfile()
+        } catch {
+          // non-fatal
+        }
+      }
       // Pre-generate tomorrow's personalized routine in the background (best-effort,
       // off the hot path) so the morning open is instant. Never blocks the ritual.
       void pregenerateTomorrow(logicalDate())
@@ -416,6 +453,8 @@ export default function ReflectScreen() {
               setDemand,
               routineMinutes,
               setRoutineMinutes,
+              wakeTime,
+              setWakeTime,
               windDown,
             })}
           </ScrollView>
@@ -470,6 +509,8 @@ type StepProps = {
   setDemand: (n: number) => void
   routineMinutes: number
   setRoutineMinutes: (n: number) => void
+  wakeTime: string
+  setWakeTime: (t: string) => void
   windDown: ReturnType<typeof windDownSequence>
 }
 
@@ -579,6 +620,19 @@ function renderStep(key: StepKey, p: StepProps) {
         >
           <Text style={styles.routineLabel}>Routine time</Text>
           <DurationStepper value={p.routineMinutes} onChange={p.setRoutineMinutes} />
+        </StepHeader>
+      )
+
+    case 'wake':
+      return (
+        <StepHeader
+          eyebrow="Tomorrow's wake-up"
+          question="What time should I wake you?"
+          helper="Your voice alarm will greet you then. Adjust it just for tomorrow."
+        >
+          <View style={styles.wakeWrap}>
+            <WakeTimePicker value={p.wakeTime} onChange={p.setWakeTime} />
+          </View>
         </StepHeader>
       )
 
@@ -911,6 +965,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: day.muted,
     marginBottom: 14,
+  },
+  wakeWrap: {
+    alignItems: 'center',
+    paddingVertical: 8,
   },
 
   // Wind-down

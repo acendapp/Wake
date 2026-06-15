@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { TrendChart } from '@/components/you/TrendChart'
 import { useAuth } from '@/lib/auth'
 import { daysForStats, logicalDate } from '@/lib/days'
+import { VOICES } from '@/lib/alarmCore'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { useProfile } from '@/lib/profile'
 import {
@@ -629,7 +630,7 @@ export default function YouScreen() {
             <SettingsRow
               icon="bell"
               title="Wake alarm"
-              sub={formatWakeSummary(profile?.wake_enabled, profile?.wake_time)}
+              sub={formatWakeSummary(profile?.wake_enabled, profile?.wake_time, profile?.wake_voice)}
               onPress={() => router.push('/wake-alarm')}
             />
             <View style={styles.settingsSeparator} />
@@ -691,14 +692,17 @@ export default function YouScreen() {
   )
 }
 
-// The wake-alarm row's subline: "On · 7:00 AM" / "Off", from the stored 24h time.
-function formatWakeSummary(enabled?: boolean, time?: string | null): string {
+// The wake-alarm row's subline: "Aurora · 7:00 AM" / "Off", from the stored
+// voice id + 24h time.
+function formatWakeSummary(enabled?: boolean, time?: string | null, voiceId?: string | null): string {
   if (!enabled || !time) return 'Off'
   const [h, m] = time.split(':').map(Number)
   if (Number.isNaN(h) || Number.isNaN(m)) return 'On'
   const period = h >= 12 ? 'PM' : 'AM'
   const h12 = h % 12 === 0 ? 12 : h % 12
-  return `On · ${h12}:${String(m).padStart(2, '0')} ${period}`
+  const clock = `${h12}:${String(m).padStart(2, '0')} ${period}`
+  const voiceName = VOICES.find((v) => v.id === voiceId)?.name
+  return voiceName ? `${voiceName} · ${clock}` : clock
 }
 
 // A quiet settings row — icon chip, title + subline, chevron. Rows without an
