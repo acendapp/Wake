@@ -30,22 +30,44 @@ The wake alarm plays a short, warm, spoken good-morning that **rotates one per d
 4. "Good morning. However you slept, today's a fresh page. Open up when you're ready."
 5. "Rise easy. No alarm-panic today — just you, awake, ahead of the day. Let's go."
 
+## Voices
+
+The user picks a voice in Settings → Wake alarm. Each voice has its OWN set of
+recordings. Voice ids (see `VOICES` in `src/lib/alarmCore.ts`):
+
+| Voice  | Gender | Feel                                              |
+| ------ | ------ | ------------------------------------------------- |
+| theo   | male   | Warm and grounded — the friend who believes in you |
+| atlas  | male   | Strong and motivating — a gentle push to rise      |
+| julian | male   | Smooth and unhurried — calm like dawn radio        |
+| aurora | female | Bright and hopeful — like sunrise in a voice       |
+| sage   | female | Soft and soothing — a calm, steady start           |
+| nova   | female | Clear and uplifting — energy without the noise     |
+
 ## Naming + where they go
 
-Name them exactly to match the manifest in `src/lib/alarm.ts` (`WAKE_CLIPS`):
+Record **5 clips per voice** (`CLIPS_PER_VOICE`), named `<voiceId>-NN.caf`:
 
 ```
-wake-01.caf  wake-02.caf  wake-03.caf  wake-04.caf  wake-05.caf
+aurora-01.caf  aurora-02.caf  aurora-03.caf  aurora-04.caf  aurora-05.caf
+theo-01.caf    theo-02.caf    …
 ```
 
-Drop them in **`assets/audio/`** (create it at the repo root next to `assets/`).
-Add or remove clips by editing the `WAKE_CLIPS` list — the daily rotation adapts to
-the library size automatically. Start with as few as 2–3 and grow it.
+Drop them all in **`assets/audio/`** (create it at the repo root next to `assets/`).
+Change the count by editing `CLIPS_PER_VOICE`; add/rename voices by editing the
+`VOICES` list — the daily rotation adapts automatically.
 
-## Converting to .caf
+## ⚠️ MP3 won't work — convert to .caf
 
-If you record to WAV/AIFF, convert with macOS's built-in tool:
+AlarmKit only accepts `.caf` / `.wav` / `.aiff` (NOT `.mp3`/`.m4a`). If you have
+mp3s, convert each with macOS's built-in tool:
 
 ```sh
-afconvert -f caff -d LEI16 wake-01.wav wake-01.caf
+afconvert -f caff -d LEI16 aurora-01.mp3 aurora-01.caf
+```
+
+Batch a folder of mp3s:
+
+```sh
+for f in *.mp3; do afconvert -f caff -d LEI16 "$f" "${f%.mp3}.caf"; done
 ```

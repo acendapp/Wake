@@ -1,31 +1,65 @@
 import { describe, expect, it } from 'vitest'
-import { isValidTime, soundForDate, WAKE_CLIPS } from './alarmCore'
+import {
+  CLIPS_PER_VOICE,
+  clipsForVoice,
+  DEFAULT_VOICE,
+  isKnownVoice,
+  isValidTime,
+  soundForDate,
+  VOICES,
+} from './alarmCore'
+
+describe('VOICES catalog', () => {
+  it('offers three male and three female voices', () => {
+    expect(VOICES.filter((v) => v.gender === 'male')).toHaveLength(3)
+    expect(VOICES.filter((v) => v.gender === 'female')).toHaveLength(3)
+  })
+
+  it('has unique ids and a valid default', () => {
+    expect(new Set(VOICES.map((v) => v.id)).size).toBe(VOICES.length)
+    expect(isKnownVoice(DEFAULT_VOICE)).toBe(true)
+  })
+
+  it('recognizes known vs unknown voices', () => {
+    expect(isKnownVoice('aurora')).toBe(true)
+    expect(isKnownVoice('nope')).toBe(false)
+    expect(isKnownVoice(null)).toBe(false)
+  })
+})
+
+describe('clipsForVoice', () => {
+  it('names files per voice with padded indices', () => {
+    expect(clipsForVoice('aurora')).toEqual([
+      'aurora-01.caf',
+      'aurora-02.caf',
+      'aurora-03.caf',
+      'aurora-04.caf',
+      'aurora-05.caf',
+    ])
+    expect(clipsForVoice('theo')).toHaveLength(CLIPS_PER_VOICE)
+  })
+})
 
 describe('soundForDate', () => {
-  it('returns a clip from the library', () => {
-    expect(WAKE_CLIPS).toContain(soundForDate(new Date(2026, 5, 14)))
+  it('returns a clip belonging to the chosen voice', () => {
+    expect(clipsForVoice('theo')).toContain(soundForDate(new Date(2026, 5, 14), 'theo'))
   })
 
-  it('rotates one clip per calendar day, in order', () => {
-    const base = new Date(2026, 5, 14) // a fixed local day
-    const seq = Array.from({ length: WAKE_CLIPS.length }, (_, i) =>
-      soundForDate(new Date(2026, 5, 14 + i)),
+  it('rotates one clip per calendar day, wrapping cleanly', () => {
+    const base = new Date(2026, 5, 14)
+    const seq = Array.from({ length: CLIPS_PER_VOICE }, (_, i) =>
+      soundForDate(new Date(2026, 5, 14 + i), 'aurora'),
     )
-    // Consecutive days never repeat until the library wraps.
-    expect(new Set(seq).size).toBe(WAKE_CLIPS.length)
-    // And it wraps cleanly back to the first clip.
-    expect(soundForDate(new Date(2026, 5, 14 + WAKE_CLIPS.length))).toBe(soundForDate(base))
+    expect(new Set(seq).size).toBe(CLIPS_PER_VOICE)
+    expect(soundForDate(new Date(2026, 5, 14 + CLIPS_PER_VOICE), 'aurora')).toBe(
+      soundForDate(base, 'aurora'),
+    )
   })
 
-  it('is deterministic for the same date (re-arm picks the same clip)', () => {
+  it('is deterministic for the same date + voice', () => {
     const d1 = new Date(2026, 0, 1, 6, 30)
     const d2 = new Date(2026, 0, 1, 23, 59)
-    expect(soundForDate(d1)).toBe(soundForDate(d2))
-  })
-
-  it('handles a custom clip list and an empty list', () => {
-    expect(soundForDate(new Date(2026, 5, 14), ['a', 'b'])).toMatch(/^[ab]$/)
-    expect(soundForDate(new Date(2026, 5, 14), [])).toBe('')
+    expect(soundForDate(d1, 'nova')).toBe(soundForDate(d2, 'nova'))
   })
 })
 

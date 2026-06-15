@@ -20,7 +20,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { WakeTimePicker } from '@/components/WakeTimePicker'
-import { applyWakeAlarm, isAlarmAvailable } from '@/lib/alarm'
+import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
 import {
@@ -245,7 +245,11 @@ export default function OnboardingScreen() {
       await setPreferredRoutineMinutes(routineMinutes)
       // Arm the wake alarm if opted in (no-op until the native tier exists; the
       // preference is already persisted above for a later dev build to pick up).
-      await applyWakeAlarm({ enabled: wakeEnabled, time: wakeEnabled ? wakeTime : null })
+      await applyWakeAlarm({
+        enabled: wakeEnabled,
+        time: wakeEnabled ? wakeTime : null,
+        voice: DEFAULT_VOICE,
+      })
       await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
       // No setSaving(false): the screen unmounts as the gate navigates away.
     } catch (e) {

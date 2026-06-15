@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { WakeTimePicker } from '@/components/WakeTimePicker'
-import { applyWakeAlarm, isAlarmAvailable } from '@/lib/alarm'
+import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable, VOICES, type Voice } from '@/lib/alarm'
 import { errorMessage } from '@/lib/errors'
 import { updateProfile, useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
@@ -31,6 +31,7 @@ export default function WakeAlarmScreen() {
 
   const [enabled, setEnabled] = useState(profile?.wake_enabled ?? false)
   const [time, setTime] = useState(profile?.wake_time ?? DEFAULT_WAKE_TIME)
+  const [voice, setVoice] = useState(profile?.wake_voice ?? DEFAULT_VOICE)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,6 +43,7 @@ export default function WakeAlarmScreen() {
     if (!profile || touched) return
     setEnabled(profile.wake_enabled ?? false)
     setTime(profile.wake_time ?? DEFAULT_WAKE_TIME)
+    setVoice(profile.wake_voice ?? DEFAULT_VOICE)
   }, [profile, touched])
 
   const close = () => router.back()
@@ -51,8 +53,8 @@ export default function WakeAlarmScreen() {
     setError(null)
     try {
       const wakeTime = enabled ? time : null
-      await updateProfile({ wakeEnabled: enabled, wakeTime })
-      await applyWakeAlarm({ enabled, time: wakeTime })
+      await updateProfile({ wakeEnabled: enabled, wakeTime, wakeVoice: voice })
+      await applyWakeAlarm({ enabled, time: wakeTime, voice })
       await refresh()
       close()
     } catch (e) {
@@ -92,21 +94,59 @@ export default function WakeAlarmScreen() {
         </View>
 
         {enabled && (
-          <View style={styles.pickerWrap}>
-            <WakeTimePicker
-              value={time}
-              onChange={(t) => {
-                setTouched(true)
-                setTime(t)
-              }}
-            />
-            {!isAlarmAvailable() && (
-              <Text style={styles.note}>
-                We&rsquo;ll save your wake time — the voice alarm activates in the full
-                Wake app.
-              </Text>
-            )}
-          </View>
+          <>
+            <View style={styles.pickerWrap}>
+              <WakeTimePicker
+                value={time}
+                onChange={(t) => {
+                  setTouched(true)
+                  setTime(t)
+                }}
+              />
+              {!isAlarmAvailable() && (
+                <Text style={styles.note}>
+                  We&rsquo;ll save your wake time — the voice alarm activates in the full
+                  Wake app.
+                </Text>
+              )}
+            </View>
+
+            <Text style={styles.sectionLabel}>Choose a voice</Text>
+            <Text style={styles.sectionCaption}>
+              The voice that greets you each morning. It rotates through a few recordings
+              so it never feels canned.
+            </Text>
+
+            <Text style={styles.groupLabel}>Women</Text>
+            <View style={styles.voiceList}>
+              {VOICES.filter((v) => v.gender === 'female').map((v) => (
+                <VoiceCard
+                  key={v.id}
+                  voice={v}
+                  selected={voice === v.id}
+                  onPress={() => {
+                    setTouched(true)
+                    setVoice(v.id)
+                  }}
+                />
+              ))}
+            </View>
+
+            <Text style={[styles.groupLabel, styles.groupLabelGap]}>Men</Text>
+            <View style={styles.voiceList}>
+              {VOICES.filter((v) => v.gender === 'male').map((v) => (
+                <VoiceCard
+                  key={v.id}
+                  voice={v}
+                  selected={voice === v.id}
+                  onPress={() => {
+                    setTouched(true)
+                    setVoice(v.id)
+                  }}
+                />
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -126,6 +166,32 @@ export default function WakeAlarmScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+  )
+}
+
+function VoiceCard({
+  voice,
+  selected,
+  onPress,
+}: {
+  voice: Voice
+  selected: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      style={[styles.voiceCard, selected && styles.voiceCardOn]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${voice.name}. ${voice.tagline}`}
+    >
+      <View style={styles.voiceText}>
+        <Text style={[styles.voiceName, selected && styles.voiceNameOn]}>{voice.name}</Text>
+        <Text style={styles.voiceTagline}>{voice.tagline}</Text>
+      </View>
+      {selected && <Feather name="check" size={20} color={day.gold} />}
+    </Pressable>
   )
 }
 
@@ -197,6 +263,68 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 18,
     lineHeight: 19,
+  },
+  sectionLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 18,
+    color: day.text,
+    marginTop: 32,
+  },
+  sectionCaption: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    color: day.muted,
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  groupLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 14,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: day.muted,
+    marginBottom: 12,
+  },
+  groupLabelGap: {
+    marginTop: 24,
+  },
+  voiceList: {
+    gap: 12,
+  },
+  voiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  voiceCardOn: {
+    borderColor: day.gold,
+    borderWidth: 1.5,
+  },
+  voiceText: {
+    flex: 1,
+    gap: 3,
+    marginRight: 12,
+  },
+  voiceName: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 17,
+    color: day.text,
+  },
+  voiceNameOn: {
+    color: day.gold,
+  },
+  voiceTagline: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    lineHeight: 19,
+    color: day.muted,
   },
   footer: {
     paddingHorizontal: 28,

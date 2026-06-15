@@ -44,6 +44,8 @@ export type ProfileRow = {
   wake_enabled: boolean
   /** Local wall-clock wake time "HH:MM" (24h), or null until set. */
   wake_time: string | null
+  /** The chosen alarm voice id (see VOICES in alarmCore). */
+  wake_voice: string
   onboarding_completed_at: string | null
   created_at: string
 }
@@ -62,6 +64,7 @@ export type OnboardingInput = {
   /** Voice-alarm opt-in + the time to wake, collected in onboarding. */
   wakeEnabled?: boolean
   wakeTime?: string | null
+  wakeVoice?: string
 }
 
 async function currentUserId(): Promise<string> {
@@ -106,6 +109,7 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
         sex: input.sex ?? null,
         wake_enabled: input.wakeEnabled ?? false,
         wake_time: input.wakeTime ?? null,
+        ...(input.wakeVoice ? { wake_voice: input.wakeVoice } : {}),
         onboarding_completed_at: new Date().toISOString(),
       },
       { onConflict: 'id' },
@@ -128,6 +132,7 @@ export async function updateProfile(patch: {
   routineMinutes?: number
   wakeEnabled?: boolean
   wakeTime?: string | null
+  wakeVoice?: string
 }): Promise<ProfileRow> {
   const userId = await currentUserId()
   const dbPatch: Record<string, unknown> = {}
@@ -136,6 +141,7 @@ export async function updateProfile(patch: {
   if (patch.routineMinutes !== undefined) dbPatch.routine_minutes = patch.routineMinutes
   if (patch.wakeEnabled !== undefined) dbPatch.wake_enabled = patch.wakeEnabled
   if (patch.wakeTime !== undefined) dbPatch.wake_time = patch.wakeTime
+  if (patch.wakeVoice !== undefined) dbPatch.wake_voice = patch.wakeVoice
   const { data, error } = await supabase
     .from('profiles')
     .update(dbPatch)

@@ -1,6 +1,14 @@
 import { Platform } from 'react-native'
 
-import { isValidTime, soundForDate, WAKE_CLIPS, type WakeAlarm } from './alarmCore'
+import {
+  DEFAULT_VOICE,
+  isKnownVoice,
+  isValidTime,
+  soundForDate,
+  VOICES,
+  type Voice,
+  type WakeAlarm,
+} from './alarmCore'
 
 // Wake's voice-alarm service — TIERED by capability so the rest of the app never
 // has to care which tier is live:
@@ -19,7 +27,15 @@ import { isValidTime, soundForDate, WAKE_CLIPS, type WakeAlarm } from './alarmCo
 //
 // The pure, testable bits (clip rotation, time validity) live in alarmCore.ts.
 
-export { isValidTime, soundForDate, WAKE_CLIPS, type WakeAlarm }
+export {
+  DEFAULT_VOICE,
+  isKnownVoice,
+  isValidTime,
+  soundForDate,
+  VOICES,
+  type Voice,
+  type WakeAlarm,
+}
 
 type AlarmKit = typeof import('react-native-nitro-ios-alarm-kit')
 
@@ -62,8 +78,8 @@ const EVERY_DAY = [
 ] as const
 
 /** AlarmKit wants the bundled sound's name WITHOUT extension. */
-function soundNameForToday(): string {
-  return soundForDate(new Date()).replace(/\.[^.]+$/, '')
+function soundNameForToday(voiceId: string): string {
+  return soundForDate(new Date(), voiceId).replace(/\.[^.]+$/, '')
 }
 
 /**
@@ -92,7 +108,7 @@ export async function requestAlarmPermission(): Promise<boolean> {
  * settings save, app launch). Re-arming on launch advances the clip rotation,
  * since a repeating alarm otherwise keeps the soundName it was scheduled with.
  */
-export async function scheduleWakeAlarm(time: string): Promise<void> {
+export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<void> {
   if (!isValidTime(time)) return
   const kit = getAlarmKit()
   if (!isAlarmAvailable() || !kit) return
@@ -100,6 +116,7 @@ export async function scheduleWakeAlarm(time: string): Promise<void> {
   const granted = await kit.requestAlarmPermission()
   if (!granted) return
 
+  const voice = isKnownVoice(voiceId) ? voiceId : DEFAULT_VOICE
   const [hour, minute] = time.split(':').map(Number)
   // Wake schedules only this one alarm, so clear before re-arming to avoid dupes.
   await kit.stopAllAlarms()
@@ -112,7 +129,7 @@ export async function scheduleWakeAlarm(time: string): Promise<void> {
     [...EVERY_DAY],
     SNOOZE_BUTTON,
     SNOOZE,
-    soundNameForToday(),
+    soundNameForToday(voice),
   )
 }
 
@@ -129,7 +146,7 @@ export async function cancelWakeAlarm(): Promise<void> {
  */
 export async function applyWakeAlarm(pref: WakeAlarm): Promise<void> {
   if (pref.enabled && pref.time && isValidTime(pref.time)) {
-    await scheduleWakeAlarm(pref.time)
+    await scheduleWakeAlarm(pref.time, pref.voice)
   } else {
     await cancelWakeAlarm()
   }

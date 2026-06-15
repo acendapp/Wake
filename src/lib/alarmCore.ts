@@ -3,24 +3,51 @@
 // lives in alarm.ts, which re-exports everything here.
 
 /** A user's wake-alarm preference. `time` is local wall-clock "HH:MM" (24h). */
-export type WakeAlarm = { enabled: boolean; time: string | null }
+export type WakeAlarm = { enabled: boolean; time: string | null; voice: string }
 
-// ── Rotating clip library ────────────────────────────────────────────────────
+// ── Voices ───────────────────────────────────────────────────────────────────
 //
-// A different spoken good-morning each day. The recorded files are bundled under
-// assets/audio/ and registered here; the native tier passes `soundForDate(today)`
-// as AlarmKit's soundName.
-//
-// NOTE: these filenames are the recording target — the clips don't exist yet.
-// Record 15–20s .caf/.wav/.aiff (AlarmKit caps custom sounds at 30s) and drop
-// them in; keep this list in sync. See docs/voice-clips.md for the spec.
-export const WAKE_CLIPS = [
-  'wake-01.caf',
-  'wake-02.caf',
-  'wake-03.caf',
-  'wake-04.caf',
-  'wake-05.caf',
-] as const
+// The user picks which voice wakes them. Each voice is a persona with its own set
+// of bundled good-morning recordings; the alarm rotates one per day (soundForDate).
+// Recorded clips live under assets/audio/ named "<voiceId>-01.caf" … per voice
+// (see docs/voice-clips.md). The files don't exist yet — these ids are the
+// recording target.
+
+export type VoiceGender = 'male' | 'female'
+export interface Voice {
+  id: string
+  name: string
+  gender: VoiceGender
+  /** One-line character of the voice, shown in the picker. */
+  tagline: string
+}
+
+export const VOICES: Voice[] = [
+  { id: 'theo', name: 'Theo', gender: 'male', tagline: 'Warm and grounded — the friend who believes in you.' },
+  { id: 'atlas', name: 'Atlas', gender: 'male', tagline: 'Strong and motivating — a gentle push to rise.' },
+  { id: 'julian', name: 'Julian', gender: 'male', tagline: 'Smooth and unhurried — calm like dawn radio.' },
+  { id: 'aurora', name: 'Aurora', gender: 'female', tagline: 'Bright and hopeful — like sunrise in a voice.' },
+  { id: 'sage', name: 'Sage', gender: 'female', tagline: 'Soft and soothing — a calm, steady start.' },
+  { id: 'nova', name: 'Nova', gender: 'female', tagline: 'Clear and uplifting — energy without the noise.' },
+]
+
+/** The voice a new user gets until they choose one. */
+export const DEFAULT_VOICE = 'aurora'
+
+/** How many rotating clips each voice provides. */
+export const CLIPS_PER_VOICE = 5
+
+export function isKnownVoice(id: string | null | undefined): boolean {
+  return !!id && VOICES.some((v) => v.id === id)
+}
+
+/** The bundled clip filenames for a voice, e.g. ["aurora-01.caf", …]. */
+export function clipsForVoice(voiceId: string): string[] {
+  return Array.from(
+    { length: CLIPS_PER_VOICE },
+    (_, i) => `${voiceId}-${String(i + 1).padStart(2, '0')}.caf`,
+  )
+}
 
 /** Whole-days-since-epoch for a date, in the device's local zone. */
 function dayNumber(d: Date): number {
@@ -30,12 +57,13 @@ function dayNumber(d: Date): number {
 }
 
 /**
- * The clip to play for `date`, rotating one per calendar day so consecutive
- * mornings never repeat (until the library wraps). Deterministic — same date in,
- * same clip out — so a re-arm on launch picks the same clip as the schedule.
+ * The clip to play for `date` with `voiceId`, rotating one per calendar day so
+ * consecutive mornings never repeat (until the voice's library wraps).
+ * Deterministic — same date+voice in, same clip out — so a re-arm on launch
+ * picks the same clip as the schedule.
  */
-export function soundForDate(date: Date, clips: readonly string[] = WAKE_CLIPS): string {
-  if (clips.length === 0) return ''
+export function soundForDate(date: Date, voiceId: string): string {
+  const clips = clipsForVoice(voiceId)
   const idx = ((dayNumber(date) % clips.length) + clips.length) % clips.length
   return clips[idx]
 }
