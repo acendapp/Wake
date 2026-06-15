@@ -37,9 +37,12 @@ export default function WakeAlarmScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Voice preview playback. One reusable player; tapping a voice plays its sample,
-  // replacing whatever was playing. Audible even on silent so the preview works.
+  // Voice preview playback. One reusable player so clips never overlap; the card
+  // for the playing voice shows a pause icon. `playingVoice` is the id currently
+  // sounding (null = nothing). Audible even on silent so the preview works.
   const playerRef = useRef<AudioPlayer | null>(null)
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null)
+
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
     return () => {
@@ -48,16 +51,35 @@ export default function WakeAlarmScreen() {
     }
   }, [])
 
+  const stopPreview = () => {
+    playerRef.current?.remove()
+    playerRef.current = null
+    setPlayingVoice(null)
+  }
+
   const previewVoice = (voiceId: string) => {
+    // Tapping the voice that's already playing → stop it (toggle to play icon).
+    if (playingVoice === voiceId) {
+      stopPreview()
+      return
+    }
     const src = VOICE_PREVIEW_CLIP[voiceId]
     if (!src) return
     try {
+      // Stop whatever was playing first so two clips never overlap; that card
+      // reverts to its play icon as `playingVoice` moves to the new one.
       playerRef.current?.remove()
       const player = createAudioPlayer(src)
       playerRef.current = player
+      // Revert to the play icon when the clip finishes on its own.
+      player.addListener('playbackStatusUpdate', (status) => {
+        if (status?.didJustFinish && playerRef.current === player) stopPreview()
+      })
       player.play()
+      setPlayingVoice(voiceId)
     } catch {
       // Preview is best-effort — never let it interrupt the screen.
+      stopPreview()
     }
   }
 
@@ -155,6 +177,7 @@ export default function WakeAlarmScreen() {
                     setVoice(v.id)
                   }}
                   onPreview={() => previewVoice(v.id)}
+                  playing={playingVoice === v.id}
                 />
               ))}
             </View>
@@ -171,6 +194,7 @@ export default function WakeAlarmScreen() {
                     setVoice(v.id)
                   }}
                   onPreview={() => previewVoice(v.id)}
+                  playing={playingVoice === v.id}
                 />
               ))}
             </View>
@@ -202,11 +226,13 @@ function VoiceCard({
   selected,
   onPress,
   onPreview,
+  playing,
 }: {
   voice: Voice
   selected: boolean
   onPress: () => void
   onPreview: () => void
+  playing: boolean
 }) {
   return (
     <Pressable
@@ -217,13 +243,17 @@ function VoiceCard({
       accessibilityLabel={`${voice.name}. ${voice.tagline}`}
     >
       <Pressable
-        style={styles.previewBtn}
+        style={[styles.previewBtn, playing && styles.previewBtnOn]}
         onPress={onPreview}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel={`Preview ${voice.name}`}
+        accessibilityLabel={`${playing ? 'Stop' : 'Preview'} ${voice.name}`}
       >
-        <Feather name="play" size={14} color={day.gold} />
+        <Feather
+          name={playing ? 'pause' : 'play'}
+          size={14}
+          color={playing ? day.onAccent : day.gold}
+        />
       </Pressable>
       <View style={styles.voiceText}>
         <Text style={[styles.voiceName, selected && styles.voiceNameOn]}>{voice.name}</Text>
@@ -355,6 +385,10 @@ const styles = StyleSheet.create({
     backgroundColor: day.goldTint,
     marginRight: 14,
     paddingLeft: 2, // optically center the play triangle
+  },
+  previewBtnOn: {
+    backgroundColor: day.gold,
+    paddingLeft: 0, // the pause glyph is symmetric — no optical nudge
   },
   voiceText: {
     flex: 1,
