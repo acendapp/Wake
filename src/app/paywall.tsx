@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -48,17 +48,46 @@ const PLANS: {
 ]
 
 export default function PaywallScreen() {
-  const { grant, bypass } = useEntitlement()
+  const { purchase, restore, bypass } = useEntitlement()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const [selected, setSelected] = useState<PlanId>('annual')
   const [busy, setBusy] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  // The gate usually unmounts this screen on success; guard the post-await setState
+  // for the failure paths where it stays mounted.
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const onStart = async () => {
     setBusy(true)
-    // MOCK purchase — flips the entitlement flag; the gate then routes to tabs.
-    await grant()
-    // No setBusy(false): the screen unmounts as the gate navigates away.
+    setNotice(null)
+    // Real billing runs the store flow; with no key set this flips the mock. On
+    // success the gate routes to tabs and unmounts this screen. On failure (e.g.
+    // the user cancelled), drop back so they can try again.
+    const ok = await purchase(selected)
+    if (!ok && mountedRef.current) {
+      setBusy(false)
+      setNotice('Purchase didn’t complete. You can try again.')
+    }
+  }
+
+  const onRestore = async () => {
+    if (restoring) return
+    setRestoring(true)
+    setNotice(null)
+    const ok = await restore()
+    if (!mountedRef.current) return
+    setRestoring(false)
+    if (!ok) setNotice('No previous purchase found for this account.')
+    // On success the gate routes away as entitlement flips.
   }
 
   // The annual plan carries the 7-day trial; monthly bills immediately. Keep the
@@ -117,6 +146,7 @@ export default function PaywallScreen() {
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
+        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
         <Text style={styles.legal}>{legalCopy}</Text>
 
         <Pressable
@@ -155,11 +185,11 @@ export default function PaywallScreen() {
         </Pressable>
 
         <View style={styles.links}>
-          {/* Restore stays inert until real billing (RevenueCat) lands in the dev
-              build; Terms + Privacy open the hosted documents (placeholder URLs in
-              src/lib/legal.ts until the real ones exist). */}
-          <Pressable accessibilityRole="link">
-            <Text style={styles.linkText}>Restore Purchase</Text>
+          {/* Restore runs RevenueCat's restore when billing is configured; with no
+              key it reports nothing to restore. Terms + Privacy open the hosted docs
+              (placeholder URLs in src/lib/legal.ts until the real ones exist). */}
+          <Pressable onPress={onRestore} disabled={restoring} accessibilityRole="link">
+            <Text style={styles.linkText}>{restoring ? 'Restoring…' : 'Restore Purchase'}</Text>
           </Pressable>
           <Text style={styles.linkDot}>·</Text>
           <Pressable onPress={() => openLegal(TERMS_OF_SERVICE_URL)} accessibilityRole="link">
@@ -276,6 +306,14 @@ const styles = StyleSheet.create({
     color: day.muted,
     textAlign: 'center',
     marginBottom: 14,
+  },
+  notice: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: day.gold,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   cta: {
     backgroundColor: day.gold,

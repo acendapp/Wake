@@ -9,21 +9,31 @@ import {
 } from 'react'
 
 import { useAuth } from './auth'
+import {
+  isBillingConfigured,
+  isEntitled as billingIsEntitled,
+  logInBilling,
+  logOutBilling,
+  purchasePlan,
+  restorePurchases,
+  type PlanId,
+} from './billing'
 
 // Subscription entitlement — whether the user has unlocked the app past the
-// paywall. THIS IS A MOCK. There is no real billing yet: `grant()` simply flips
-// a device-local flag so the rest of the flow (and the root gate) can be built
-// and tested in Expo Go. When real billing lands (RevenueCat / StoreKit, which
-// require a dev build), swap getEntitled/grant for the real entitlement check —
-// the provider's shape and every caller stay the same.
+// paywall.
 //
-// The flag is cleared on sign-out (see the effect) so a fresh sign-up always
-// lands back on the paywall — handy for iterating on it. A real entitlement
-// would instead be restored from the store on sign-in.
+// TIERED, like the alarm: when RevenueCat is configured (an API key is set AND the
+// native module is present), the entitlement is the real "premium" entitlement
+// from the store. Otherwise it falls back to a device-local MOCK so the whole flow
+// (paywall → gate → tabs) still works in Expo Go and in key-less testing.
+//
+// The mock flag is cleared on sign-out so a fresh sign-up always lands back on the
+// paywall — handy for iterating. Real billing instead restores from the store on
+// sign-in (logInBilling + isEntitled).
 
 const ENTITLED_KEY = 'wake.entitled'
 
-async function getEntitled(): Promise<boolean> {
+async function getMockEntitled(): Promise<boolean> {
   try {
     return (await AsyncStorage.getItem(ENTITLED_KEY)) === 'true'
   } catch {
@@ -31,7 +41,7 @@ async function getEntitled(): Promise<boolean> {
   }
 }
 
-async function setEntitledStored(value: boolean): Promise<void> {
+async function setMockEntitled(value: boolean): Promise<void> {
   try {
     if (value) await AsyncStorage.setItem(ENTITLED_KEY, 'true')
     else await AsyncStorage.removeItem(ENTITLED_KEY)
@@ -41,12 +51,15 @@ async function setEntitledStored(value: boolean): Promise<void> {
 }
 
 type EntitlementContextValue = {
-  /** True once the user may pass the paywall (real grant or a dev bypass). */
+  /** True once the user may pass the paywall (real entitlement, mock, or dev bypass). */
   entitled: boolean
   /** True while a signed-in user's entitlement is still loading. */
   loading: boolean
-  /** Mark the user entitled (mock "purchase"). Persists across launches. */
-  grant: () => Promise<void>
+  /** Purchase a plan. Returns true if the user ends up entitled. With real billing
+   *  this runs the store flow; without a key it flips the mock so testing flows. */
+  purchase: (plan: PlanId) => Promise<boolean>
+  /** Restore prior purchases (real billing only). Returns true if now entitled. */
+  restore: () => Promise<boolean>
   /** Dev-only, in-memory pass. Not persisted, so a relaunch re-shows the paywall. */
   bypass: () => void
 }
@@ -67,33 +80,55 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     if (uid === null) {
-      // Signed out — reset the mock so the next sign-up sees the paywall again.
+      // Signed out — drop the store identity and reset the mock.
       setEntitled(false)
       setDevBypassed(false)
       setLoadedFor(null)
-      void setEntitledStored(false)
+      void setMockEntitled(false)
+      void logOutBilling()
       return
     }
-    getEntitled().then((v) => {
+    ;(async () => {
+      let value: boolean
+      if (isBillingConfigured()) {
+        await logInBilling(uid)
+        value = await billingIsEntitled()
+      } else {
+        value = await getMockEntitled()
+      }
       if (!active) return
-      setEntitled(v)
+      setEntitled(value)
       setLoadedFor(uid)
-    })
+    })()
     return () => {
       active = false
     }
   }, [uid])
 
-  const grant = useCallback(async () => {
-    await setEntitledStored(true)
+  const purchase = useCallback(async (plan: PlanId) => {
+    if (isBillingConfigured()) {
+      const ok = await purchasePlan(plan)
+      if (ok) setEntitled(true)
+      return ok
+    }
+    // No real billing yet — flip the mock so the flow can be exercised end-to-end.
+    await setMockEntitled(true)
     setEntitled(true)
+    return true
+  }, [])
+
+  const restore = useCallback(async () => {
+    if (!isBillingConfigured()) return false
+    const ok = await restorePurchases()
+    if (ok) setEntitled(true)
+    return ok
   }, [])
 
   const bypass = useCallback(() => setDevBypassed(true), [])
 
   return (
     <EntitlementContext.Provider
-      value={{ entitled: entitled || devBypassed, loading, grant, bypass }}
+      value={{ entitled: entitled || devBypassed, loading, purchase, restore, bypass }}
     >
       {children}
     </EntitlementContext.Provider>
