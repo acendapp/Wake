@@ -261,6 +261,68 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; }
 .pillar__body { color: var(--muted); font-size: 1rem; margin: 0; }
 @media (max-width: 40rem) { .pillars { grid-template-columns: 1fr; } }
 
+/* ── Differentiator comparison ───────────────────────────────────────────── */
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.compare__col {
+  border-radius: 20px;
+  padding: 2rem 1.8rem;
+  border: 1px solid var(--border);
+}
+.compare__col--old {
+  background: transparent;
+}
+.compare__col--wake {
+  background: var(--surface);
+  border-color: var(--gold);
+  box-shadow: var(--shadow);
+}
+.compare__col h3 {
+  font-size: 1.2rem;
+  margin: 0 0 1.1rem;
+}
+.compare__col--old h3 { color: var(--muted); }
+.compare__col--wake h3 { color: var(--gold); }
+.compare__col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.compare__col li {
+  position: relative;
+  padding-left: 1.9rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+.compare__col li::before {
+  position: absolute;
+  left: 0;
+  top: -0.05em;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.compare__col--old li {
+  color: var(--muted);
+}
+.compare__col--old li::before {
+  content: '\00d7'; /* × */
+  color: var(--muted);
+}
+.compare__col--wake li::before {
+  content: '\2713'; /* ✓ */
+  color: var(--gold);
+}
+@media (max-width: 40rem) { .compare { grid-template-columns: 1fr; } }
+
 /* ── Steps (how it works) ────────────────────────────────────────────────── */
 .steps {
   display: grid;
@@ -413,3 +475,35 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; }
 .footer__links { display: flex; gap: 1.4rem; }
 .footer a { color: var(--muted); }
 .footer a:hover { color: var(--gold); }
+
+/* ── Polish: anchor offset, focus, reduced motion ────────────────────────── */
+
+/* Sticky-nav offset so jump links don't land under the header. */
+section[id],
+main[id] {
+  scroll-margin-top: 76px;
+}
+
+/* Clear keyboard focus everywhere (mouse clicks don't trigger :focus-visible). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -6,12 +6,28 @@ Display serif; see `../src/theme/colors.ts`).
 
 ```
 site/
-  index.html     landing page (hero + phone mockup, features, how-it-works,
-                 pricing, waitlist capture, FAQ)
-  privacy.html   Privacy Policy   (mirrors ../legal/privacy-policy.md)
-  terms.html     Terms of Service (mirrors ../legal/terms-of-service.md)
-  styles.css     shared styles
-  app.js         waitlist form handling
+  index.html        landing (hero + phone mockup, features, how-it-works,
+                    "not another alarm app", pricing, waitlist, FAQ)
+  privacy.html      Privacy Policy   (mirrors ../legal/privacy-policy.md)
+  terms.html        Terms of Service (mirrors ../legal/terms-of-service.md)
+  404.html          branded not-found page
+  styles.css        shared styles
+  app.js            waitlist form handling
+  site.webmanifest  PWA manifest
+  vercel.json       cleanUrls (so /privacy, /terms work without .html)
+  favicon.svg, apple-touch-icon.png, icon-512.png, og.png   brand/social assets
+  brand/            HTML sources for regenerating og.png + the icons
+```
+
+## Regenerating the OG image / icons
+
+The raster assets are rendered from the HTML in `brand/` via headless Chrome:
+
+```sh
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless=new --window-size=1200,630 --screenshot=og.png brand/og.html
+"$CHROME" --headless=new --window-size=512,512  --screenshot=icon-512.png brand/icon.html
+"$CHROME" --headless=new --window-size=180,180  --screenshot=apple-touch-icon.png brand/icon.html
 ```
 
 ## ⚠️ Wire the waitlist before launch
@@ -53,8 +69,13 @@ or **GitHub Pages**. Example (Vercel CLI):
 cd site && npx vercel --prod
 ```
 
-You'll get a URL like `https://<project>.vercel.app`. When your domain is ready,
-add it in the host's dashboard and update DNS — the same files serve from it.
+You'll get a URL like `https://<project>.vercel.app`. `vercel.json` enables
+`cleanUrls`, so `/privacy` and `/terms` work (no `.html`). When your domain is
+ready, add it in the host's dashboard and update DNS — the same files serve from it.
+
+**Then update the domain placeholders** in `index.html`'s `<head>` (the `canonical`
+and `og:url`, and ideally make `og:image` absolute — `https://<domain>/og.png` — so
+X/Twitter renders the card).
 
 ## Wire the app to the live URLs
 
