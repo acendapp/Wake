@@ -1,0 +1,13 @@
+{
+  "name": "Wake",
+  "short_name": "Wake",
+  "description": "Never have a bad morning again — a voice alarm and a personalized routine that gets smarter every day.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F4",
+  "theme_color": "#FAF8F4",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
