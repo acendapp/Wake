@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Loading } from '@/components/Loading'
@@ -68,6 +69,18 @@ function lastNightWord(energy: number | null | undefined): string {
   if (energy <= 3) return 'Drained'
   if (energy <= 6) return 'Steady'
   return 'Strong'
+}
+
+// The Today screen swaps between several full-screen states (check-in, evening
+// pivot, populated home, …). Wrapping each returned tree in this fader makes those
+// swaps a soft fade-in instead of an abrupt cut. The distinct `key` per state
+// makes it remount (and re-animate) only when the state actually changes.
+function wrap(key: string, node: React.ReactNode) {
+  return (
+    <Animated.View key={key} style={styles.flex} entering={FadeIn.duration(260)}>
+      {node}
+    </Animated.View>
+  )
 }
 
 export default function Index() {
@@ -214,17 +227,19 @@ export default function Index() {
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
-    return (
+    return wrap(
+      'loading',
       <SafeAreaView style={styles.safe} edges={['top']}>
         <Loading label="Loading today…" />
-      </SafeAreaView>
+      </SafeAreaView>,
     )
   }
 
   // ── Load failed: show the real cause + a retry, so it never leaks into the
   // check-in. A common first cause is the schema not being applied yet. ────────
   if (loadError && !today) {
-    return (
+    return wrap(
+      'error',
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.altWrap}>
           <View>
@@ -243,7 +258,7 @@ export default function Index() {
             <Text style={styles.primaryLabel}>Try again</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </SafeAreaView>,
     )
   }
 
@@ -252,7 +267,8 @@ export default function Index() {
   // any hour, and regardless of a pending "log today anyway" tap: finishing the
   // reflection always lands here until the 3am rollover starts the next day. ──
   if (reflectedToday) {
-    return (
+    return wrap(
+      'reflected',
       <View style={styles.safe}>
         <Image
           source={require('../../../assets/images/valley.jpg')}
@@ -279,7 +295,7 @@ export default function Index() {
             </Pressable>
           </View>
         </SafeAreaView>
-      </View>
+      </View>,
     )
   }
 
@@ -287,7 +303,8 @@ export default function Index() {
   // up tomorrow), so instead of a check-in they can't meaningfully use yet, offer
   // a feel for the mechanism: a sample routine, and the path into Reflect. ──────
   if (!hasHistory && !checkedIn) {
-    return (
+    return wrap(
+      'firstRun',
       <View style={styles.safe}>
         <Image
           source={require('../../../assets/images/valley.jpg')}
@@ -336,14 +353,15 @@ export default function Index() {
             </View>
           </View>
         </SafeAreaView>
-      </View>
+      </View>,
     )
   }
 
   // ── Evening, not checked in: the morning read is stale — pivot to tomorrow,
   // with the check-in demoted to a quiet link for the genuine late riser. ──────
   if (!checkedIn && isEvening && !forceCheckIn) {
-    return (
+    return wrap(
+      'eveningPivot',
       <View style={styles.safe}>
         <Image
           source={require('../../../assets/images/valley.jpg')}
@@ -388,13 +406,14 @@ export default function Index() {
             </View>
           </View>
         </SafeAreaView>
-      </View>
+      </View>,
     )
   }
 
   // ── Not checked in: the morning one-tap (+ inline demand if Reflect was skipped) ──
   if (!checkedIn) {
-    return (
+    return wrap(
+      'checkIn',
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
           contentContainerStyle={styles.altWrap}
@@ -447,7 +466,7 @@ export default function Index() {
             )}
           </Pressable>
         </ScrollView>
-      </SafeAreaView>
+      </SafeAreaView>,
     )
   }
 
@@ -457,7 +476,8 @@ export default function Index() {
   const dayDifficulty = row.day_difficulty ?? readiness
   const gapState: ReadinessState = row.state ?? classifyState(readiness, dayDifficulty)
 
-  return (
+  return wrap(
+    'home',
     <TodayHome
       userName={userName}
       weather={weather}
@@ -484,11 +504,14 @@ export default function Index() {
       wakeTime={profile?.wake_time ?? null}
       wakeVoiceId={profile?.wake_voice ?? null}
       onWakePress={() => router.push('/wake-alarm')}
-    />
+    />,
   )
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   safe: {
     flex: 1,
     backgroundColor: COLORS.background,

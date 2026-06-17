@@ -415,7 +415,7 @@ export function TodayHome({
                   <Text style={styles.wakeTitle} numberOfLines={1}>
                     {wakeVoiceName} wakes you at {wakeTimeLabel}
                   </Text>
-                  <Text style={styles.wakeSub}>Your voice alarm is on · tap to change</Text>
+                  <Text style={styles.wakeSub}>Change your morning alarm</Text>
                 </>
               ) : (
                 <>
