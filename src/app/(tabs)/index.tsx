@@ -56,6 +56,8 @@ const GOLD_GRADIENT = goldGradient
 // experience can be walked at any hour. Set back to false to ship — the screen
 // then pivots to "set up tomorrow" after EVENING_HOUR as designed.
 const FORCE_MORNING = true
+// One-shot guard so the dev wake-screen simulation fires once per app launch.
+let wakeShownThisSession = false
 
 // The valley watercolor (1777x885 landscape) that grounds the evening states. Its
 // soft edges already fade to cream, so it sits on the background with no gradient:
@@ -197,6 +199,17 @@ export default function Index() {
   const isEvening = isEveningNow() && !FORCE_MORNING
   const checkedIn = today?.readiness != null
   const demandKnown = today?.day_difficulty != null
+
+  // ⚠️ TEMP (dev walkthrough): simulate the alarm by showing the wake screen
+  // before the morning check-in. Fires once per app session, after today loads,
+  // only when not yet checked in. In production the alarm/notification deep-links
+  // to /wake instead — remove this with FORCE_MORNING.
+  useEffect(() => {
+    if (FORCE_MORNING && !loading && !checkedIn && !wakeShownThisSession) {
+      wakeShownThisSession = true
+      router.replace('/wake')
+    }
+  }, [loading, checkedIn, router])
   // Tonight's reflection is done — tomorrow is already set up, so the evening
   // "set up tomorrow" prompt must not reappear when they land back on Today.
   const reflectedToday = today?.evening_completed_at != null

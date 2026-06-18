@@ -262,36 +262,10 @@ export function TodayHome({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top row: a dev-only "who built this plan" badge on the left, and the
-            top-right affordance — the Today tab passes onSettings (gear → You →
-            Settings); the sample flow passes onClose (X → back where you came). */}
+        {/* Top row: the top-right affordance — the Today tab passes onSettings
+            (gear → You → Settings); the sample flow passes onClose (X → back). */}
         <View style={styles.iconRow}>
-          <View>
-            {__DEV__ && plan?.source ? (
-              <View
-                style={[
-                  styles.devBadge,
-                  plan.source === 'claude' ? styles.devBadgeClaude : styles.devBadgeFallback,
-                ]}
-              >
-                <Feather
-                  name={plan.source === 'claude' ? 'zap' : 'cpu'}
-                  size={10}
-                  color={plan.source === 'claude' ? '#FFFFFF' : COLORS.tagline}
-                />
-                <Text
-                  style={[
-                    styles.devBadgeText,
-                    plan.source === 'claude'
-                      ? styles.devBadgeTextClaude
-                      : styles.devBadgeTextFallback,
-                  ]}
-                >
-                  {plan.source === 'claude' ? 'Claude' : 'Fallback'}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+          <View />
 
           {onSettings ? (
             <Pressable
