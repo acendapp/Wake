@@ -117,14 +117,14 @@ const WEATHER_ICON: Record<WeatherCondition, React.ComponentProps<typeof Ionicon
   storm: 'thunderstorm-outline',
 }
 
-// ⚠️ TEMP: forces the greeting so it reads "Good morning" regardless of the real
-// clock (so the morning flow can be walked in the evening). Set back to null to ship.
-const FORCE_GREETING: string | null = 'Good morning'
+// ⚠️ TEMP (marketing footage): forces the greeting so screen-recordings always
+// read "Good morning" regardless of the real clock. Set back to null to ship.
+const FORCE_GREETING: string | null = null
 
-// ⚠️ TEMP: forces a styled sample insight on the Focal Point card so it looks
-// populated. The text is built from the day's focal action below. Set back to
-// false to ship — the card then shows the real computed `insight` (or fallback).
-const FORCE_SAMPLE_INSIGHT = true
+// ⚠️ TEMP (marketing footage): forces the styled sample insight line on the
+// Focal Point card so it looks populated on camera. Set back to false to ship —
+// the card then shows the real computed `insight` (or the honest fallback).
+const FORCE_SAMPLE_INSIGHT = false
 
 // Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
 // at 1am "Good evening" is right even though the app still treats it as yesterday).
@@ -227,11 +227,6 @@ export function TodayHome({
   const activity = plan?.oneThing.title ?? ''
   const activityExample = plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
-  // TEMP (FORCE_SAMPLE_INSIGHT): phrase the fake insight around the day's focal
-  // action, lower-cased to read mid-sentence ("On mornings you get out of bed…").
-  const sampleAction = activity
-    ? activity.charAt(0).toLowerCase() + activity.slice(1)
-    : 'finish your focal point'
   const dayDemand = `${dayDifficulty}/10`
   // Wake-alarm home card display.
   const wakeVoiceName = VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null
@@ -333,7 +328,7 @@ export function TodayHome({
 
                 {FORCE_SAMPLE_INSIGHT ? (
                   <Text style={styles.insightText} numberOfLines={2}>
-                    On mornings you {sampleAction}, your focus hits{' '}
+                    When you walk, your focus hits{' '}
                     <Text style={{ color: COLORS.positive }}>8+</Text>. Skipping it:{' '}
                     <Text style={{ color: COLORS.negative }}>under 5</Text>.
                   </Text>

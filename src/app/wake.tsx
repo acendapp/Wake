@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons'
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio'
 import { useRouter } from 'expo-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   Easing,
@@ -12,29 +11,25 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { DEFAULT_VOICE, VOICES } from '@/lib/alarm'
 import { useProfile } from '@/lib/profile'
-import { VOICE_PREVIEW_CLIP } from '@/lib/wakeAudio'
 import { day } from '@/theme/colors'
 
-// The wake screen — the calm "good morning" moment that plays the chosen voice
-// and eases the user into the day. It's the branded bridge between waking and the
-// morning check-in.
+// The wake screen — the calm "good morning" moment that eases the user into the
+// day. It's the branded bridge between waking and the morning check-in.
 //
 // On a real device (iOS 26.1+), the system AlarmKit alarm fires and iOS shows its
 // own stop UI when the app is closed; this screen is the in-app landing afterward,
-// the fallback experience where AlarmKit isn't available, and — in Expo Go today —
-// the way to actually hear the voice and stop it. "I'm up" stops the voice and
-// goes to Today (which prompts the check-in).
+// and the fallback experience where AlarmKit isn't available.
+//
+// NOTE: the spoken-voice playback is intentionally OUT for now — the real voice
+// clips haven't been recorded yet (the placeholders were removed). When they land
+// in assets/audio/, re-add playback here (loop the chosen voice; stop in dismiss).
 
 function greeting(): string {
-  // ⚠️ TEMP: always "Good morning" so the wake flow can be walked at any hour.
-  // Restore the time-of-day logic below to ship.
-  return 'Good morning'
-  // const h = new Date().getHours()
-  // if (h < 12) return 'Good morning'
-  // if (h < 17) return 'Good afternoon'
-  // return 'Good evening'
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
 }
 
 function nowLabel(): string {
@@ -50,31 +45,7 @@ export default function WakeScreen() {
   const router = useRouter()
   const { profile } = useProfile()
   const name = profile?.first_name?.trim() || 'there'
-  const voiceId = profile?.wake_voice ?? DEFAULT_VOICE
-  const voiceName = VOICES.find((v) => v.id === voiceId)?.name ?? null
   const [time] = useState(nowLabel)
-
-  // Loop the chosen voice like an alarm until the user gets up. Audible even on
-  // silent. No-op gracefully if the clip isn't bundled.
-  const playerRef = useRef<AudioPlayer | null>(null)
-  useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
-    const src = VOICE_PREVIEW_CLIP[voiceId]
-    if (src) {
-      try {
-        const player = createAudioPlayer(src)
-        player.loop = true
-        playerRef.current = player
-        player.play()
-      } catch {
-        // Best-effort — the screen still works without audio.
-      }
-    }
-    return () => {
-      playerRef.current?.remove()
-      playerRef.current = null
-    }
-  }, [voiceId])
 
   // A slow breathing pulse on the sun, so the screen feels alive but calm.
   const pulse = useSharedValue(1)
@@ -84,8 +55,6 @@ export default function WakeScreen() {
   const sunStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }))
 
   const dismiss = () => {
-    playerRef.current?.remove()
-    playerRef.current = null
     router.replace('/')
   }
 
@@ -99,11 +68,7 @@ export default function WakeScreen() {
         <Text style={styles.greeting}>
           {greeting()}, {name}.
         </Text>
-        <Text style={styles.sub}>
-          {voiceName
-            ? `${voiceName} is here to start your day, gently.`
-            : 'A gentle start to your day.'}
-        </Text>
+        <Text style={styles.sub}>Take a breath. Your day starts when you&rsquo;re ready.</Text>
       </View>
 
       <View style={styles.footer}>
