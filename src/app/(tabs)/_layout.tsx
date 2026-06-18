@@ -28,9 +28,10 @@ export default function TabsLayout() {
         tabBarStyle: styles.bar,
         tabBarLabelStyle: styles.label,
         tabBarItemStyle: styles.item,
-        // Soft crossfade between tabs instead of an instant cut — reads calmer
-        // and more polished. (Default for bottom tabs is no animation.)
-        animation: 'fade',
+        // NOTE: bottom-tab `animation: 'fade'` was tried but it detaches/remounts
+        // inactive screens, which re-fires the You page's staggered FadeInDown
+        // section animations on every return (blank flash). Left off; tab switches
+        // stay instant. In-screen + stack transitions carry the "soft" feel.
         tabBarHideOnKeyboard: true,
       }}
     >
