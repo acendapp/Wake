@@ -28,10 +28,13 @@ import { day } from '@/theme/colors'
 // goes to Today (which prompts the check-in).
 
 function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
+  // ⚠️ TEMP: always "Good morning" so the wake flow can be walked at any hour.
+  // Restore the time-of-day logic below to ship.
+  return 'Good morning'
+  // const h = new Date().getHours()
+  // if (h < 12) return 'Good morning'
+  // if (h < 17) return 'Good afternoon'
+  // return 'Good evening'
 }
 
 function nowLabel(): string {

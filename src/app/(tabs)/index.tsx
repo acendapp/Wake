@@ -52,6 +52,11 @@ const COLORS = {
 
 const GOLD_GRADIENT = goldGradient
 
+// ⚠️ TEMP: forces the morning flow (check-in) even in the evening, so the morning
+// experience can be walked at any hour. Set back to false to ship — the screen
+// then pivots to "set up tomorrow" after EVENING_HOUR as designed.
+const FORCE_MORNING = true
+
 // The valley watercolor (1777x885 landscape) that grounds the evening states. Its
 // soft edges already fade to cream, so it sits on the background with no gradient:
 // text lives in the clean "sky" up top, the low sun and winding river anchor the
@@ -189,7 +194,7 @@ export default function Index() {
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
   const now = logicalNow()
-  const isEvening = isEveningNow()
+  const isEvening = isEveningNow() && !FORCE_MORNING
   const checkedIn = today?.readiness != null
   const demandKnown = today?.day_difficulty != null
   // Tonight's reflection is done — tomorrow is already set up, so the evening
