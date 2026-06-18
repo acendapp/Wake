@@ -125,6 +125,15 @@ export default function WakeAlarmScreen() {
                 setVoice(id)
               }}
             />
+
+            <Pressable
+              style={styles.previewWake}
+              onPress={() => router.push('/wake')}
+              accessibilityRole="button"
+            >
+              <Feather name="sunrise" size={15} color={day.gold} />
+              <Text style={styles.previewWakeLabel}>Preview the wake-up</Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -230,6 +239,23 @@ const styles = StyleSheet.create({
     color: day.muted,
     marginTop: 6,
     marginBottom: 18,
+  },
+  previewWake: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 26,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    backgroundColor: day.surface,
+  },
+  previewWakeLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 15,
+    color: day.gold,
   },
   footer: {
     paddingHorizontal: 28,
