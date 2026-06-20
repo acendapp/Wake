@@ -47,6 +47,15 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <!-- Without JS, don't keep reveal elements hidden. -->
+    <noscript>
+      <style>
+        .reveal {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
     <!-- ── Nav ───────────────────────────────────────────────────────────── -->
@@ -109,86 +118,24 @@
       <!-- ── Trust strip ─────────────────────────────────────────────────── -->
       <section class="trust">
         <div class="trust__inner">
-          <div class="trust__item">
+          <div class="trust__item reveal">
             <strong>A real alarm</strong>
             <span>Breaks through silent &amp; Do Not Disturb</span>
           </div>
-          <div class="trust__item">
+          <div class="trust__item reveal">
             <strong>Personalized by AI</strong>
             <span>Adapts to your energy, mood &amp; day</span>
           </div>
-          <div class="trust__item">
+          <div class="trust__item reveal">
             <strong>Private by design</strong>
             <span>Never sold. Delete anytime.</span>
           </div>
         </div>
       </section>
 
-      <!-- ── Pillars ─────────────────────────────────────────────────────── -->
-      <section class="section" id="features">
-        <div class="section__head">
-          <p class="eyebrow">Two halves of one morning</p>
-          <h2>Get up gently. Start with intent.</h2>
-          <p>
-            Most apps stop at a to-do list. Wake owns the whole moment, from the second
-            the alarm sounds to the minute you walk out the door.
-          </p>
-        </div>
-        <div class="pillars">
-          <article class="pillar">
-            <span class="pillar__step">Wake well</span>
-            <h3 class="pillar__title">A voice that gets you up</h3>
-            <p class="pillar__body">
-              Not a jarring buzzer. An alarm that cuts through silent mode and Do Not
-              Disturb, then greets you with a warm, spoken good-morning that changes
-              day to day. The hardest moment of the morning, made human.
-            </p>
-          </article>
-          <article class="pillar">
-            <span class="pillar__step">Start well</span>
-            <h3 class="pillar__title">A routine that fits the day</h3>
-            <p class="pillar__body">
-              Once you're up, Wake hands you a short, personalized routine built from
-              how you're feeling and what your day asks, then learns from your
-              reflections so every morning compounds on the last.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <!-- ── How it works ────────────────────────────────────────────────── -->
-      <section class="section section--tint" id="how">
-        <div class="section__head">
-          <p class="eyebrow">How it works</p>
-          <h2>A loop that makes you better</h2>
-        </div>
-        <div class="steps">
-          <div class="step">
-            <div class="step__num">1</div>
-            <h3>Wake well</h3>
-            <p>A gentle voice alarm lifts you out of bed. No dread, no snooze spiral.</p>
-          </div>
-          <div class="step">
-            <div class="step__num">2</div>
-            <h3>Start well</h3>
-            <p>Check in, and get a personalized routine matched to your morning.</p>
-          </div>
-          <div class="step">
-            <div class="step__num">3</div>
-            <h3>Reflect</h3>
-            <p>An evening beat captures your energy, mood, and focus in seconds.</p>
-          </div>
-          <div class="step">
-            <div class="step__num">4</div>
-            <h3>Improve</h3>
-            <p>Wake learns the patterns and tunes tomorrow to the real you.</p>
-          </div>
-        </div>
-      </section>
-
       <!-- ── Differentiator ──────────────────────────────────────────────── -->
       <section class="section" id="different">
-        <div class="section__head">
+        <div class="section__head reveal">
           <p class="eyebrow">Why Wake</p>
           <h2>Not another alarm app.</h2>
           <p>
@@ -197,7 +144,7 @@
           </p>
         </div>
         <div class="compare">
-          <article class="compare__col compare__col--old">
+          <article class="compare__col compare__col--old reveal">
             <h3>The usual morning</h3>
             <ul>
               <li>A blaring tone you silence and resent</li>
@@ -206,7 +153,7 @@
               <li>No idea whether any of it is working</li>
             </ul>
           </article>
-          <article class="compare__col compare__col--wake">
+          <article class="compare__col compare__col--wake reveal">
             <h3>With Wake</h3>
             <ul>
               <li>A warm voice that eases you awake</li>
@@ -218,21 +165,83 @@
         </div>
       </section>
 
+      <!-- ── How it works ────────────────────────────────────────────────── -->
+      <section class="section section--tint" id="how">
+        <div class="section__head reveal">
+          <p class="eyebrow">How it works</p>
+          <h2>A loop that makes you better</h2>
+        </div>
+        <div class="steps">
+          <div class="step reveal">
+            <div class="step__num">1</div>
+            <h3>Wake well</h3>
+            <p>A gentle voice alarm lifts you out of bed. No dread, no snooze spiral.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">2</div>
+            <h3>Start well</h3>
+            <p>Check in, and get a personalized routine matched to your morning.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">3</div>
+            <h3>Reflect</h3>
+            <p>An evening beat captures your energy, mood, and focus in seconds.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">4</div>
+            <h3>Improve</h3>
+            <p>Wake learns the patterns and tunes tomorrow to the real you.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Pillars ─────────────────────────────────────────────────────── -->
+      <section class="section" id="features">
+        <div class="section__head reveal">
+          <p class="eyebrow">Two halves of one morning</p>
+          <h2>Get up gently. Start with intent.</h2>
+          <p>
+            Most apps stop at a to-do list. Wake owns the whole moment, from the second
+            the alarm sounds to the minute you walk out the door.
+          </p>
+        </div>
+        <div class="pillars">
+          <article class="pillar reveal">
+            <span class="pillar__step">Wake well</span>
+            <h3 class="pillar__title">A voice that gets you up</h3>
+            <p class="pillar__body">
+              Not a jarring buzzer. An alarm that cuts through silent mode and Do Not
+              Disturb, then greets you with a warm, spoken good-morning that changes
+              day to day. The hardest moment of the morning, made human.
+            </p>
+          </article>
+          <article class="pillar reveal">
+            <span class="pillar__step">Start well</span>
+            <h3 class="pillar__title">A routine that fits the day</h3>
+            <p class="pillar__body">
+              Once you're up, Wake hands you a short, personalized routine built from
+              how you're feeling and what your day asks, then learns from your
+              reflections so every morning compounds on the last.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <!-- ── Pricing ─────────────────────────────────────────────────────── -->
       <section class="section" id="pricing">
-        <div class="section__head">
+        <div class="section__head reveal">
           <p class="eyebrow">Pricing</p>
           <h2>Start free for a week</h2>
           <p>One subscription. Both pillars. Cancel anytime, right from your phone.</p>
         </div>
         <div class="plans">
-          <article class="plan plan--feature">
+          <article class="plan plan--feature reveal">
             <span class="plan__tag">Best value</span>
             <h3 class="plan__name">Annual</h3>
             <p class="plan__price">$59.99<span> / year</span></p>
             <p class="plan__meta">7-day free trial, then billed yearly (about $5/mo).</p>
           </article>
-          <article class="plan">
+          <article class="plan reveal">
             <h3 class="plan__name">Monthly</h3>
             <p class="plan__price">$9.99<span> / month</span></p>
             <p class="plan__meta">Flexible month to month. Cancel anytime.</p>
@@ -252,8 +261,8 @@
             <span class="star-rule__star">★</span>
             <span class="star-rule__line"></span>
           </div>
-          <h2>Be first to wake up well</h2>
-          <p>
+          <h2 class="reveal">Be first to wake up well</h2>
+          <p class="reveal">
             Wake launches on iPhone soon. Join the waitlist for early access and a
             founding-member offer when we open.
           </p>
@@ -280,12 +289,12 @@
 
       <!-- ── FAQ ─────────────────────────────────────────────────────────── -->
       <section class="section" id="faq">
-        <div class="section__head">
+        <div class="section__head reveal">
           <p class="eyebrow">Questions</p>
           <h2>Good to know</h2>
         </div>
         <div class="faq">
-          <details>
+          <details class="reveal">
             <summary>Does the alarm really wake me on silent?</summary>
             <p>
               Yes. Wake uses a true system alarm that sounds through silent mode, Do Not
@@ -293,7 +302,7 @@
               greets you with a spoken good-morning that rotates day to day.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>How is my routine personalized?</summary>
             <p>
               Each morning you check in with how ready you feel and what the day asks.
@@ -301,14 +310,14 @@
               reflections (your energy, mood, and focus) so it keeps getting sharper.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>Can I choose the voice that wakes me?</summary>
             <p>
               Yes. Pick from several voices, each with its own feel, and Wake rotates
               through a few recordings so your good-morning never sounds canned.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>Is my data private?</summary>
             <p>
               Your reflections are yours. We never sell your data or use it for
@@ -317,21 +326,21 @@
               <a href="privacy.html">Privacy Policy</a>.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>What does it cost?</summary>
             <p>
               Wake is free to try for 7 days. After that it's $59.99/year (about $5/mo)
               or $9.99/month. Cancel anytime in your Apple ID settings.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>Which devices are supported?</summary>
             <p>
               Wake is launching on iPhone first. Android is on the roadmap, so join the
               waitlist and we'll let you know.
             </p>
           </details>
-          <details>
+          <details class="reveal">
             <summary>When can I get it?</summary>
             <p>
               Soon. Wake is in active development; join the waitlist for early access and
