@@ -413,6 +413,9 @@ export function TodayHome({
               source={require('../../../assets/images/valley.jpg')}
               style={[StyleSheet.absoluteFill, styles.mediaImage]}
               contentFit="cover"
+              cachePolicy="memory-disk"
+              priority="high"
+              transition={220}
             />
             <LinearGradient
               colors={MEDIA_FADE}
@@ -849,6 +852,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 24, // match the card so the image clips to the rounded corners
     overflow: 'hidden',
+    // Warm tone behind the watercolor so any first-decode moment reads as the
+    // image settling in, never a blank/dark flash.
+    backgroundColor: day.goldTint,
   },
   mediaImage: {
     // The image is less wide than the card, so under `cover` it fills the width

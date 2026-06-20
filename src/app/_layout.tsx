@@ -5,6 +5,8 @@ import {
   PlayfairDisplay_700Bold,
   useFonts,
 } from '@expo-google-fonts/playfair-display'
+import { Asset } from 'expo-asset'
+import { Image as ExpoImage } from 'expo-image'
 import { Stack, usePathname, useRouter } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
@@ -15,7 +17,16 @@ import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
 import { ProfileProvider, useProfile } from '@/lib/profile'
+import { getWeather } from '@/lib/weather'
 import { day } from '@/theme/colors'
+
+// Images shown on the core screens — prefetched at launch so they're decoded and
+// cached before any screen renders them (no late pop-in, e.g. the WHERE YOU STAND
+// watercolor when arriving on Today after the check-in).
+const PRELOAD_IMAGES = [
+  require('../../assets/images/valley.jpg'),
+  require('../../assets/images/welcome-bg.jpg'),
+]
 
 // Warm pale cream that fills the whole app.
 const BACKGROUND = day.background
@@ -31,6 +42,13 @@ export default function RootLayout() {
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
   })
+
+  // Warm the image + weather caches once at launch so the Today home paints them
+  // on first frame instead of popping in a beat late.
+  useEffect(() => {
+    ExpoImage.prefetch(PRELOAD_IMAGES.map((m) => Asset.fromModule(m).uri)).catch(() => {})
+    void getWeather()
+  }, [])
 
   return (
     <AuthProvider>

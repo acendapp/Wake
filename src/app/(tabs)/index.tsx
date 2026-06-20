@@ -32,7 +32,7 @@ import { errorMessage } from '@/lib/errors'
 import { useProfile } from '@/lib/profile'
 import { computeTodayInsight } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
-import { getWeather, type Weather } from '@/lib/weather'
+import { cachedWeather, getWeather, type Weather } from '@/lib/weather'
 import { day as theme, goldGradient } from '@/theme/colors'
 
 // The Today tab. The populated home (greeting card, Focal Point, The Gap, full
@@ -106,7 +106,9 @@ export default function Index() {
 
   // Live local weather (best-effort; null hides the block). Cached in the lib,
   // so the focus-reload below is effectively free between refreshes.
-  const [weather, setWeather] = useState<Weather | null>(null)
+  // Seed from the module cache so the weather paints on the first frame (no
+  // pop-in) when it was already fetched this session / app launch.
+  const [weather, setWeather] = useState<Weather | null>(cachedWeather)
 
   // Whether the user has ever logged a day (a check-in or a reflection). False →
   // brand-new account → Today opens on the first-run welcome instead of a

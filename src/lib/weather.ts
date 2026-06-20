@@ -72,6 +72,15 @@ async function fetchWeather(): Promise<Weather | null> {
   }
 }
 
+/** The last cached weather read, synchronously, if still fresh — else null. Lets a
+ *  screen seed its initial state so the value paints on first frame (no pop-in)
+ *  instead of waiting for the async getWeather to resolve. */
+export function cachedWeather(): Weather | null {
+  if (!cached) return null
+  const ttl = cached.value ? CACHE_MS : NEGATIVE_CACHE_MS
+  return Date.now() - cached.at < ttl ? cached.value : null
+}
+
 /** The current local weather, or null when it can't be known. Real reads cached 30 min, failures 2 min. */
 export async function getWeather(): Promise<Weather | null> {
   if (cached) {
