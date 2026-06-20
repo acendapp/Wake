@@ -36,12 +36,14 @@ function greeting(): string {
 }
 
 function nowLabel(): string {
-  const d = new Date()
-  const h = d.getHours()
-  const m = d.getMinutes()
-  const period = h >= 12 ? 'PM' : 'AM'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+  // ⚠️ TEMP (recording): hard-code 5:30 AM. Restore the real clock below to ship.
+  return '5:30 AM'
+  // const d = new Date()
+  // const h = d.getHours()
+  // const m = d.getMinutes()
+  // const period = h >= 12 ? 'PM' : 'AM'
+  // const h12 = h % 12 === 0 ? 12 : h % 12
+  // return `${h12}:${String(m).padStart(2, '0')} ${period}`
 }
 
 export default function WakeScreen() {
