@@ -52,6 +52,15 @@ const COLORS = {
 
 const GOLD_GRADIENT = goldGradient
 
+// ⚠️ TEMP (screen-recording walkthrough): force the morning flow + a fixed demand
+// so the morning can be walked/recorded any time. Revert all of these to ship:
+//   FORCE_MORNING  → bypasses the evening pivot + simulates the alarm (→ /wake)
+//   FORCE_DEMAND   → hard-codes today's demand (the "Day" reading) to this value
+const FORCE_MORNING = true
+const FORCE_DEMAND: number | null = 6
+// One-shot guard so the dev wake-screen simulation fires once per app launch.
+let wakeShownThisSession = false
+
 // The valley watercolor (1777x885 landscape) that grounds the evening states. Its
 // soft edges already fade to cream, so it sits on the background with no gradient:
 // text lives in the clean "sky" up top, the low sun and winding river anchor the
@@ -189,9 +198,19 @@ export default function Index() {
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
   const now = logicalNow()
-  const isEvening = isEveningNow()
+  const isEvening = isEveningNow() && !FORCE_MORNING
   const checkedIn = today?.readiness != null
-  const demandKnown = today?.day_difficulty != null
+  const demandKnown = today?.day_difficulty != null || FORCE_DEMAND != null
+
+  // ⚠️ TEMP (dev walkthrough): simulate the alarm by showing the wake screen
+  // before the morning check-in. Fires once per session, after today loads, only
+  // when not yet checked in. In production the alarm deep-links to /wake.
+  useEffect(() => {
+    if (FORCE_MORNING && !loading && !checkedIn && !wakeShownThisSession) {
+      wakeShownThisSession = true
+      router.replace('/wake')
+    }
+  }, [loading, checkedIn, router])
   // Tonight's reflection is done — tomorrow is already set up, so the evening
   // "set up tomorrow" prompt must not reappear when they land back on Today.
   const reflectedToday = today?.evening_completed_at != null
@@ -206,7 +225,7 @@ export default function Index() {
     try {
       // Demand comes from last night's reflection if it happened; otherwise the
       // inline demand tap supplies it so the Gap can still render.
-      const dayDifficulty = today?.day_difficulty ?? demandInput
+      const dayDifficulty = FORCE_DEMAND ?? today?.day_difficulty ?? demandInput
       const plan = resolveMorningPlan({
         readiness: readinessInput,
         dayDifficulty,
@@ -473,7 +492,7 @@ export default function Index() {
   // ── Checked in: the populated Today home, from real data ────────────────────
   const row = today as DayRow
   const readiness = row.readiness as number
-  const dayDifficulty = row.day_difficulty ?? readiness
+  const dayDifficulty = FORCE_DEMAND ?? row.day_difficulty ?? readiness
   const gapState: ReadinessState = row.state ?? classifyState(readiness, dayDifficulty)
 
   return wrap(

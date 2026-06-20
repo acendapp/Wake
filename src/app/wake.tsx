@@ -26,10 +26,13 @@ import { day } from '@/theme/colors'
 // in assets/audio/, re-add playback here (loop the chosen voice; stop in dismiss).
 
 function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
+  // ⚠️ TEMP (recording): always "Good morning" so the wake flow can be walked any
+  // hour. Restore the time-of-day logic below to ship.
+  return 'Good morning'
+  // const h = new Date().getHours()
+  // if (h < 12) return 'Good morning'
+  // if (h < 17) return 'Good afternoon'
+  // return 'Good evening'
 }
 
 function nowLabel(): string {

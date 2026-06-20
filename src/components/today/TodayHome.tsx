@@ -119,12 +119,12 @@ const WEATHER_ICON: Record<WeatherCondition, React.ComponentProps<typeof Ionicon
 
 // ⚠️ TEMP (marketing footage): forces the greeting so screen-recordings always
 // read "Good morning" regardless of the real clock. Set back to null to ship.
-const FORCE_GREETING: string | null = null
+const FORCE_GREETING: string | null = 'Good morning' // ⚠️ TEMP (recording) — set to null to ship
 
 // ⚠️ TEMP (marketing footage): forces the styled sample insight line on the
 // Focal Point card so it looks populated on camera. Set back to false to ship —
 // the card then shows the real computed `insight` (or the honest fallback).
-const FORCE_SAMPLE_INSIGHT = false
+const FORCE_SAMPLE_INSIGHT = true // ⚠️ TEMP (recording) — set to false to ship
 
 // Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
 // at 1am "Good evening" is right even though the app still treats it as yesterday).
@@ -227,6 +227,11 @@ export function TodayHome({
   const activity = plan?.oneThing.title ?? ''
   const activityExample = plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
+  // ⚠️ TEMP (FORCE_SAMPLE_INSIGHT): phrase the sample insight around the day's
+  // focal action so it reads coherently in recordings.
+  const sampleAction = activity
+    ? activity.charAt(0).toLowerCase() + activity.slice(1)
+    : 'finish your focal point'
   const dayDemand = `${dayDifficulty}/10`
   // Wake-alarm home card display.
   const wakeVoiceName = VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null
@@ -328,7 +333,7 @@ export function TodayHome({
 
                 {FORCE_SAMPLE_INSIGHT ? (
                   <Text style={styles.insightText} numberOfLines={2}>
-                    When you walk, your focus hits{' '}
+                    On mornings you {sampleAction}, your focus hits{' '}
                     <Text style={{ color: COLORS.positive }}>8+</Text>. Skipping it:{' '}
                     <Text style={{ color: COLORS.negative }}>under 5</Text>.
                   </Text>
