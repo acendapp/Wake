@@ -90,36 +90,19 @@
           <p class="hero__note">7-day free trial · iPhone · Cancel anytime</p>
         </div>
 
-        <!-- CSS-only morning-screen mockup -->
+        <!-- Real app recording in a phone frame -->
         <div class="phone" aria-hidden="true">
-          <div class="phone__screen">
-            <div class="phone__notch"></div>
-            <p class="phone__eyebrow">Friday morning</p>
-            <p class="phone__greet">Good morning, Anikwe</p>
-            <p class="phone__weather">☀︎ 58° &nbsp;·&nbsp; clear in Philadelphia</p>
-
-            <div class="phone__card">
-              <span class="phone__card-label">Your focal point</span>
-              <p class="phone__focal">Get out of bed right away</p>
-            </div>
-
-            <div class="phone__card">
-              <div class="phone__step phone__step--done">
-                <span class="phone__dot phone__dot--done"></span> Glass of water
-              </div>
-              <div class="phone__step phone__step--done">
-                <span class="phone__dot phone__dot--done"></span> 4 minutes of light movement
-              </div>
-              <div class="phone__step">
-                <span class="phone__dot"></span> Sunlight on the balcony
-              </div>
-              <div class="phone__step">
-                <span class="phone__dot"></span> Set the one thing that matters
-              </div>
-            </div>
-
-            <div class="phone__start">Start my morning</div>
-          </div>
+          <video
+            class="phone__video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="auto"
+            poster="assets/hero-poster.png"
+          >
+            <source src="assets/hero.mp4" type="video/mp4" />
+          </video>
         </div>
       </section>
 
