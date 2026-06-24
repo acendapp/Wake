@@ -50,15 +50,6 @@ const SAMPLE_PLAN = generatePlan({
   routineMinutes: SAMPLE_MINUTES,
 })
 
-// ⚠️ TEMP (recording): force the focal point so the routine matches the Today
-// home's forced focal (FORCE_FOCAL_ACTION in TodayHome). Set to null to ship.
-const FORCE_FOCAL: { title: string; example: string; description: string; estMinutes: number } | null = {
-  title: 'Take your morning walk',
-  example: 'A few quiet blocks to ease into the day.',
-  description: 'Morning light and gentle movement lift your energy and mood for hours.',
-  estMinutes: 15,
-}
-
 // 'home' (sample only: the populated Today view) → 'focal' → 'sequence'
 type Phase = 'home' | 'focal' | 'sequence'
 
@@ -118,10 +109,7 @@ export default function RoutineScreen() {
   }, [load])
 
   const plan = isSample ? SAMPLE_PLAN : (row?.plan ?? null)
-  // ⚠️ TEMP (recording): overlay the forced focal display onto the real focal,
-  // keeping its slug so completion tracking still works.
-  const baseFocal = plan?.oneThing ?? null
-  const focal = baseFocal && FORCE_FOCAL ? { ...baseFocal, ...FORCE_FOCAL } : baseFocal
+  const focal = plan?.oneThing ?? null
   // The optional remainder — everything in the sequence except the focal point.
   const rest: Action[] = plan ? plan.sequence.filter((a) => a.slug !== plan.oneThing.slug) : []
 

@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
 // The wake screen — the calm "good morning" moment that eases the user into the
@@ -25,31 +26,25 @@ import { day } from '@/theme/colors'
 // in assets/audio/, re-add playback here (loop the chosen voice; stop in dismiss).
 
 function greeting(): string {
-  // ⚠️ TEMP (recording): always "Good morning" so the wake flow can be walked any
-  // hour. Restore the time-of-day logic below to ship.
-  return 'Good morning'
-  // const h = new Date().getHours()
-  // if (h < 12) return 'Good morning'
-  // if (h < 17) return 'Good afternoon'
-  // return 'Good evening'
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
 }
 
 function nowLabel(): string {
-  // ⚠️ TEMP (recording): hard-code 7:00 AM. Restore the real clock below to ship.
-  return '7:00 AM'
-  // const d = new Date()
-  // const h = d.getHours()
-  // const m = d.getMinutes()
-  // const period = h >= 12 ? 'PM' : 'AM'
-  // const h12 = h % 12 === 0 ? 12 : h % 12
-  // return `${h12}:${String(m).padStart(2, '0')} ${period}`
+  const d = new Date()
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const period = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
 }
 
 export default function WakeScreen() {
   const router = useRouter()
-  // ⚠️ TEMP (recording): hard-code the name. Restore to ship:
-  //   const { profile } = useProfile(); const name = profile?.first_name?.trim() || 'there'
-  const name = 'Aurora'
+  const { profile } = useProfile()
+  const name = profile?.first_name?.trim() || 'there'
   const [time] = useState(nowLabel)
 
   // A slow breathing pulse on the sun, so the screen feels alive but calm.

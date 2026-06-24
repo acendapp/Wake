@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { TrendChart } from '@/components/you/TrendChart'
 import { useAuth } from '@/lib/auth'
-import { daysForStats, deleteDay, logicalDate } from '@/lib/days'
+import { daysForStats, logicalDate } from '@/lib/days'
 import { VOICES } from '@/lib/alarmCore'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { useProfile } from '@/lib/profile'
@@ -639,22 +639,6 @@ export default function YouScreen() {
               title="Account"
               sub={email}
               onPress={() => router.push('/account')}
-            />
-            {/* ⚠️ TEMP (recording): clear today so the wake → check-in flow can be
-                re-walked between takes. Remove with the FORCE_MORNING temp code. */}
-            <View style={styles.settingsSeparator} />
-            <SettingsRow
-              icon="rotate-ccw"
-              title="Reset today (dev)"
-              sub="Clears today's check-in to re-walk the morning"
-              onPress={async () => {
-                try {
-                  await deleteDay(logicalDate())
-                } catch {
-                  // best-effort
-                }
-                router.replace('/')
-              }}
             />
             <View style={styles.settingsSeparator} />
             <Pressable

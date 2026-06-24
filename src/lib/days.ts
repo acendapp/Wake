@@ -95,18 +95,6 @@ async function upsertDay(
   return data as DayRow
 }
 
-/** ⚠️ DEV: delete a day's row so the morning flow can be re-walked/recorded.
- *  Remove with the other TEMP walkthrough helpers before shipping. */
-export async function deleteDay(date: string): Promise<void> {
-  const userId = await currentUserId()
-  const { error } = await supabase
-    .from('days')
-    .delete()
-    .eq('user_id', userId)
-    .eq('local_date', date)
-  if (error) throw error
-}
-
 /** Read one day's row, or null if it doesn't exist yet. */
 export async function getDay(date: string): Promise<DayRow | null> {
   const userId = await currentUserId()
