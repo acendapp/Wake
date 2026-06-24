@@ -11,7 +11,6 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
 // The wake screen — the calm "good morning" moment that eases the user into the
@@ -36,8 +35,8 @@ function greeting(): string {
 }
 
 function nowLabel(): string {
-  // ⚠️ TEMP (recording): hard-code 5:30 AM. Restore the real clock below to ship.
-  return '5:30 AM'
+  // ⚠️ TEMP (recording): hard-code 7:00 AM. Restore the real clock below to ship.
+  return '7:00 AM'
   // const d = new Date()
   // const h = d.getHours()
   // const m = d.getMinutes()
@@ -48,8 +47,9 @@ function nowLabel(): string {
 
 export default function WakeScreen() {
   const router = useRouter()
-  const { profile } = useProfile()
-  const name = profile?.first_name?.trim() || 'there'
+  // ⚠️ TEMP (recording): hard-code the name. Restore to ship:
+  //   const { profile } = useProfile(); const name = profile?.first_name?.trim() || 'there'
+  const name = 'Aurora'
   const [time] = useState(nowLabel)
 
   // A slow breathing pulse on the sun, so the screen feels alive but calm.

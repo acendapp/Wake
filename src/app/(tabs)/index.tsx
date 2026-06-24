@@ -219,7 +219,8 @@ export default function Index() {
 
   // First name from the onboarding profile; falls back gracefully for any older
   // account created before names were collected.
-  const userName = profile?.first_name?.trim() || 'there'
+  // ⚠️ TEMP (recording): hard-coded. Restore: profile?.first_name?.trim() || 'there'
+  const userName = 'Aurora'
 
   const submitCheckIn = async () => {
     setSubmitting(true)

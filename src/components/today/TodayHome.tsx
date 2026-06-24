@@ -126,6 +126,12 @@ const FORCE_GREETING: string | null = 'Good morning' // ⚠️ TEMP (recording) 
 // the card then shows the real computed `insight` (or the honest fallback).
 const FORCE_SAMPLE_INSIGHT = true // ⚠️ TEMP (recording) — set to false to ship
 
+// ⚠️ TEMP (recording): force the focal-point action + example so it reads as a
+// task-focused morning. Set both to null to ship (uses the real plan).
+const FORCE_FOCAL_ACTION: string | null = 'Start your most important task'
+const FORCE_FOCAL_EXAMPLE: string | null =
+  'Open it before anything else and give it ten quiet minutes.'
+
 // Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
 // at 1am "Good evening" is right even though the app still treats it as yesterday).
 function greetingWord(hours: number): string {
@@ -224,8 +230,8 @@ export function TodayHome({
   const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
 
   const sequence = plan?.sequence ?? []
-  const activity = plan?.oneThing.title ?? ''
-  const activityExample = plan?.oneThing.example ?? ''
+  const activity = FORCE_FOCAL_ACTION ?? plan?.oneThing.title ?? ''
+  const activityExample = FORCE_FOCAL_EXAMPLE ?? plan?.oneThing.example ?? ''
   const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
   // ⚠️ TEMP (FORCE_SAMPLE_INSIGHT): phrase the sample insight around the day's
   // focal action so it reads coherently in recordings.
