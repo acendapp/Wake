@@ -126,11 +126,10 @@ const FORCE_GREETING: string | null = 'Good morning' // ⚠️ TEMP (recording) 
 // the card then shows the real computed `insight` (or the honest fallback).
 const FORCE_SAMPLE_INSIGHT = true // ⚠️ TEMP (recording) — set to false to ship
 
-// ⚠️ TEMP (recording): force the focal-point action + example so it reads as a
-// task-focused morning. Set both to null to ship (uses the real plan).
-const FORCE_FOCAL_ACTION: string | null = 'Start your most important task'
-const FORCE_FOCAL_EXAMPLE: string | null =
-  'Open it before anything else and give it ten quiet minutes.'
+// ⚠️ TEMP (recording): force the focal-point action + example. Keep in sync with
+// FORCE_FOCAL in src/app/routine.tsx so the START page matches. Null to ship.
+const FORCE_FOCAL_ACTION: string | null = 'Take your morning walk'
+const FORCE_FOCAL_EXAMPLE: string | null = 'A few quiet blocks to ease into the day.'
 
 // Time-of-day greeting, from the real clock (not the logical 3am-rollover day —
 // at 1am "Good evening" is right even though the app still treats it as yesterday).
