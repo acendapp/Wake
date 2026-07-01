@@ -28,6 +28,9 @@ export type DayRow = {
   mood: number | null
   did_one_thing: boolean | null
   evening_completed_at: string | null
+  // Set when the user acknowledges the morning alarm but chooses "Not today" —
+  // just wake, no routine. Counts toward the streak (waking well is the habit).
+  woke_at: string | null
   lookback: Lookback | null
   note: string | null
   completed_slugs: string[]
@@ -108,6 +111,18 @@ export async function getDay(date: string): Promise<DayRow | null> {
   return (data as DayRow) ?? null
 }
 
+/**
+ * The "just wake me" path: the user acknowledged the morning alarm but chose to
+ * skip the routine today. Records woke_at (idempotent — only sets it if not
+ * already stamped) so the day counts toward the streak without a check-in.
+ */
+export async function markWoke(date: string): Promise<DayRow> {
+  const userId = await currentUserId()
+  const existing = await getDay(date)
+  if (existing?.woke_at) return existing
+  return upsertDay(userId, date, { woke_at: new Date().toISOString() })
+}
+
 /** Morning check-in: the one-tap readiness + the plan the engine produced. */
 export async function saveMorning(
   date: string,
@@ -179,10 +194,10 @@ export async function daysForStats(limit = 400): Promise<StatsDay[]> {
   const { data, error } = await supabase
     .from('days')
     .select(
-      'local_date, morning_completed_at, evening_completed_at, state, energy, mood, focus, routine_minutes, plan, completed_slugs',
+      'local_date, morning_completed_at, evening_completed_at, woke_at, state, energy, mood, focus, routine_minutes, plan, completed_slugs',
     )
     .eq('user_id', userId)
-    .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
+    .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null,woke_at.not.is.null')
     .order('local_date', { ascending: false })
     .limit(limit)
   if (error) throw error

@@ -128,7 +128,7 @@ export default function WakeAlarmScreen() {
 
             <Pressable
               style={styles.previewWake}
-              onPress={() => router.push('/wake')}
+              onPress={() => router.push('/wake?preview=1')}
               accessibilityRole="button"
             >
               <Feather name="sunrise" size={15} color={day.gold} />

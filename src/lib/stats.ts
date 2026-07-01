@@ -13,6 +13,8 @@ export interface StatsDay {
   local_date: string
   morning_completed_at: string | null
   evening_completed_at: string | null
+  /** Set on the "just wake me" path — counts as an active day (see below). */
+  woke_at: string | null
   state: ReadinessState | null
   energy: number | null
   mood: number | null
@@ -114,11 +116,13 @@ function toPercents(counts: number[]): number[] {
 export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   const todayIdx = dayIndex(today)
 
-  // Activity = any check-in or reflection that day. (The query already filters to
-  // these, but recomputing keeps the function honest in isolation/tests.)
+  // Activity = any check-in, reflection, OR a "just wake me" morning that day.
+  // Waking well is the habit, so a woke-only day keeps the streak alive. (The
+  // query already filters to these, but recomputing keeps the function honest in
+  // isolation/tests.)
   const activeIdx = new Set(
     rows
-      .filter((r) => r.morning_completed_at || r.evening_completed_at)
+      .filter((r) => r.morning_completed_at || r.evening_completed_at || r.woke_at)
       .map((r) => dayIndex(r.local_date)),
   )
 

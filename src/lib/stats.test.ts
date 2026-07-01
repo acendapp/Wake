@@ -30,6 +30,7 @@ function mk(date: string, o: Partial<StatsDay> = {}): StatsDay {
     local_date: date,
     morning_completed_at: o.morning_completed_at ?? null,
     evening_completed_at: o.evening_completed_at ?? null,
+    woke_at: o.woke_at ?? null,
     state: o.state ?? null,
     energy: o.energy ?? null,
     mood: o.mood ?? null,
@@ -69,6 +70,16 @@ describe('computeYouStats — streak', () => {
 
   it('is zero with no history', () => {
     expect(computeYouStats([], '2026-06-03').streak).toEqual({ current: 0, best: 0 })
+  })
+
+  it('counts a "just wake me" day (woke_at only) toward the streak', () => {
+    const rows = [
+      mk('2026-06-01', { morning_completed_at: M }),
+      mk('2026-06-02', { woke_at: M }), // just woke, no check-in
+      mk('2026-06-03', { morning_completed_at: M }),
+    ]
+    const s = computeYouStats(rows, '2026-06-03')
+    expect(s.streak.current).toBe(3)
   })
 })
 

@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, {
@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { logicalDate, markWoke } from '@/lib/days'
 import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
@@ -46,6 +47,10 @@ export default function WakeScreen() {
   const { profile } = useProfile()
   const name = profile?.first_name?.trim() || 'there'
   const [time] = useState(nowLabel)
+  // The "Preview the wake-up" entry (Settings) passes ?preview=1 so it never
+  // writes to today's row — only a real alarm wake should record it.
+  const { preview } = useLocalSearchParams<{ preview?: string }>()
+  const isPreview = preview === '1'
 
   // A slow breathing pulse on the sun, so the screen feels alive but calm.
   const pulse = useSharedValue(1)
@@ -54,7 +59,16 @@ export default function WakeScreen() {
   }, [pulse])
   const sunStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }))
 
-  const dismiss = () => {
+  // "Start my morning": into the full flow (Today → check-in). Streak credit comes
+  // from the check-in as usual.
+  const startMorning = () => {
+    router.replace('/')
+  }
+
+  // "Not today": just wake, no routine. Record woke_at so the day still counts
+  // toward the streak, then land on the calm Today (which shows the rested state).
+  const justWake = () => {
+    if (!isPreview) void markWoke(logicalDate()).catch(() => {})
     router.replace('/')
   }
 
@@ -72,8 +86,16 @@ export default function WakeScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Pressable style={styles.button} onPress={dismiss} accessibilityRole="button">
-          <Text style={styles.buttonLabel}>I&rsquo;m up</Text>
+        <Pressable style={styles.button} onPress={startMorning} accessibilityRole="button">
+          <Text style={styles.buttonLabel}>Start my morning</Text>
+        </Pressable>
+        <Pressable
+          style={styles.secondary}
+          onPress={justWake}
+          accessibilityRole="button"
+          accessibilityHint="Skip the routine today — you'll still keep your streak"
+        >
+          <Text style={styles.secondaryLabel}>Not today, just wake me</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -135,5 +157,14 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 17,
     color: day.onAccent,
+  },
+  secondary: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  secondaryLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    color: day.muted,
   },
 })

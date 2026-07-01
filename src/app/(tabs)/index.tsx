@@ -116,6 +116,9 @@ export default function Index() {
   const [readinessInput, setReadinessInput] = useState(6)
   const [demandInput, setDemandInput] = useState(5)
   const [forceCheckIn, setForceCheckIn] = useState(false)
+  // Set by the rested-state "set up my morning anyway" link, to leave the calm
+  // rested view and show the check-in for a user who'd tapped "just wake me".
+  const [startRoutineAnyway, setStartRoutineAnyway] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   // Liveness guards. `mounted` blocks any setState after the screen leaves;
@@ -143,6 +146,7 @@ export default function Index() {
     // it, then left without checking in, should return to the evening pivot rather
     // than be stuck on the demoted check-in form for the rest of the session.
     setForceCheckIn(false)
+    setStartRoutineAnyway(false)
     // Weather rides along with every (re)load but never blocks it.
     void getWeather().then((w) => {
       if (live()) setWeather(w)
@@ -197,6 +201,11 @@ export default function Index() {
   // Tonight's reflection is done — tomorrow is already set up, so the evening
   // "set up tomorrow" prompt must not reappear when they land back on Today.
   const reflectedToday = today?.evening_completed_at != null
+  // The user tapped "Not today, just wake me" on the alarm — they chose to skip
+  // the routine. Show the calm rested state instead of nagging the check-in,
+  // unless they've since asked to set up their morning after all.
+  const wokeOnly = today?.woke_at != null && !checkedIn
+  const restedToday = wokeOnly && !startRoutineAnyway && !isEvening
 
   // First name from the onboarding profile; falls back gracefully for any older
   // account created before names were collected.
@@ -351,6 +360,58 @@ export default function Index() {
                 <Text style={styles.welcomeSecondaryLabel}>
                   Set up tomorrow in Reflect
                 </Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      </View>,
+    )
+  }
+
+  // ── Rested: they woke to the alarm and chose "just wake me" — no routine today.
+  // A calm acknowledgment (waking counts), with a quiet way into the routine if
+  // they change their mind. Yields to the evening pivot after EVENING_HOUR. ─────
+  if (restedToday) {
+    return wrap(
+      'rested',
+      <View style={styles.safe}>
+        <Image
+          source={require('../../../assets/images/valley.jpg')}
+          style={styles.eveningArt}
+          contentFit="cover"
+        />
+        <SafeAreaView style={styles.eveningSafe} edges={['top']}>
+          <View style={styles.eveningWrap}>
+            <View>
+              <Feather name="sunrise" size={22} color={COLORS.gold} />
+              <Text style={styles.eveningEyebrow}>{WEEKDAYS[now.getDay()]} morning</Text>
+              <Text style={styles.eveningTitle}>You&rsquo;re up, {userName}.</Text>
+              <Text style={styles.eveningBody}>
+                No routine today, and that&rsquo;s just fine. Waking well is the habit —
+                you kept it. Come back tonight to set up tomorrow.
+              </Text>
+            </View>
+            <View>
+              <Pressable
+                style={styles.eveningButton}
+                onPress={() => setStartRoutineAnyway(true)}
+                accessibilityRole="button"
+              >
+                <LinearGradient
+                  colors={GOLD_GRADIENT}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.eveningButtonFill}
+                >
+                  <Text style={styles.eveningButtonLabel}>Set up my morning anyway</Text>
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                style={styles.eveningQuietLink}
+                onPress={() => router.push('/reflect')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.eveningQuietLabel}>Jump ahead to tonight</Text>
               </Pressable>
             </View>
           </View>
