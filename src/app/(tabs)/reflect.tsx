@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -12,16 +12,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { DurationStepper } from '@/components/reflect/DurationStepper'
 import { Scale } from '@/components/reflect/Scale'
-import { WakeTimePicker } from '@/components/WakeTimePicker'
-import type { Action, Lookback, ReadinessState } from '@/engine/types'
-import { windDownSequence } from '@/engine/windDown'
+import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
+import type { ReadinessState } from '@/engine/types'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { addDays, getDay, logicalDate, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
@@ -61,19 +58,10 @@ function recapLine(state: ReadinessState, dayDifficulty: number): string {
 
 const NO_MORNING_RECAP = 'No check-in this morning — just go on how today felt.'
 
-const LOOKBACK_OPTIONS: { value: Lookback; label: string; sub: string }[] = [
-  { value: 'behind', label: 'Behind it', sub: 'The day outran me.' },
-  { value: 'matched', label: 'Matched it', sub: 'I was where I needed to be.' },
-  { value: 'ahead', label: 'Ahead of it', sub: 'I had more than it asked.' },
-]
-
-// The ritual's beats, in order. One per screen. `completion` only appears when
-// there was a morning check-in to look back on (no plan → nothing to tick off),
-// so the live list is filtered per-session. Optional beats sit at the end so the
-// required core stays short; they can be skipped.
-const ALL_STEPS = ['lookback', 'completion', 'reads', 'demand', 'routine', 'wake', 'windDown', 'note'] as const
+// The evening ritual, trimmed to its core: today's reads, tomorrow's demand, and
+// the combined wake-alarm + morning-length setup. One beat per screen.
+const ALL_STEPS = ['reads', 'demand', 'wakeRoutine'] as const
 type StepKey = (typeof ALL_STEPS)[number]
-const OPTIONAL_STEPS: StepKey[] = ['note']
 
 type Phase = 'intro' | 'flow' | 'done'
 
@@ -94,75 +82,42 @@ export default function ReflectScreen() {
   const weekday = WEEKDAYS[logicalNow().getDay()]
   const isEvening = isEveningNow()
 
-  // Wake-alarm: the nightly ritual confirms tomorrow's wake time for users who've
-  // turned the voice alarm on (set up in onboarding / Settings). Standing prefs,
-  // so they live on the profile, not the per-day row.
+  // Wake-alarm: the combined setup step confirms tomorrow's wake time and whether
+  // the voice alarm is on at all, writing back to the standing profile pref.
   const { profile, refresh: refreshProfile } = useProfile()
-  const wakeEnabled = profile?.wake_enabled ?? false
 
-  // This morning's call + the sequence it prescribed, loaded from today's stored
-  // row. The call anchors the look-back recap; the sequence drives the completion
-  // step. Any slugs already ticked off (a re-entry/edit) pre-seed the selection.
-  //
-  // If tonight's reflection was already saved (evening_completed_at set — e.g. the
-  // app reloaded since), every answer is restored from the two rows it was written
-  // to (today's review + tomorrow's setup) and the screen resumes on the done
-  // phase, where "Edit tonight's check-in" reopens the flow with those answers —
-  // never back at a blank intro.
+  // This morning's call, loaded from today's stored row — it anchors the intro
+  // recap. If tonight's reflection was already saved (evening_completed_at set —
+  // e.g. the app reloaded since), every answer is restored from the two rows it
+  // was written to and the screen resumes on the done phase, where "Edit tonight's
+  // check-in" reopens the flow with those answers — never a blank intro.
   const [morningCall, setMorningCall] = useState(NO_MORNING_RECAP)
-  const [morningSequence, setMorningSequence] = useState<Action[]>([])
-  const [completedSlugs, setCompletedSlugs] = useState<string[]>([])
-  // True when the morning was tracked live on the /routine screen (check-offs
-  // already saved). A load-time snapshot — NOT derived from completedSlugs —
-  // so checking the first box *during* the evening step doesn't make the step
-  // vanish from under the user.
-  const [trackedInMorning, setTrackedInMorning] = useState(false)
 
   const [phase, setPhase] = useState<Phase>('intro')
   const [step, setStep] = useState(0)
 
-  // The completion beat only appears when there was a morning plan to do AND it
-  // wasn't already tracked in the morning — a user who checked things off on the
-  // /routine screen never gets re-asked "which of these did you do?".
-  const steps = useMemo(
-    () =>
-      ALL_STEPS.filter((s) => {
-        // The completion beat only when there was a morning plan not already tracked.
-        if (s === 'completion') return morningSequence.length > 0 && !trackedInMorning
-        // The wake-time beat only for users who've enabled the voice alarm.
-        if (s === 'wake') return wakeEnabled
-        return true
-      }),
-    [morningSequence.length, trackedInMorning, wakeEnabled],
-  )
-
-  // Freeze the step list once the user is in the flow. The mount load can flip
-  // whether the 'completion' beat exists; if that landed mid-flow it would shift
-  // every step index and silently jump the user to a different question. While in
-  // flow we use the list as it was when flow began.
-  const stepsRef = useRef(steps)
-  useEffect(() => {
-    if (phase !== 'flow') stepsRef.current = steps
-  }, [steps, phase])
-  const activeSteps = phase === 'flow' ? stepsRef.current : steps
-
-  // Seed the wake time from the standing profile pref (outside the flow, so an
-  // in-progress edit is never clobbered when the provider refreshes).
-  useEffect(() => {
-    if (phase !== 'flow' && profile?.wake_time) setWakeTime(profile.wake_time)
-  }, [profile?.wake_time, phase])
+  // The flow is a fixed three beats now, so the step list never changes.
+  const activeSteps = ALL_STEPS
 
   // Answers.
-  const [lookback, setLookback] = useState<Lookback | null>(null)
   const [energy, setEnergy] = useState(6)
   const [mood, setMood] = useState(6)
   const [focus, setFocus] = useState(6)
-  const [note, setNote] = useState('')
   const [demand, setDemand] = useState(5)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
+  // The voice-alarm toggle defaults on; seeded from the profile below.
+  const [wakeEnabled, setWakeEnabled] = useState(true)
   const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Seed the wake toggle + time from the standing profile (outside the flow, so an
+  // in-progress edit is never clobbered when the provider refreshes).
+  useEffect(() => {
+    if (phase === 'flow') return
+    if (profile?.wake_time) setWakeTime(profile.wake_time)
+    if (profile?.wake_enabled != null) setWakeEnabled(profile.wake_enabled)
+  }, [profile?.wake_time, profile?.wake_enabled, phase])
 
   // Guards the post-await setState in finish() — the only place that mutates state
   // after an awaited write, so a close mid-save can't set state on an unmounted tree.
@@ -186,21 +141,13 @@ export default function ReflectScreen() {
           if (row.state && row.day_difficulty != null) {
             setMorningCall(recapLine(row.state, row.day_difficulty))
           }
-          if (row.plan?.sequence.length) setMorningSequence(row.plan.sequence)
-          if (row.completed_slugs?.length) {
-            setCompletedSlugs(row.completed_slugs)
-            // Tracked live this morning → the evening never re-asks.
-            setTrackedInMorning(true)
-          }
           if (restoring) {
             // Tonight's reflection is already saved (e.g. the app reloaded since):
             // restore every answer and resume on the done screen — never a blank
             // intro. "Edit tonight's check-in" reopens the flow with these values.
-            if (row.lookback) setLookback(row.lookback)
             if (row.energy != null) setEnergy(row.energy)
             if (row.mood != null) setMood(row.mood)
             if (row.focus != null) setFocus(row.focus)
-            if (row.note) setNote(row.note)
             // Demand + routine length live on tomorrow's row (see saveEvening).
             if (tomorrow?.day_difficulty != null) setDemand(tomorrow.day_difficulty)
             if (tomorrow?.routine_minutes != null) setRoutineMinutes(tomorrow.routine_minutes)
@@ -222,20 +169,12 @@ export default function ReflectScreen() {
     }
   }, [])
 
-  const toggleSlug = (slug: string) =>
-    setCompletedSlugs((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
-    )
-
   // Close the ritual back to Today. The bottom tab bar is hidden for the whole
   // Reflect tab statically in (tabs)/_layout.tsx (not via in-screen setOptions),
   // which is what keeps entering/leaving the tab flicker-free; the X / Done buttons
   // are the way out. Phase is left as-is, so re-opening resumes where they were.
   const router = useRouter()
   const close = () => router.navigate('/')
-
-  // Tomorrow's demand sizes tonight's wind-down sequence.
-  const windDown = windDownSequence(demand)
 
   // A soft fade as each beat (and phase) changes — the evening wind-down feel.
   const fade = useRef(new Animated.Value(1)).current
@@ -246,41 +185,33 @@ export default function ReflectScreen() {
 
   const key = activeSteps[step]
   const isLast = step === activeSteps.length - 1
-  const isOptional = OPTIONAL_STEPS.includes(key)
-  const canContinue = key !== 'lookback' || lookback !== null
 
   // Persist the whole reflection on finish: today's review + tomorrow's setup.
-  // `finalNote` is passed in so Skip can save an empty note without waiting on
-  // the async setNote('') to settle.
-  const finish = async (finalNote: string) => {
-    if (!lookback || saving) return
+  const finish = async () => {
+    if (saving) return
     setSaving(true)
     setSaveError(null)
     try {
       await saveEvening(logicalDate(), {
-        lookback,
         reads: { energy, mood, focus },
-        note: finalNote.trim() || undefined,
-        completedSlugs,
         tomorrowDemand: demand,
         routineMinutes,
       })
       // Remember this length as the new standing default for next time.
       void setPreferredRoutineMinutes(routineMinutes)
-      // Persist tomorrow's wake time + re-arm the alarm (best-effort — the
-      // reflection itself is already saved, so a failure here never blocks it).
-      if (wakeEnabled) {
-        try {
-          await updateProfile({ wakeTime })
-          await applyWakeAlarm({
-            enabled: true,
-            time: wakeTime,
-            voice: profile?.wake_voice ?? DEFAULT_VOICE,
-          })
-          void refreshProfile()
-        } catch {
-          // non-fatal
-        }
+      // Persist the wake toggle + tomorrow's time, and arm/cancel the alarm to
+      // match (best-effort — the reflection is already saved, so a failure here
+      // never blocks it).
+      try {
+        await updateProfile({ wakeEnabled, wakeTime })
+        await applyWakeAlarm({
+          enabled: wakeEnabled,
+          time: wakeEnabled ? wakeTime : null,
+          voice: profile?.wake_voice ?? DEFAULT_VOICE,
+        })
+        void refreshProfile()
+      } catch {
+        // non-fatal
       }
       // Pre-generate tomorrow's personalized routine in the background (best-effort,
       // off the hot path) so the morning open is instant. Never blocks the ritual.
@@ -294,8 +225,7 @@ export default function ReflectScreen() {
   }
 
   const back = () => (step === 0 ? setPhase('intro') : setStep((s) => s - 1))
-  const next = () => (isLast ? finish(note) : setStep((s) => s + 1))
-  const skip = () => finish('')
+  const next = () => (isLast ? finish() : setStep((s) => s + 1))
 
   // ── Gate ────────────────────────────────────────────────────────────────────
   // Reflect is an evening ritual — closing out a day that isn't over yet doesn't
@@ -435,36 +365,29 @@ export default function ReflectScreen() {
             showsVerticalScrollIndicator={false}
           >
             {renderStep(key, {
-              lookback,
-              setLookback,
-              morningCall,
-              morningSequence,
-              completedSlugs,
-              toggleSlug,
               energy,
               setEnergy,
               mood,
               setMood,
               focus,
               setFocus,
-              note,
-              setNote,
               demand,
               setDemand,
               routineMinutes,
               setRoutineMinutes,
+              wakeEnabled,
+              setWakeEnabled,
               wakeTime,
               setWakeTime,
-              windDown,
             })}
           </ScrollView>
         </Animated.View>
 
         <View style={styles.footer}>
           <Pressable
-            style={[styles.continueButton, (!canContinue || saving) && styles.continueDisabled]}
+            style={[styles.continueButton, saving && styles.continueDisabled]}
             onPress={next}
-            disabled={!canContinue || saving}
+            disabled={saving}
             accessibilityRole="button"
           >
             {saving ? (
@@ -477,11 +400,6 @@ export default function ReflectScreen() {
             )}
           </Pressable>
           {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
-          {isOptional && !saving && (
-            <Pressable style={styles.skipButton} onPress={skip} accessibilityRole="button">
-              <Text style={styles.skipLabel}>Skip</Text>
-            </Pressable>
-          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -491,110 +409,30 @@ export default function ReflectScreen() {
 // ── Step bodies ─────────────────────────────────────────────────────────────
 
 type StepProps = {
-  lookback: Lookback | null
-  setLookback: (v: Lookback) => void
-  morningCall: string
-  morningSequence: Action[]
-  completedSlugs: string[]
-  toggleSlug: (slug: string) => void
   energy: number
   setEnergy: (n: number) => void
   mood: number
   setMood: (n: number) => void
   focus: number
   setFocus: (n: number) => void
-  note: string
-  setNote: (s: string) => void
   demand: number
   setDemand: (n: number) => void
   routineMinutes: number
   setRoutineMinutes: (n: number) => void
+  wakeEnabled: boolean
+  setWakeEnabled: (v: boolean) => void
   wakeTime: string
   setWakeTime: (t: string) => void
-  windDown: ReturnType<typeof windDownSequence>
 }
 
 function renderStep(key: StepKey, p: StepProps) {
   switch (key) {
-    case 'lookback':
-      return (
-        <StepHeader eyebrow="Look back" question="How did today land?" helper={p.morningCall}>
-          <View style={styles.lookbackList}>
-            {LOOKBACK_OPTIONS.map((opt) => {
-              const selected = p.lookback === opt.value
-              return (
-                <Pressable
-                  key={opt.value}
-                  style={[styles.lookbackOption, selected && styles.lookbackSelected]}
-                  onPress={() => p.setLookback(opt.value)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                >
-                  <Text style={[styles.lookbackLabel, selected && styles.lookbackLabelOn]}>
-                    {opt.label}
-                  </Text>
-                  <Text style={styles.lookbackSub}>{opt.sub}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </StepHeader>
-      )
-
-    case 'completion':
-      return (
-        <StepHeader
-          eyebrow="This morning's plan"
-          question="Which of these did you do?"
-          helper="Tap the ones you got to. This is how Wake learns what actually helps you."
-        >
-          <View style={styles.completionList}>
-            {p.morningSequence.map((move) => {
-              const done = p.completedSlugs.includes(move.slug)
-              return (
-                <Pressable
-                  key={move.slug}
-                  style={[styles.completionRow, done && styles.completionRowOn]}
-                  onPress={() => p.toggleSlug(move.slug)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: done }}
-                >
-                  <View style={[styles.checkbox, done && styles.checkboxOn]}>
-                    {done ? <Feather name="check" size={14} color={day.onAccent} /> : null}
-                  </View>
-                  <Text style={[styles.completionTitle, done && styles.completionTitleOn]}>
-                    {move.title}
-                  </Text>
-                  <Text style={styles.completionMinutes}>{move.estMinutes} min</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </StepHeader>
-      )
-
     case 'reads':
       return (
         <StepHeader eyebrow="Your reads" question="How were energy, mood, and focus today?">
           <Scale label="Energy" value={p.energy} onChange={p.setEnergy} />
           <Scale label="Mood" value={p.mood} onChange={p.setMood} />
           <Scale label="Focus" value={p.focus} onChange={p.setFocus} />
-        </StepHeader>
-      )
-
-    case 'note':
-      return (
-        <StepHeader eyebrow="Tonight" question="Anything worth remembering?" optional>
-          <TextInput
-            style={styles.input}
-            value={p.note}
-            onChangeText={p.setNote}
-            placeholder="One line about today…"
-            placeholderTextColor={day.muted}
-            multiline
-            maxLength={140}
-          />
-          <Text style={styles.noteCounter}>{p.note.length}/140</Text>
         </StepHeader>
       )
 
@@ -611,45 +449,21 @@ function renderStep(key: StepKey, p: StepProps) {
         </StepHeader>
       )
 
-    case 'routine':
+    case 'wakeRoutine':
       return (
         <StepHeader
-          eyebrow="Tomorrow's routine"
-          question="How long do you want your morning to take?"
-          helper="Your usual length — nudge it longer or shorter just for tomorrow."
+          eyebrow="Tomorrow's morning"
+          question="How do you want to wake, and how long?"
+          helper="Your voice alarm and morning length — set them just for tomorrow."
         >
-          <Text style={styles.routineLabel}>Routine time</Text>
-          <DurationStepper value={p.routineMinutes} onChange={p.setRoutineMinutes} />
-        </StepHeader>
-      )
-
-    case 'wake':
-      return (
-        <StepHeader
-          eyebrow="Tomorrow's wake-up"
-          question="What time should I wake you?"
-          helper="Your voice alarm will greet you then. Adjust it just for tomorrow."
-        >
-          <View style={styles.wakeWrap}>
-            <WakeTimePicker value={p.wakeTime} onChange={p.setWakeTime} />
-          </View>
-        </StepHeader>
-      )
-
-    case 'windDown':
-      return (
-        <StepHeader eyebrow="Wind-down" question="Protect tomorrow, starting now.">
-          <View style={styles.windList}>
-            {p.windDown.map((move, i) => (
-              <View key={move.slug} style={styles.windRow}>
-                <Text style={styles.windIndex}>{i + 1}</Text>
-                <View style={styles.windText}>
-                  <Text style={styles.windTitle}>{move.title}</Text>
-                  <Text style={styles.windDesc}>{move.description}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          <WakeRoutineStep
+            wakeEnabled={p.wakeEnabled}
+            onWakeEnabledChange={p.setWakeEnabled}
+            wakeTime={p.wakeTime}
+            onWakeTimeChange={p.setWakeTime}
+            routineMinutes={p.routineMinutes}
+            onRoutineMinutesChange={p.setRoutineMinutes}
+          />
         </StepHeader>
       )
   }
@@ -859,150 +673,6 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
 
-  // Look-back
-  lookbackList: {
-    gap: 12,
-  },
-  lookbackOption: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    backgroundColor: day.surface,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  lookbackSelected: {
-    borderColor: day.gold,
-  },
-  lookbackLabel: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 18,
-    color: day.text,
-  },
-  lookbackLabelOn: {
-    color: day.gold,
-  },
-  lookbackSub: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    color: day.muted,
-    marginTop: 3,
-  },
-
-  // Completion (tick off this morning's moves)
-  completionList: {
-    gap: 12,
-  },
-  completionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    backgroundColor: day.surface,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  completionRowOn: {
-    borderColor: day.gold,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxOn: {
-    backgroundColor: day.gold,
-    borderColor: day.gold,
-  },
-  completionTitle: {
-    flex: 1, // takes the middle so the minutes stay pinned right
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 16,
-    lineHeight: 21,
-    color: day.text,
-  },
-  completionTitleOn: {
-    color: day.gold,
-  },
-  completionMinutes: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: day.muted,
-  },
-
-  // Text inputs
-  input: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 18,
-    lineHeight: 26,
-    color: day.text,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: day.border,
-    paddingBottom: 10,
-    minHeight: 60,
-  },
-  noteCounter: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 12,
-    color: day.muted,
-    textAlign: 'right',
-    marginTop: 8,
-  },
-
-  // Routine duration
-  routineLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: day.muted,
-    marginBottom: 14,
-  },
-  wakeWrap: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-
-  // Wind-down
-  windList: {
-    gap: 18,
-  },
-  windRow: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-  windIndex: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 16,
-    color: day.gold,
-    width: 16,
-    marginTop: 1,
-  },
-  windText: {
-    flex: 1,
-  },
-  windTitle: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 17,
-    lineHeight: 23,
-    color: day.text,
-  },
-  windDesc: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: day.muted,
-    marginTop: 3,
-  },
-
   // Footer
   footer: {
     paddingHorizontal: 28,
@@ -1034,15 +704,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 16,
     color: day.onAccent,
-  },
-  skipButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  skipLabel: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 15,
-    color: day.muted,
   },
 
   // Done

@@ -10,12 +10,17 @@ const ROUTINE_MINUTES_KEY = 'wake.preferredRoutineMinutes'
 /** The out-of-the-box morning-routine length, before the user has set their own. */
 export const DEFAULT_ROUTINE_MINUTES = 15
 
-/** The user's standing preferred routine length, in minutes. */
+/**
+ * The user's standing preferred routine length, as an encoded routine-tier value
+ * (see src/lib/routineTier.ts): 0 = alarm only, 1 = alarm + focal action, or the
+ * minutes for a full routine. Stored raw; callers interpret it via tierFromMinutes.
+ */
 export async function getPreferredRoutineMinutes(): Promise<number> {
   try {
     const raw = await AsyncStorage.getItem(ROUTINE_MINUTES_KEY)
     const n = raw == null ? NaN : Number(raw)
-    return Number.isFinite(n) && n > 0 ? n : DEFAULT_ROUTINE_MINUTES
+    // Allow 0 (the alarm-only tier); only a missing/negative/NaN value falls back.
+    return Number.isFinite(n) && n >= 0 ? n : DEFAULT_ROUTINE_MINUTES
   } catch {
     return DEFAULT_ROUTINE_MINUTES
   }

@@ -30,6 +30,7 @@ import {
 } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
 import { useProfile } from '@/lib/profile'
+import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
 import { computeTodayInsight } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { cachedWeather, getWeather, type Weather } from '@/lib/weather'
@@ -201,11 +202,13 @@ export default function Index() {
   // Tonight's reflection is done — tomorrow is already set up, so the evening
   // "set up tomorrow" prompt must not reappear when they land back on Today.
   const reflectedToday = today?.evening_completed_at != null
-  // The user tapped "Not today, just wake me" on the alarm — they chose to skip
-  // the routine. Show the calm rested state instead of nagging the check-in,
-  // unless they've since asked to set up their morning after all.
+  // No routine today: either the user tapped "Not today, just wake me" on the
+  // alarm (woke_at set), OR they pre-committed the alarm-only tier in last night's
+  // reflection. Either way, show the calm rested state instead of nagging the
+  // check-in — unless they've since asked to set up their morning after all.
   const wokeOnly = today?.woke_at != null && !checkedIn
-  const restedToday = wokeOnly && !startRoutineAnyway && !isEvening
+  const alarmOnlyPlanned = isAlarmOnly(today?.routine_minutes) && !checkedIn
+  const restedToday = (wokeOnly || alarmOnlyPlanned) && !startRoutineAnyway && !isEvening
 
   // First name from the onboarding profile; falls back gracefully for any older
   // account created before names were collected.
@@ -551,7 +554,8 @@ export default function Index() {
       // Live progress from the /routine screen (refreshed by the focus-reload).
       completedSlugs={row.completed_slugs ?? []}
       lastNight={lastNightWord(yesterday?.energy)}
-      routineTime={row.routine_minutes != null ? `${row.routine_minutes} min` : '—'}
+      routineTime={row.routine_minutes != null ? tierShortLabel(row.routine_minutes) : '—'}
+      focalOnly={isFocalOnly(row.routine_minutes)}
       insight={insight}
       // A failed focus-reload (stale data still showing) surfaces here, tap to retry.
       notice={loadError ? 'Couldn’t refresh just now.' : null}

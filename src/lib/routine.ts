@@ -10,6 +10,7 @@ import type { Lookback, Plan, ReadinessState } from '@/engine/types'
 
 import { addDays, getDay, recentReflections, savePlanOptions, type DayRow } from './days'
 import type { ProfileRow } from './profile'
+import { planBudgetForTier } from './routineTier'
 import { supabase } from './supabase'
 
 // The Claude personalization orchestration (Model C). Pre-generates tomorrow's
@@ -133,7 +134,11 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
       getDay(targetDate),
     ])
     const dayDifficulty = targetRow?.day_difficulty ?? DEFAULT_DEMAND
-    const budget = targetRow?.routine_minutes ?? DEFAULT_BUDGET
+    // Map the routine tier to a generation budget: the alarm-only / focal-only
+    // tiers still build a full plan (for a strong focal point); the morning just
+    // renders less of it. A missing value defaults to the full routine.
+    const budget =
+      targetRow?.routine_minutes == null ? DEFAULT_BUDGET : planBudgetForTier(targetRow.routine_minutes)
     const reflections = reflectionRows.map(toReflectionSummary)
 
     const plans = await Promise.all(
@@ -177,7 +182,9 @@ export function resolveMorningPlan(input: {
   const fallback = generatePlan({
     readiness: input.readiness,
     dayDifficulty: input.dayDifficulty,
-    routineMinutes: input.routineMinutes,
+    // The alarm-only / focal-only tiers still generate a full plan (for a strong
+    // focal point); the morning renders less of it.
+    routineMinutes: planBudgetForTier(input.routineMinutes),
     intent: input.intent,
   })
   const cached = input.options?.[fallback.state]

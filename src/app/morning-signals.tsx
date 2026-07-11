@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { DurationStepper } from '@/components/reflect/DurationStepper'
+import { RoutineTierChooser } from '@/components/reflect/WakeRoutineStep'
 import { errorMessage } from '@/lib/errors'
 import {
   DEFAULT_ROUTINE_MINUTES,
@@ -136,9 +136,11 @@ export default function MorningSignalsScreen() {
         <Text style={styles.groupCaption}>
           Your usual length — you can still nudge it any evening for the next morning.
         </Text>
-        <View style={styles.stepperWrap}>
-          <DurationStepper value={routineMinutes} onChange={setRoutineMinutes} min={5} max={60} />
-        </View>
+        <RoutineTierChooser
+          routineMinutes={routineMinutes}
+          onRoutineMinutesChange={setRoutineMinutes}
+          alarmEnabled={profile?.wake_enabled ?? false}
+        />
       </ScrollView>
 
       <View style={styles.footer}>
@@ -271,14 +273,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 14,
     color: day.muted,
-  },
-  stepperWrap: {
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 14,
-    paddingHorizontal: 22,
-    paddingVertical: 22,
   },
   footer: {
     paddingHorizontal: 28,

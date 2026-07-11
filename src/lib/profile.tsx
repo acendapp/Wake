@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from './auth'
+import { profileRoutineHint } from './routineTier'
 import { supabase } from './supabase'
 
 // The standing per-user profile (`public.profiles`) — the signals captured at
@@ -103,7 +104,9 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
         intent: input.intent,
         chronotype: input.chronotype,
         friction_point: input.frictionPoint ?? null,
-        routine_minutes: input.routineMinutes,
+        // Standing hint only (CHECK 1–240): clamp the alarm-only 0 up to 1. The
+        // per-day row + device pref carry the exact tier (see routineTier.ts).
+        routine_minutes: profileRoutineHint(input.routineMinutes),
         constraints: input.constraints ?? [],
         age_range: input.ageRange ?? null,
         sex: input.sex ?? null,
@@ -138,7 +141,7 @@ export async function updateProfile(patch: {
   const dbPatch: Record<string, unknown> = {}
   if (patch.intent !== undefined) dbPatch.intent = patch.intent
   if (patch.chronotype !== undefined) dbPatch.chronotype = patch.chronotype
-  if (patch.routineMinutes !== undefined) dbPatch.routine_minutes = patch.routineMinutes
+  if (patch.routineMinutes !== undefined) dbPatch.routine_minutes = profileRoutineHint(patch.routineMinutes)
   if (patch.wakeEnabled !== undefined) dbPatch.wake_enabled = patch.wakeEnabled
   if (patch.wakeTime !== undefined) dbPatch.wake_time = patch.wakeTime
   if (patch.wakeVoice !== undefined) dbPatch.wake_voice = patch.wakeVoice

@@ -10,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -18,10 +17,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
-import { DurationStepper } from '@/components/reflect/DurationStepper'
-import { VoicePicker } from '@/components/VoicePicker'
-import { WakeTimePicker } from '@/components/WakeTimePicker'
-import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable } from '@/lib/alarm'
+import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
+import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
 import {
@@ -33,6 +30,7 @@ import {
   type Sex,
 } from '@/lib/profile'
 import { DEFAULT_ROUTINE_MINUTES, setPreferredRoutineMinutes } from '@/lib/prefs'
+import { tierFromMinutes } from '@/lib/routineTier'
 import { day } from '@/theme/colors'
 
 // First-run onboarding. A short, unhurried ritual that captures the standing
@@ -94,10 +92,17 @@ function curationLines(
   chronotype: Chronotype,
   routineMinutes: number,
 ): string[] {
+  const tier = tierFromMinutes(routineMinutes)
+  const fit =
+    tier === 'alarm'
+      ? 'Keeping your morning to a gentle wake…'
+      : tier === 'focal'
+        ? 'Distilling it down to your single focal move…'
+        : `Fitting it into your ${tier}-minute window…`
   return [
     `Building a morning sequence to ${INTENT_PHRASE[intent]}…`,
     `Mapping your energy curve to ${CHRONO_PHRASE[chronotype]}…`,
-    `Fitting it into your ${routineMinutes}-minute window…`,
+    fit,
   ]
 }
 
@@ -127,9 +132,9 @@ const PILLARS: {
 ]
 
 // Steps that count toward the progress bar (intro + finish sit outside it).
-// 1 intent · 2 chronotype · 3 routine length · 4 demographics · 5 wake alarm.
+// 1 intent · 2 chronotype · 3 demographics · 4 wake alarm + routine length.
 const FIRST_QUESTION = 1
-const LAST_QUESTION = 5
+const LAST_QUESTION = 4
 const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
 
 // Where the wake-time picker starts before the user adjusts it.
@@ -158,9 +163,10 @@ export default function OnboardingScreen() {
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
-  // The wake-alarm opt-in (step 5). Off by default; turning it on reveals the
-  // time picker, pre-filled with a sensible default.
-  const [wakeEnabled, setWakeEnabled] = useState(false)
+  // The wake-alarm opt-in, on the combined wake + routine step. On by default —
+  // the voice alarm is the point of Wake; turning it off reveals only the timed
+  // routine tiers.
+  const [wakeEnabled, setWakeEnabled] = useState(true)
   const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
   const [wakeVoice, setWakeVoice] = useState(DEFAULT_VOICE)
 
@@ -189,7 +195,7 @@ export default function OnboardingScreen() {
   // live session would flash the signed-in variant of the screen in the moment
   // between account creation and the gate navigating to the paywall.
   const needsAccountRef = useRef(!session)
-  if (step < 7) needsAccountRef.current = !session
+  if (step < 6) needsAccountRef.current = !session
   const needsAccount = needsAccountRef.current
 
   // First name is required on the final step; the greeting depends on it.
@@ -201,7 +207,7 @@ export default function OnboardingScreen() {
   // they came in via the sign-in screen's create-account path), it just saves —
   // but a first name is still required either way.
   const buttonEnabled =
-    step === 7 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
+    step === 6 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -382,11 +388,11 @@ export default function OnboardingScreen() {
 
   // The editorial curation beat — full-bleed, immersive, no chrome. Auto-advances
   // to account creation when the lines finish.
-  if (step === 6 && intent && chronotype) {
+  if (step === 5 && intent && chronotype) {
     return (
       <CurationLoader
         lines={curationLines(intent, chronotype, routineMinutes)}
-        onDone={() => setStep(7)}
+        onDone={() => setStep(6)}
       />
     )
   }
@@ -452,22 +458,6 @@ export default function OnboardingScreen() {
 
         {step === 3 && (
           <Question
-            title="How long can your morning routine run?"
-            caption="A starting point — you’ll confirm it each evening."
-          >
-            <View style={styles.stepperWrap}>
-              <DurationStepper
-                value={routineMinutes}
-                onChange={setRoutineMinutes}
-                min={5}
-                max={60}
-              />
-            </View>
-          </Question>
-        )}
-
-        {step === 4 && (
-          <Question
             title="A little about you."
             caption="Age and gender meaningfully shape what a good morning looks like, so they help us get your routine right. Optional, and always private to you."
           >
@@ -499,40 +489,26 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 5 && (
+        {step === 4 && (
           <Question
             title="Now, how you wake."
-            caption="This is what makes Wake different: a real alarm that greets you by voice and eases you into the day — not a jarring buzzer. Choose your time and the voice you want to hear."
+            caption="A real alarm that greets you by voice and eases you into the day — then choose how long your morning runs. Change either anytime."
           >
-            <View style={styles.wakeToggleRow}>
-              <Text style={styles.wakeToggleLabel}>Wake me with a voice alarm</Text>
-              <Switch
-                value={wakeEnabled}
-                onValueChange={setWakeEnabled}
-                trackColor={{ true: day.gold, false: day.border }}
-                thumbColor={day.surface}
-                ios_backgroundColor={day.border}
-              />
-            </View>
-            {wakeEnabled && (
-              <>
-                <View style={styles.wakePickerWrap}>
-                  <WakeTimePicker value={wakeTime} onChange={setWakeTime} />
-                  {!isAlarmAvailable() && (
-                    <Text style={styles.wakeNote}>
-                      We&rsquo;ll save your wake time now — the voice alarm activates in the
-                      full Wake app.
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.wakeVoiceHeading}>Pick your voice</Text>
-                <VoicePicker value={wakeVoice} onChange={setWakeVoice} />
-              </>
-            )}
+            <WakeRoutineStep
+              wakeEnabled={wakeEnabled}
+              onWakeEnabledChange={setWakeEnabled}
+              wakeTime={wakeTime}
+              onWakeTimeChange={setWakeTime}
+              routineMinutes={routineMinutes}
+              onRoutineMinutesChange={setRoutineMinutes}
+              wakeVoice={wakeVoice}
+              onWakeVoiceChange={setWakeVoice}
+              showVoicePicker
+            />
           </Question>
         )}
 
-        {step === 7 && (
+        {step === 6 && (
           <View>
             <Text style={styles.questionTitle}>Your routine is ready.</Text>
             <Text style={styles.caption}>
@@ -602,7 +578,7 @@ export default function OnboardingScreen() {
         <View style={styles.footer}>
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          {step === 4 && (
+          {step === 3 && (
             <Pressable
               onPress={next}
               disabled={saving}
@@ -615,7 +591,7 @@ export default function OnboardingScreen() {
 
           <Pressable
             style={[styles.button, !buttonEnabled && styles.buttonDisabled]}
-            onPress={step === 7 ? createAccount : next}
+            onPress={step === 6 ? createAccount : next}
             disabled={!buttonEnabled}
             accessibilityRole="button"
           >
@@ -623,7 +599,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color={day.onAccent} />
             ) : (
               <Text style={styles.buttonLabel}>
-                {step === 7 ? (needsAccount ? 'Create account' : 'Save my routine') : 'Continue'}
+                {step === 6 ? (needsAccount ? 'Create account' : 'Save my routine') : 'Continue'}
               </Text>
             )}
           </Pressable>
@@ -1011,57 +987,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 14,
     color: day.muted,
-  },
-  stepperWrap: {
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 14,
-    paddingHorizontal: 22,
-    paddingVertical: 22,
-  },
-  wakeToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  wakeToggleLabel: {
-    fontFamily: 'PlayfairDisplay_500Medium',
-    fontSize: 16,
-    color: day.text,
-    flex: 1,
-    marginRight: 12,
-  },
-  wakePickerWrap: {
-    marginTop: 18,
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 14,
-    paddingHorizontal: 22,
-    paddingVertical: 26,
-    alignItems: 'center',
-  },
-  wakeNote: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 13,
-    color: day.muted,
-    textAlign: 'center',
-    marginTop: 18,
-    lineHeight: 19,
-  },
-  wakeVoiceHeading: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 18,
-    color: day.text,
-    marginTop: 28,
-    marginBottom: 16,
   },
   accountForm: {
     marginTop: 28,

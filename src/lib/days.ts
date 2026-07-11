@@ -249,10 +249,8 @@ export async function recentReflections(limit = 5): Promise<DayRow[]> {
 export async function saveEvening(
   date: string,
   input: {
-    lookback: Lookback
     reads: DayReads
     note?: string
-    completedSlugs?: string[]
     tomorrowDemand: number
     routineMinutes: number
   },
@@ -260,6 +258,7 @@ export async function saveEvening(
   const userId = await currentUserId()
   // Clamp to the column's CHECK range (0–240) so a stray stored preference can
   // never make the write throw a constraint violation and block the reflection.
+  // 0 and 1 are the encoded alarm-only / focal-only tiers (see routineTier.ts).
   const routineMinutes = Math.max(0, Math.min(240, Math.round(input.routineMinutes)))
   await upsertDay(userId, addDays(date, 1), {
     day_difficulty: input.tomorrowDemand,
@@ -272,12 +271,10 @@ export async function saveEvening(
     plan_options: null,
   })
   await upsertDay(userId, date, {
-    lookback: input.lookback,
     energy: input.reads.energy,
     mood: input.reads.mood,
     focus: input.reads.focus,
     note: input.note ?? null,
-    completed_slugs: input.completedSlugs ?? [],
     evening_completed_at: new Date().toISOString(),
   })
 }

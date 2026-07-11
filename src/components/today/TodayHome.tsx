@@ -159,8 +159,11 @@ export type TodayHomeProps = {
   completedSlugs: string[]
   /** Coarse word for how last night ended ("Steady", "Drained", "—"). */
   lastNight: string
-  /** Display string for the routine length ("10 min", "—"). */
+  /** Display string for the routine length ("10 min", "Focal only", "—"). */
   routineTime: string
+  /** The "alarm + one action" tier — render only the focal point, hide the full
+   *  sequence card. */
+  focalOnly?: boolean
   /**
    * A real one-line insight from the user's history (see computeTodayInsight),
    * or null when there isn't enough data yet — in which case the slot shows an
@@ -197,6 +200,7 @@ export function TodayHome({
   completedSlugs,
   lastNight,
   routineTime,
+  focalOnly = false,
   insight = null,
   notice = null,
   onNoticePress,
@@ -486,6 +490,7 @@ export function TodayHome({
           <Text style={styles.gapMove}>{GAP_SUMMARY[gapState].move}</Text>
         </View>
 
+        {focalOnly ? null : (
         <View style={styles.cardSequence}>
           <Pressable
             style={styles.sequenceHeader}
@@ -536,6 +541,7 @@ export function TodayHome({
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       <Modal
