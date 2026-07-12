@@ -90,10 +90,12 @@ export default function RoutineScreen() {
       .then((r) => {
         if (!mounted.current) return
         setRow(r)
-        const slugs = r?.completed_slugs ?? []
+        // RECORDING: ignore any real completed steps so every take starts fresh on
+        // the focal phase (never resumes as "already done"). See recording.ts.
+        const slugs = RECORDING ? [] : (r?.completed_slugs ?? [])
         setCompleted(slugs)
         // Focal point already done earlier → resume on the checklist.
-        if (r?.plan && slugs.includes(r.plan.oneThing.slug)) setPhase('sequence')
+        if (!RECORDING && r?.plan && slugs.includes(r.plan.oneThing.slug)) setPhase('sequence')
         setLoading(false)
       })
       .catch(() => {
