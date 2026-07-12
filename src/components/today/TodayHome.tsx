@@ -228,9 +228,9 @@ export function TodayHome({
   const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
 
   const sequence = plan?.sequence ?? []
-  const activity = plan?.oneThing.title ?? ''
-  const activityExample = plan?.oneThing.example ?? ''
-  const focalDone = plan ? completedSlugs.includes(plan.oneThing.slug) : false
+  const activity = plan?.oneThing?.title ?? ''
+  const activityExample = plan?.oneThing?.example ?? ''
+  const focalDone = plan?.oneThing ? completedSlugs.includes(plan.oneThing.slug) : false
   const dayDemand = `${dayDifficulty}/10`
   // Wake-alarm home card display.
   const wakeVoiceName = VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null

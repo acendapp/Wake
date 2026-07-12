@@ -107,7 +107,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       enabled: true,
       time: profile.wake_time,
       voice: profile.wake_voice ?? DEFAULT_VOICE,
-    })
+    }).catch(() => {})
   }, [profile?.wake_enabled, profile?.wake_time, profile?.wake_voice])
 
   useEffect(() => {

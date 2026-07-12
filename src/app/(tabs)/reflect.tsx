@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -76,6 +77,16 @@ export default function ReflectScreen() {
       setFocusTick((t) => t + 1)
     }, []),
   )
+  // useFocusEffect misses the app being foregrounded while Reflect is already the
+  // active tab, so the evening gate / weekday header could stay stale across a
+  // background/foreground cycle over the 5pm or 3am threshold. Recompute on
+  // AppState → active too.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setFocusTick((t) => t + 1)
+    })
+    return () => sub.remove()
+  }, [])
 
   // Logical clock: until 3am, "tonight" still belongs to yesterday's date, so
   // the weekday header, the evening gate, and every row read/write agree.

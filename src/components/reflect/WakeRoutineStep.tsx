@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons'
+import { useEffect } from 'react'
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 
 import { VoicePicker } from '@/components/VoicePicker'
@@ -68,6 +69,7 @@ export function WakeRoutineStep({
         <Switch
           value={wakeEnabled}
           onValueChange={handleToggle}
+          accessibilityLabel="Wake me with a voice alarm"
           trackColor={{ true: day.gold, false: day.border }}
           thumbColor={day.surface}
           ios_backgroundColor={day.border}
@@ -118,6 +120,16 @@ export function RoutineTierChooser({
 }) {
   const selectedTier = tierFromMinutes(routineMinutes)
   const options = TIER_OPTIONS.filter((o) => alarmEnabled || !o.requiresAlarm)
+  // Guard the seeded/stored state, not just interactive toggles: if the alarm is
+  // off but the current tier is alarm-dependent (a stored alarm-only/focal pref, or
+  // a value seeded from last night), no option renders as selected and it could be
+  // saved as routine_minutes 0/1 — a dead-end morning with neither wake nor
+  // routine. Snap to the shortest real routine so the selection is always valid.
+  useEffect(() => {
+    if (!alarmEnabled && (selectedTier === 'alarm' || selectedTier === 'focal')) {
+      onRoutineMinutesChange(FALLBACK_MINUTES)
+    }
+  }, [alarmEnabled, selectedTier, onRoutineMinutesChange])
   return (
     <View style={styles.options}>
       {options.map((o) => {

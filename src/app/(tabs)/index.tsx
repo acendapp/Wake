@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -143,11 +144,13 @@ export default function Index() {
     const gen = ++loadGen.current
     const live = () => mounted.current && gen === loadGen.current
     setLoadError(null)
-    // Clear any "log today anyway" override on every (re)focus: a user who tapped
+    // Clear the "log today anyway" override on every (re)focus: a user who tapped
     // it, then left without checking in, should return to the evening pivot rather
     // than be stuck on the demoted check-in form for the rest of the session.
     setForceCheckIn(false)
-    setStartRoutineAnyway(false)
+    // NOTE: do NOT reset startRoutineAnyway here. A user who tapped "set up my
+    // morning anyway" from the rested state and then tabs away and back should stay
+    // in the check-in flow, not get silently bounced to the rested screen.
     // Weather rides along with every (re)load but never blocks it.
     void getWeather().then((w) => {
       if (live()) setWeather(w)
@@ -192,6 +195,18 @@ export default function Index() {
       load()
     }, [load]),
   )
+
+  // useFocusEffect only fires on navigation focus — it misses the app being
+  // foregrounded while Today is already the active tab. Without this, a phone left
+  // on Today overnight still shows last night's state (stale date, evening close-
+  // out) until you switch tabs. Reload whenever the app returns to the foreground
+  // so the morning moment is always current.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') load()
+    })
+    return () => sub.remove()
+  }, [load])
 
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
