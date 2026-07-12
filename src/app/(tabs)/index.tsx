@@ -293,7 +293,9 @@ export default function Index() {
       })
       const row = await saveMorning(logicalDate(), { readiness: readinessInput, dayDifficulty, plan })
       if (!mounted.current) return
-      setToday(row)
+      // RECORDING: saveMorning returns the real row, which may still carry today's
+      // old completed steps — strip them so the focal button reads START, not DONE.
+      setToday(RECORDING ? { ...row, completed_slugs: [] } : row)
     } catch (e) {
       if (!mounted.current) return
       setSubmitError(errorMessage(e, 'Could not save your check-in.'))
