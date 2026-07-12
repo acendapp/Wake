@@ -9,13 +9,11 @@
       content="Wake gets you up gently with a real voice alarm, then hands you a personalized morning routine that gets smarter every day. The end of bad mornings."
     />
     <meta name="theme-color" content="#FAF8F4" />
-    <!-- TODO: set the real domain here once it's live (canonical + og:url + make
-         og:image absolute for X/Twitter). Relative paths work for most scrapers. -->
-    <link rel="canonical" href="https://wake.app/" />
+    <link rel="canonical" href="https://trywake.org/" />
 
     <!-- Icons -->
-    <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="favicon.png?v=3" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=3" />
     <link rel="manifest" href="site.webmanifest" />
 
     <!-- Open Graph -->
@@ -24,12 +22,12 @@
     <meta property="og:title" content="Wake: Never have a bad morning again" />
     <meta
       property="og:description"
-      content="A real alarm that wakes you by voice, plus a personalized routine that learns from you. Join the waitlist."
+      content="A real alarm that wakes you by voice, plus a personalized routine that learns from you."
     />
-    <meta property="og:image" content="og.png" />
+    <meta property="og:image" content="https://trywake.org/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:url" content="https://wake.app/" />
+    <meta property="og:url" content="https://trywake.org/" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -38,7 +36,7 @@
       name="twitter:description"
       content="A real alarm that wakes you by voice, plus a personalized routine that learns from you."
     />
-    <meta name="twitter:image" content="og.png" />
+    <meta name="twitter:image" content="https://trywake.org/og.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -66,7 +64,6 @@
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
-          <a class="btn btn--gold" href="#waitlist">Get early access</a>
         </nav>
       </div>
     </header>
@@ -83,7 +80,6 @@
             gets a little smarter.
           </p>
           <div class="hero__cta">
-            <a class="btn btn--gold" href="#waitlist">Join the waitlist</a>
             <span class="btn btn--store" aria-label="Coming soon to the App Store">
               <span class="store__top">
                 <svg viewBox="0 0 384 512" aria-hidden="true">
@@ -253,40 +249,6 @@
         </p>
       </section>
 
-      <!-- ── Waitlist CTA ────────────────────────────────────────────────── -->
-      <section class="section section--tint cta" id="waitlist">
-        <div class="container">
-          <div class="star-rule" aria-hidden="true">
-            <span class="star-rule__line"></span>
-            <span class="star-rule__star">★</span>
-            <span class="star-rule__line"></span>
-          </div>
-          <h2 class="reveal">Be first to wake up well</h2>
-          <p class="reveal">
-            Wake launches on iPhone soon. Join the waitlist for early access and a
-            founding-member offer when we open.
-          </p>
-          <!-- TODO: paste your Formspree (or other) form ID into action= to go live.
-               Until then submissions are caught client-side and just show a thanks. -->
-          <form
-            class="waitlist"
-            id="waitlist-form"
-            action="https://formspree.io/f/your-form-id"
-            method="POST"
-          >
-            <input
-              type="email"
-              name="email"
-              placeholder="you@email.com"
-              aria-label="Email address"
-              required
-            />
-            <button class="btn btn--gold" type="submit">Join the waitlist</button>
-          </form>
-          <p class="waitlist__msg" id="waitlist-msg" role="status"></p>
-        </div>
-      </section>
-
       <!-- ── FAQ ─────────────────────────────────────────────────────────── -->
       <section class="section" id="faq">
         <div class="section__head reveal">
@@ -336,15 +298,14 @@
           <details class="reveal">
             <summary>Which devices are supported?</summary>
             <p>
-              Wake is launching on iPhone first. Android is on the roadmap, so join the
-              waitlist and we'll let you know.
+              Wake is launching on iPhone first. Android is on the roadmap.
             </p>
           </details>
           <details class="reveal">
             <summary>When can I get it?</summary>
             <p>
-              Soon. Wake is in active development; join the waitlist for early access and
-              a founding-member offer the day it opens.
+              Soon. Wake is in active development and launching on iPhone. Check back
+              here for the launch.
             </p>
           </details>
         </div>
@@ -356,7 +317,6 @@
       <div class="footer__inner">
         <span class="footer__brand">Wake</span>
         <span class="footer__links">
-          <a href="#waitlist">Early access</a>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
         </span>
