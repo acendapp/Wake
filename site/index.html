@@ -64,6 +64,7 @@
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
+          <a class="btn btn--gold" href="#notify">Get early access</a>
         </nav>
       </div>
     </header>
@@ -71,6 +72,7 @@
     <!-- ── Hero ──────────────────────────────────────────────────────────── -->
     <main id="top">
       <section class="hero">
+        <div class="hero__glow" aria-hidden="true"></div>
         <div class="hero__copy">
           <p class="eyebrow">Your mornings, reimagined</p>
           <h1>Never have a bad morning again.</h1>
@@ -80,6 +82,7 @@
             gets a little smarter.
           </p>
           <div class="hero__cta">
+            <a class="btn btn--gold" href="#notify">Get early access</a>
             <span class="btn btn--store" aria-label="Coming soon to the App Store">
               <span class="store__top">
                 <svg viewBox="0 0 384 512" aria-hidden="true">
@@ -249,6 +252,46 @@
         </p>
       </section>
 
+      <!-- ── Get-early-access CTA ────────────────────────────────────────── -->
+      <section class="section section--tint cta" id="notify">
+        <div class="container">
+          <div class="star-rule" aria-hidden="true">
+            <span class="star-rule__line"></span>
+            <span class="star-rule__star">★</span>
+            <span class="star-rule__line"></span>
+          </div>
+          <h2 class="reveal">Be first to wake up well</h2>
+          <p class="reveal">
+            Wake launches on iPhone soon. Leave your email and we'll tell you the day
+            it opens — plus a founding-member offer.
+          </p>
+          <!-- Web3Forms relay: every submission is emailed to the address tied to this
+               key. Get a free key at web3forms.com (register support@trywake.org) and
+               replace WEB3FORMS_ACCESS_KEY below. Until then the form confirms locally. -->
+          <form class="waitlist reveal" id="notify-form">
+            <input type="hidden" name="access_key" value="WEB3FORMS_ACCESS_KEY" />
+            <input type="hidden" name="subject" value="New Wake early-access signup" />
+            <input type="hidden" name="from_name" value="Wake — trywake.org" />
+            <input
+              type="checkbox"
+              name="botcheck"
+              style="display: none"
+              tabindex="-1"
+              autocomplete="off"
+            />
+            <input
+              type="email"
+              name="email"
+              placeholder="you@email.com"
+              aria-label="Email address"
+              required
+            />
+            <button class="btn btn--gold" type="submit">Get early access</button>
+          </form>
+          <p class="waitlist__msg" id="notify-msg" role="status"></p>
+        </div>
+      </section>
+
       <!-- ── FAQ ─────────────────────────────────────────────────────────── -->
       <section class="section" id="faq">
         <div class="section__head reveal">
@@ -304,8 +347,8 @@
           <details class="reveal">
             <summary>When can I get it?</summary>
             <p>
-              Soon. Wake is in active development and launching on iPhone. Check back
-              here for the launch.
+              Soon. Wake is in active development and launching on iPhone. Leave your
+              email above and we'll tell you the day it opens.
             </p>
           </details>
         </div>
@@ -317,6 +360,7 @@
       <div class="footer__inner">
         <span class="footer__brand">Wake</span>
         <span class="footer__links">
+          <a href="#notify">Early access</a>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
         </span>
