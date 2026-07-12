@@ -32,7 +32,7 @@ import {
 import { errorMessage } from '@/lib/errors'
 import { useProfile } from '@/lib/profile'
 import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
-import { computeTodayInsight } from '@/lib/stats'
+import { computeTodayInsight, computeYouStats } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { cachedWeather, getWeather, type Weather } from '@/lib/weather'
 import { day as theme, goldGradient } from '@/theme/colors'
@@ -112,6 +112,7 @@ export default function Index() {
   // A real one-line insight from history for the Focal Point card; null until
   // there's enough data, where the card shows an honest "patterns forming" line.
   const [insight, setInsight] = useState<string | null>(null)
+  const [streak, setStreak] = useState<number | null>(null)
 
   // Morning check-in inputs (used only until checked in). `forceCheckIn` lets the
   // evening "log today anyway" link drop into the check-in past the pivot.
@@ -167,6 +168,7 @@ export default function Index() {
       setYesterday(y)
       setHasHistory(rows.length > 0) // rows are already filtered to activity days
       setInsight(computeTodayInsight(rows))
+      setStreak(computeYouStats(rows, date).streak.current)
       setLoadError(null)
 
       // Safety net: personalization is pre-generated the evening before, so a
@@ -572,6 +574,7 @@ export default function Index() {
       routineTime={row.routine_minutes != null ? tierShortLabel(row.routine_minutes) : '—'}
       focalOnly={isFocalOnly(row.routine_minutes)}
       insight={insight}
+      streak={streak}
       // A failed focus-reload (stale data still showing) surfaces here, tap to retry.
       notice={loadError ? 'Couldn’t refresh just now.' : null}
       onNoticePress={() => load()}

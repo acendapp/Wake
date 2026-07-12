@@ -42,6 +42,7 @@ const COLORS = {
   divider: day.divider,
   gold: day.gold,
   goldButton: day.goldButton,
+  goldTint: day.goldTint,
   positive: day.positive,
   negative: day.negative,
 }
@@ -171,6 +172,10 @@ export type TodayHomeProps = {
    * honest "your patterns will show here" line instead of a fabricated stat.
    */
   insight?: string | null
+  /** The current morning streak (consecutive active days), or null/0 to hide it.
+   *  Surfaced as a chip in the greeting card so the reinforcer lives where users
+   *  already land, instead of being buried on the You tab. */
+  streak?: number | null
   /**
    * A non-blocking notice pinned above the page — e.g. a failed background
    * refresh, so stale data never updates silently. Tapping it runs onNoticePress.
@@ -203,6 +208,7 @@ export function TodayHome({
   routineTime,
   focalOnly = false,
   insight = null,
+  streak = null,
   notice = null,
   onNoticePress,
   onStart,
@@ -302,17 +308,32 @@ export function TodayHome({
               <Text style={styles.cardDate}>{dateLine}</Text>
             </View>
 
-            {/* Real local weather; hidden entirely when it can't be known. */}
-            {weather && (
-              <View style={styles.weather}>
-                <Ionicons
-                  name={WEATHER_ICON[weather.condition]}
-                  size={22}
-                  color={COLORS.charcoal}
-                />
-                <Text style={styles.weatherTemp}>{weather.temperatureF}°F</Text>
-              </View>
-            )}
+            <View style={styles.cardHeaderRight}>
+              {/* Morning streak — the daily reinforcer, surfaced where users land
+                  instead of buried on the You tab. Sunrise motif = mornings risen. */}
+              {streak && streak > 0 ? (
+                <View
+                  style={styles.streakChip}
+                  accessibilityRole="text"
+                  accessibilityLabel={`${streak} morning streak`}
+                >
+                  <Feather name="sunrise" size={13} color={COLORS.gold} />
+                  <Text style={styles.streakCount}>{streak}</Text>
+                </View>
+              ) : null}
+
+              {/* Real local weather; hidden entirely when it can't be known. */}
+              {weather && (
+                <View style={styles.weather}>
+                  <Ionicons
+                    name={WEATHER_ICON[weather.condition]}
+                    size={22}
+                    color={COLORS.charcoal}
+                  />
+                  <Text style={styles.weatherTemp}>{weather.temperatureF}°F</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -924,6 +945,25 @@ const styles = StyleSheet.create({
   cardHeaderText: {
     flex: 1,
     marginRight: 12,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  streakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.goldTint,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  streakCount: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 14,
+    color: COLORS.gold,
   },
   cardGreeting: {
     fontFamily: 'PlayfairDisplay_400Regular',
