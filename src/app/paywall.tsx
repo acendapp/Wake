@@ -16,14 +16,16 @@ import { day } from '@/theme/colors'
 // When RevenueCat / StoreKit land (a dev build, not Expo Go), swap onStart for
 // the real purchase call and wire the footer links — nothing else changes.
 //
-// PAYWALL_MODE controls dismissibility. 'hard' = no escape (production intent);
-// 'soft' = a real "Not now" for everyone. We ship 'hard' but keep the flip a
-// one-liner — see the conversation: soft-first is the pre-PMF-friendly default.
+// PAYWALL_MODE controls dismissibility. 'hard' = no escape; 'soft' = a real
+// "Not now" for everyone. Pre-launch/pre-PMF we ship 'soft' so a new user can
+// reach the product and form the habit before the pay ask — the flip back to
+// 'hard' is a one-liner once conversion data justifies it (see the 5-agent audit:
+// account-creation + a hard wall stacked before any value is a severe drop-off).
 //
-// The pressure valve on the hard paywall is "View a sample routine": one
-// click-through demo morning (the same sample the first-run Today shows), after
-// which the user lands back here. A taste of the mechanism, not ongoing value.
-const PAYWALL_MODE: 'hard' | 'soft' = 'hard'
+// The pressure valve either way is "View a sample routine": one click-through
+// demo morning (the same sample the first-run Today shows), after which the user
+// lands back here. A taste of the mechanism, not ongoing value.
+const PAYWALL_MODE: 'hard' | 'soft' = 'soft'
 
 type PlanId = 'annual' | 'monthly'
 

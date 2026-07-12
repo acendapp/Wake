@@ -955,7 +955,7 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular',
     fontStyle: 'italic',
     fontSize: 11,
-    color: day.border,
+    color: day.muted,
   },
   deltaRow: {
     flexDirection: 'row',
@@ -1021,7 +1021,7 @@ const styles = StyleSheet.create({
   mixPctEmpty: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 14,
-    color: day.border,
+    color: day.muted,
   },
   mixRead: {
     fontFamily: 'PlayfairDisplay_400Regular',
