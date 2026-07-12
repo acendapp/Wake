@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page not found · Wake</title>
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#FAF8F4" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .notfound {
+        min-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem 1.5rem;
+        max-width: var(--read);
+        margin: 0 auto;
+      }
+      .notfound h1 {
+        font-size: clamp(2.5rem, 8vw, 4rem);
+        margin: 0 0 0.75rem;
+      }
+      .notfound p {
+        color: var(--muted);
+        font-size: 1.1rem;
+        margin: 0 0 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav__inner">
+        <a class="nav__brand" href="/">Wake</a>
+        <nav class="nav__links">
+          <a class="btn btn--gold" href="/">Back home</a>
+        </nav>
+      </div>
+    </nav>
+
+    <main class="notfound">
+      <h1>This page slept in.</h1>
+      <p>The page you're looking for isn't here, but your better mornings still are.</p>
+      <a class="btn btn--gold" href="/">Return home</a>
+    </main>
+  </body>
+</html>

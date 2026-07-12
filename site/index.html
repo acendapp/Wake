@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wake: Never have a bad morning again</title>
+    <meta
+      name="description"
+      content="Wake gets you up gently with a real voice alarm, then hands you a personalized morning routine that gets smarter every day. The end of bad mornings."
+    />
+    <meta name="theme-color" content="#FAF8F4" />
+    <!-- TODO: set the real domain here once it's live (canonical + og:url + make
+         og:image absolute for X/Twitter). Relative paths work for most scrapers. -->
+    <link rel="canonical" href="https://wake.app/" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Wake" />
+    <meta property="og:title" content="Wake: Never have a bad morning again" />
+    <meta
+      property="og:description"
+      content="A real alarm that wakes you by voice, plus a personalized routine that learns from you. Join the waitlist."
+    />
+    <meta property="og:image" content="og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://wake.app/" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wake: Never have a bad morning again" />
+    <meta
+      name="twitter:description"
+      content="A real alarm that wakes you by voice, plus a personalized routine that learns from you."
+    />
+    <meta name="twitter:image" content="og.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css?v=2" />
+    <!-- Without JS, don't keep reveal elements hidden. -->
+    <noscript>
+      <style>
+        .reveal {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      </style>
+    </noscript>
+  </head>
+  <body>
+    <!-- ── Nav ───────────────────────────────────────────────────────────── -->
+    <header class="nav">
+      <div class="nav__inner">
+        <a class="nav__brand" href="#top">Wake</a>
+        <nav class="nav__links">
+          <a href="#how">How it works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+          <a class="btn btn--gold" href="#waitlist">Get early access</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+    <main id="top">
+      <section class="hero">
+        <div class="hero__copy">
+          <p class="eyebrow">Your mornings, reimagined</p>
+          <h1>Never have a bad morning again.</h1>
+          <p class="hero__sub">
+            Wake gets you up gently with a voice alarm, then hands you a short,
+            personalized routine built around how you actually feel. Every day, it
+            gets a little smarter.
+          </p>
+          <div class="hero__cta">
+            <a class="btn btn--gold" href="#waitlist">Join the waitlist</a>
+            <span class="btn btn--store" aria-label="Coming soon to the App Store">
+              <span class="store__top">
+                <svg viewBox="0 0 384 512" aria-hidden="true">
+                  <path
+                    d="M318.7 268c-.2-37 16.7-65 50.8-85.7-19-27.3-47.8-42.3-85.9-45.3-36-2.8-75.4 21.2-89.8 21.2-15.1 0-49.8-20.2-77.1-20.2C61.2 138.7 0 184.5 0 277.9c0 28.5 5.2 58 15.7 88.4 14 39.9 64.5 137.9 117.2 136.3 27.5-.7 47-19.5 82.9-19.5 34.8 0 52.9 19.5 81.5 19.5 53.2-.8 98.8-89.8 112.2-129.8-71.4-33.6-67.8-98.4-67.8-100.8zM255.1 90.9c30.3-36 27.5-68.8 26.6-80.6-26.7 1.5-57.6 18.2-75.2 38.7-19.5 22.3-30.9 49.8-28.5 79.3 28.8 2.2 55.1-12.6 77.1-37.4z"
+                  />
+                </svg>
+                Coming soon
+              </span>
+              <span class="store__main">App Store</span>
+            </span>
+          </div>
+          <p class="hero__note">7-day free trial · iPhone · Cancel anytime</p>
+        </div>
+
+        <!-- Real app recording in a phone frame -->
+        <div class="phone" aria-hidden="true">
+          <video
+            class="phone__video"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="auto"
+            poster="assets/hero-poster.png"
+          >
+            <source src="assets/hero.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </section>
+
+      <!-- ── Trust strip ─────────────────────────────────────────────────── -->
+      <section class="trust">
+        <div class="trust__inner">
+          <div class="trust__item reveal">
+            <strong>A real alarm</strong>
+            <span>Breaks through silent &amp; Do Not Disturb</span>
+          </div>
+          <div class="trust__item reveal">
+            <strong>Personalized by AI</strong>
+            <span>Adapts to your energy, mood &amp; day</span>
+          </div>
+          <div class="trust__item reveal">
+            <strong>Private by design</strong>
+            <span>Never sold. Delete anytime.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Differentiator ──────────────────────────────────────────────── -->
+      <section class="section" id="different">
+        <div class="section__head reveal">
+          <p class="eyebrow">Why Wake</p>
+          <h2>Not another alarm app.</h2>
+          <p>
+            Alarm apps just make noise. Habit trackers just hand you a checklist. Wake
+            is the only one that owns the whole morning: how you wake and how you start.
+          </p>
+        </div>
+        <div class="compare">
+          <article class="compare__col compare__col--old reveal">
+            <h3>The usual morning</h3>
+            <ul>
+              <li>A blaring tone you silence and resent</li>
+              <li>Snooze, scramble, start the day behind</li>
+              <li>A generic checklist that ignores how you feel</li>
+              <li>No idea whether any of it is working</li>
+            </ul>
+          </article>
+          <article class="compare__col compare__col--wake reveal">
+            <h3>With Wake</h3>
+            <ul>
+              <li>A warm voice that eases you awake</li>
+              <li>Up on time, calm, ahead of the day</li>
+              <li>A routine matched to your energy and your day</li>
+              <li>Patterns that show what actually helps you</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── How it works ────────────────────────────────────────────────── -->
+      <section class="section section--tint" id="how">
+        <div class="section__head reveal">
+          <p class="eyebrow">How it works</p>
+          <h2>A loop that makes you better</h2>
+        </div>
+        <div class="steps">
+          <div class="step reveal">
+            <div class="step__num">1</div>
+            <h3>Wake well</h3>
+            <p>A gentle voice alarm lifts you out of bed. No dread, no snooze spiral.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">2</div>
+            <h3>Start well</h3>
+            <p>Check in, and get a personalized routine matched to your morning.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">3</div>
+            <h3>Reflect</h3>
+            <p>An evening beat captures your energy, mood, and focus in seconds.</p>
+          </div>
+          <div class="step reveal">
+            <div class="step__num">4</div>
+            <h3>Improve</h3>
+            <p>Wake learns the patterns and tunes tomorrow to the real you.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Pillars ─────────────────────────────────────────────────────── -->
+      <section class="section" id="features">
+        <div class="section__head reveal">
+          <p class="eyebrow">Two halves of one morning</p>
+          <h2>Get up gently. Start with intent.</h2>
+          <p>
+            Most apps stop at a to-do list. Wake owns the whole moment, from the second
+            the alarm sounds to the minute you walk out the door.
+          </p>
+        </div>
+        <div class="pillars">
+          <article class="pillar reveal">
+            <span class="pillar__step">Wake well</span>
+            <h3 class="pillar__title">A voice that gets you up</h3>
+            <p class="pillar__body">
+              Not a jarring buzzer. An alarm that cuts through silent mode and Do Not
+              Disturb, then greets you with a warm, spoken good-morning that changes
+              day to day. The hardest moment of the morning, made human.
+            </p>
+          </article>
+          <article class="pillar reveal">
+            <span class="pillar__step">Start well</span>
+            <h3 class="pillar__title">A routine that fits the day</h3>
+            <p class="pillar__body">
+              Once you're up, Wake hands you a short, personalized routine built from
+              how you're feeling and what your day asks, then learns from your
+              reflections so every morning compounds on the last.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── Pricing ─────────────────────────────────────────────────────── -->
+      <section class="section" id="pricing">
+        <div class="section__head reveal">
+          <p class="eyebrow">Pricing</p>
+          <h2>Start free for a week</h2>
+          <p>One subscription. Both pillars. Cancel anytime, right from your phone.</p>
+        </div>
+        <div class="plans">
+          <article class="plan plan--feature reveal">
+            <span class="plan__tag">Best value</span>
+            <h3 class="plan__name">Annual</h3>
+            <p class="plan__price">$59.99<span> / year</span></p>
+            <p class="plan__meta">7-day free trial, then billed yearly (about $5/mo).</p>
+          </article>
+          <article class="plan reveal">
+            <h3 class="plan__name">Monthly</h3>
+            <p class="plan__price">$9.99<span> / month</span></p>
+            <p class="plan__meta">Flexible month to month. Cancel anytime.</p>
+          </article>
+        </div>
+        <p class="pricing__foot">
+          Subscriptions are billed through your Apple ID and renew automatically unless
+          canceled at least 24 hours before the period ends.
+        </p>
+      </section>
+
+      <!-- ── Waitlist CTA ────────────────────────────────────────────────── -->
+      <section class="section section--tint cta" id="waitlist">
+        <div class="container">
+          <div class="star-rule" aria-hidden="true">
+            <span class="star-rule__line"></span>
+            <span class="star-rule__star">★</span>
+            <span class="star-rule__line"></span>
+          </div>
+          <h2 class="reveal">Be first to wake up well</h2>
+          <p class="reveal">
+            Wake launches on iPhone soon. Join the waitlist for early access and a
+            founding-member offer when we open.
+          </p>
+          <!-- TODO: paste your Formspree (or other) form ID into action= to go live.
+               Until then submissions are caught client-side and just show a thanks. -->
+          <form
+            class="waitlist"
+            id="waitlist-form"
+            action="https://formspree.io/f/your-form-id"
+            method="POST"
+          >
+            <input
+              type="email"
+              name="email"
+              placeholder="you@email.com"
+              aria-label="Email address"
+              required
+            />
+            <button class="btn btn--gold" type="submit">Join the waitlist</button>
+          </form>
+          <p class="waitlist__msg" id="waitlist-msg" role="status"></p>
+        </div>
+      </section>
+
+      <!-- ── FAQ ─────────────────────────────────────────────────────────── -->
+      <section class="section" id="faq">
+        <div class="section__head reveal">
+          <p class="eyebrow">Questions</p>
+          <h2>Good to know</h2>
+        </div>
+        <div class="faq">
+          <details class="reveal">
+            <summary>Does the alarm really wake me on silent?</summary>
+            <p>
+              Yes. Wake uses a true system alarm that sounds through silent mode, Do Not
+              Disturb, and Sleep Focus, not a notification you can sleep through. It
+              greets you with a spoken good-morning that rotates day to day.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>How is my routine personalized?</summary>
+            <p>
+              Each morning you check in with how ready you feel and what the day asks.
+              Wake builds a short routine to match, and learns from your evening
+              reflections (your energy, mood, and focus) so it keeps getting sharper.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>Can I choose the voice that wakes me?</summary>
+            <p>
+              Yes. Pick from several voices, each with its own feel, and Wake rotates
+              through a few recordings so your good-morning never sounds canned.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>Is my data private?</summary>
+            <p>
+              Your reflections are yours. We never sell your data or use it for
+              advertising, and you can permanently delete your account and history from
+              inside the app at any time. See our
+              <a href="privacy.html">Privacy Policy</a>.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>What does it cost?</summary>
+            <p>
+              Wake is free to try for 7 days. After that it's $59.99/year (about $5/mo)
+              or $9.99/month. Cancel anytime in your Apple ID settings.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>Which devices are supported?</summary>
+            <p>
+              Wake is launching on iPhone first. Android is on the roadmap, so join the
+              waitlist and we'll let you know.
+            </p>
+          </details>
+          <details class="reveal">
+            <summary>When can I get it?</summary>
+            <p>
+              Soon. Wake is in active development; join the waitlist for early access and
+              a founding-member offer the day it opens.
+            </p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── Footer ────────────────────────────────────────────────────────── -->
+    <footer class="footer">
+      <div class="footer__inner">
+        <span class="footer__brand">Wake</span>
+        <span class="footer__links">
+          <a href="#waitlist">Early access</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </span>
+        <span>© Wake</span>
+      </div>
+    </footer>
+
+    <script src="app.js?v=2"></script>
+  </body>
+</html>
