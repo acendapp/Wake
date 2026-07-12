@@ -156,12 +156,24 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
     if (run > best) best = run
   }
   // Current streak counts back from today, or yesterday if today isn't logged yet
-  // (so an un-logged today never reads as a broken streak before evening).
+  // (so an un-logged today never reads as a broken streak before evening). One
+  // "rest day" of forgiveness: a single missed day mid-run is bridged once, so a
+  // hard-won streak doesn't collapse from a single miss. The rest day itself does
+  // not count toward the number, and a two-day gap (or a second gap) still breaks
+  // the run.
   let current = 0
   const anchor = activeIdx.has(todayIdx) ? todayIdx : activeIdx.has(todayIdx - 1) ? todayIdx - 1 : null
   if (anchor !== null) {
-    for (let i = anchor; activeIdx.has(i); i--) current++
+    let graceUsed = false
+    for (let i = anchor; ; i--) {
+      if (activeIdx.has(i)) current++
+      else if (!graceUsed && activeIdx.has(i - 1)) graceUsed = true // bridge one gap
+      else break
+    }
   }
+  // A grace-extended live run can exceed the strict historical best; keep best the
+  // longest run ever seen so "current" never reads as larger than "best".
+  if (current > best) best = current
 
   // ── Week strip (Monday-first) ──
   const daysFromMonday = (weekdayOf(today) + 6) % 7

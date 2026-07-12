@@ -98,6 +98,27 @@ describe('computeYouStats — streak', () => {
     expect(computeYouStats([], '2026-06-03').streak).toEqual({ current: 0, best: 0 })
   })
 
+  it('forgives a single missed day (one rest day) without counting it', () => {
+    // 06-04 is missed; the run either side stays alive as one streak of 5 (the
+    // rest day itself does not add to the count).
+    const rows = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-05', '2026-06-06'].map((d) =>
+      mk(d, { morning_completed_at: M }),
+    )
+    const s = computeYouStats(rows, '2026-06-06')
+    expect(s.streak.current).toBe(5)
+    expect(s.streak.best).toBe(5)
+  })
+
+  it('only forgives one gap — a second missed day still breaks the run', () => {
+    // Gaps at 06-05 and 06-03: only the most-recent gap is bridged, so the run is
+    // 06-06 + 06-04 = 2.
+    const rows = ['2026-06-01', '2026-06-02', '2026-06-04', '2026-06-06'].map((d) =>
+      mk(d, { morning_completed_at: M }),
+    )
+    const s = computeYouStats(rows, '2026-06-06')
+    expect(s.streak.current).toBe(2)
+  })
+
   it('counts a "just wake me" day (woke_at only) toward the streak', () => {
     const rows = [
       mk('2026-06-01', { morning_completed_at: M }),
