@@ -1,4 +1,6 @@
 import { Feather } from '@expo/vector-icons'
+import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
@@ -12,11 +14,14 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { logicalDate, markWoke } from '@/lib/days'
+import { hapticImpact, hapticSelect } from '@/lib/haptics'
 import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
 // The wake screen — the calm "good morning" moment that eases the user into the
-// day. It's the branded bridge between waking and the morning check-in.
+// day, and the app's most screenshot-worthy surface. Full-bleed sunrise, a large
+// serif clock, a warm greeting by name. It's the branded bridge between waking
+// and the morning check-in.
 //
 // On a real device (iOS 26.1+), the system AlarmKit alarm fires and iOS shows its
 // own stop UI when the app is closed; this screen is the in-app landing afterward,
@@ -55,57 +60,92 @@ export default function WakeScreen() {
   // A slow breathing pulse on the sun, so the screen feels alive but calm.
   const pulse = useSharedValue(1)
   useEffect(() => {
-    pulse.value = withRepeat(withTiming(1.12, { duration: 2600, easing: Easing.inOut(Easing.ease) }), -1, true)
+    pulse.value = withRepeat(
+      withTiming(1.12, { duration: 2600, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    )
   }, [pulse])
   const sunStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }))
 
   // "Start my morning": into the full flow (Today → check-in). Streak credit comes
   // from the check-in as usual.
   const startMorning = () => {
+    hapticImpact()
     router.replace('/')
   }
 
   // "Not today": just wake, no routine. Record woke_at so the day still counts
   // toward the streak, then land on the calm Today (which shows the rested state).
   const justWake = () => {
+    hapticSelect()
     if (!isPreview) void markWoke(logicalDate()).catch(() => {})
     router.replace('/')
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.center}>
-        <Animated.View style={[styles.sun, sunStyle]}>
-          <Feather name="sunrise" size={52} color={day.gold} />
-        </Animated.View>
-        <Text style={styles.time}>{time}</Text>
-        <Text style={styles.greeting}>
-          {greeting()}, {name}.
-        </Text>
-        <Text style={styles.sub}>Take a breath. Your day starts when you&rsquo;re ready.</Text>
-      </View>
+    <View style={styles.root}>
+      <Image
+        source={require('../../assets/images/welcome-bg.jpg')}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+      {/* Soft cream wash so the sunrise sits back and the clock/greeting lead. */}
+      <View style={[StyleSheet.absoluteFill, styles.wash]} />
+      {/* Bottom scrim fades to cream so the buttons stay legible over the image. */}
+      <LinearGradient
+        colors={['transparent', day.background]}
+        locations={[0.45, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
-      <View style={styles.footer}>
-        <Pressable style={styles.button} onPress={startMorning} accessibilityRole="button">
-          <Text style={styles.buttonLabel}>Start my morning</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondary}
-          onPress={justWake}
-          accessibilityRole="button"
-          accessibilityHint="Skip the routine today — you'll still keep your streak"
-        >
-          <Text style={styles.secondaryLabel}>Not today, just wake me</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.center}>
+          <Animated.View style={[styles.sun, sunStyle]}>
+            <Feather name="sunrise" size={30} color={day.gold} />
+          </Animated.View>
+          <Text style={styles.time} numberOfLines={1} adjustsFontSizeToFit>
+            {time}
+          </Text>
+          <Text style={styles.greeting}>
+            {greeting()}, {name}.
+          </Text>
+          <Text style={styles.sub}>Take a breath. Your day starts when you&rsquo;re ready.</Text>
+        </View>
+
+        <View style={styles.footer}>
+          <Pressable
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            onPress={startMorning}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonLabel}>Start my morning</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}
+            onPress={justWake}
+            accessibilityRole="button"
+            accessibilityHint="Skip the routine today — you'll still keep your streak"
+          >
+            <Text style={styles.secondaryLabel}>Not today, just wake me</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
     backgroundColor: day.background,
+  },
+  wash: {
+    backgroundColor: 'rgba(250, 248, 244, 0.42)',
+  },
+  safe: {
+    flex: 1,
   },
   center: {
     flex: 1,
@@ -114,26 +154,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   sun: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: day.goldTint,
-    marginBottom: 28,
+    marginBottom: 22,
   },
   time: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 16,
-    letterSpacing: 1,
-    color: day.muted,
-    marginBottom: 10,
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 64,
+    lineHeight: 70,
+    letterSpacing: 0.5,
+    color: day.text,
+    textAlign: 'center',
   },
   greeting: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 34,
+    fontSize: 26,
     color: day.text,
     textAlign: 'center',
+    marginTop: 6,
   },
   sub: {
     fontFamily: 'PlayfairDisplay_400Regular',
@@ -153,6 +195,9 @@ const styles = StyleSheet.create({
     paddingVertical: 19,
     alignItems: 'center',
   },
+  buttonPressed: {
+    opacity: 0.88,
+  },
   buttonLabel: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 17,
@@ -161,6 +206,9 @@ const styles = StyleSheet.create({
   secondary: {
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  secondaryPressed: {
+    opacity: 0.55,
   },
   secondaryLabel: {
     fontFamily: 'PlayfairDisplay_400Regular',
