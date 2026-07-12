@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest'
-import { computeTodayInsight, computeYouStats, type StatsDay } from './stats'
+import {
+  computeTodayInsight,
+  computeYouStats,
+  milestoneReached,
+  type StatsDay,
+} from './stats'
 import type { Plan } from '../engine/types'
+
+describe('milestoneReached', () => {
+  it('returns null below the first milestone', () => {
+    expect(milestoneReached(0)).toBeNull()
+    expect(milestoneReached(2)).toBeNull()
+  })
+
+  it('fires exactly on a milestone value', () => {
+    expect(milestoneReached(3)).toBe(3)
+    expect(milestoneReached(7)).toBe(7)
+    expect(milestoneReached(30)).toBe(30)
+  })
+
+  it('returns the highest milestone reached, not exact-match only', () => {
+    // A user who didn't open on the exact day still gets the last milestone.
+    expect(milestoneReached(5)).toBe(3)
+    expect(milestoneReached(13)).toBe(7)
+    expect(milestoneReached(29)).toBe(14)
+    expect(milestoneReached(1000)).toBe(365)
+  })
+})
 
 // A throwaway plan whose focal slug we control, for follow-through / patterns.
 function plan(focalSlug: string): Plan {

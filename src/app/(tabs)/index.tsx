@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Loading } from '@/components/Loading'
 import { Scale } from '@/components/reflect/Scale'
+import { StreakCelebration } from '@/components/today/StreakCelebration'
 import { TodayHome } from '@/components/today/TodayHome'
 import { classifyState } from '@/engine/generatePlan'
 import type { ReadinessState } from '@/engine/types'
@@ -30,9 +31,11 @@ import {
   type DayRow,
 } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
+import { hapticSuccess } from '@/lib/haptics'
+import { getCelebratedMilestone, setCelebratedMilestone } from '@/lib/prefs'
 import { useProfile } from '@/lib/profile'
 import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
-import { computeTodayInsight, computeYouStats } from '@/lib/stats'
+import { computeTodayInsight, computeYouStats, milestoneReached } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { cachedWeather, getWeather, type Weather } from '@/lib/weather'
 import { day as theme, goldGradient } from '@/theme/colors'
@@ -113,6 +116,8 @@ export default function Index() {
   // there's enough data, where the card shows an honest "patterns forming" line.
   const [insight, setInsight] = useState<string | null>(null)
   const [streak, setStreak] = useState<number | null>(null)
+  // A streak milestone to celebrate (e.g. 7), or null. Fires once per milestone.
+  const [celebration, setCelebration] = useState<number | null>(null)
 
   // Morning check-in inputs (used only until checked in). `forceCheckIn` lets the
   // evening "log today anyway" link drop into the check-in past the pivot.
@@ -209,6 +214,26 @@ export default function Index() {
     })
     return () => sub.remove()
   }, [load])
+
+  // Celebrate when the streak crosses a milestone (3, 7, 14, 30…), once each. The
+  // last-celebrated value is persisted so it never re-fires; keying on the highest
+  // milestone REACHED (not an exact match) means a user who didn't open the app on
+  // the precise day still gets the moment.
+  useEffect(() => {
+    if (streak == null) return
+    const reached = milestoneReached(streak)
+    if (reached == null) return
+    let cancelled = false
+    void getCelebratedMilestone().then((celebrated) => {
+      if (cancelled || reached <= celebrated) return
+      setCelebration(reached)
+      hapticSuccess()
+      void setCelebratedMilestone(reached)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [streak])
 
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
@@ -561,6 +586,7 @@ export default function Index() {
 
   return wrap(
     'home',
+    <>
     <TodayHome
       userName={userName}
       weather={weather}
@@ -589,7 +615,14 @@ export default function Index() {
       wakeTime={profile?.wake_time ?? null}
       wakeVoiceId={profile?.wake_voice ?? null}
       onWakePress={() => router.push('/wake-alarm')}
-    />,
+    />
+    {celebration != null && (
+      <StreakCelebration
+        milestone={celebration}
+        onDismiss={() => setCelebration(null)}
+      />
+    )}
+    </>,
   )
 }
 

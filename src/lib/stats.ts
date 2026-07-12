@@ -31,6 +31,27 @@ export type GapKey = 'deficit' | 'aligned' | 'surplus'
 export const METRICS: Metric[] = ['energy', 'mood', 'focus']
 export const METRIC_LABEL: Record<Metric, string> = { energy: 'Energy', mood: 'Mood', focus: 'Focus' }
 
+// ── Streak milestones ──────────────────────────────────────────────────────────
+// Streak lengths worth a one-time celebration. Crossing one fires the celebration
+// moment (see StreakCelebration); the last-celebrated value is persisted in prefs
+// so it fires exactly once.
+export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 75, 100, 150, 200, 365] as const
+
+/**
+ * The highest milestone the given streak has reached, or null if it hasn't reached
+ * the first one. Returns the reached value (not exact-equality) so the celebration
+ * still fires even if the user didn't open the app on the precise day — pair it
+ * with a persisted "last celebrated" value to fire each milestone once.
+ */
+export function milestoneReached(streak: number): number | null {
+  let reached: number | null = null
+  for (const m of STREAK_MILESTONES) {
+    if (streak >= m) reached = m
+    else break
+  }
+  return reached
+}
+
 const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const SHORT_WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] // index by getUTCDay()
 // Week strip is Monday-first; doubled T/S initials are expected.

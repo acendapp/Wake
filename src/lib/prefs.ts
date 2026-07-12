@@ -34,3 +34,26 @@ export async function setPreferredRoutineMinutes(minutes: number): Promise<void>
     // Best-effort: the per-day value still persists to the row even if this fails.
   }
 }
+
+const CELEBRATED_MILESTONE_KEY = 'wake.celebratedStreakMilestone'
+
+/** The highest streak milestone we've already shown the celebration for, so the
+ *  moment fires exactly once. 0 when none has been celebrated yet. */
+export async function getCelebratedMilestone(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(CELEBRATED_MILESTONE_KEY)
+    const n = raw == null ? 0 : Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+/** Record the milestone just celebrated so it never fires again. */
+export async function setCelebratedMilestone(milestone: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CELEBRATED_MILESTONE_KEY, String(milestone))
+  } catch {
+    // Best-effort: worst case the celebration could re-show once.
+  }
+}
