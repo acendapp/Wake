@@ -170,7 +170,22 @@ export default function Index() {
         daysForStats(),
       ])
       if (!live()) return
-      setToday(t)
+      // RECORDING: present a fresh, un-checked-in day on every load so the flow
+      // always starts at the check-in and the home never shows a "done" routine —
+      // no DB reset needed, and it stays fresh for every take. See recording.ts.
+      setToday(
+        RECORDING && t
+          ? {
+              ...t,
+              readiness: null,
+              day_difficulty: null,
+              completed_slugs: [],
+              morning_completed_at: null,
+              evening_completed_at: null,
+              woke_at: null,
+            }
+          : t,
+      )
       setYesterday(y)
       setHasHistory(rows.length > 0) // rows are already filtered to activity days
       setInsight(computeTodayInsight(rows))
