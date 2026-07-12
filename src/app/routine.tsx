@@ -12,6 +12,7 @@ import { generatePlan } from '@/engine/generatePlan'
 import type { Action } from '@/engine/types'
 import { getDay, logicalDate, saveCompletedSlugs, type DayRow } from '@/lib/days'
 import { useEntitlement } from '@/lib/entitlement'
+import { hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
@@ -136,11 +137,15 @@ export default function RoutineScreen() {
 
   const completeFocal = () => {
     if (!focal) return
-    if (!completed.includes(focal.slug)) persist([...completed, focal.slug])
+    if (!completed.includes(focal.slug)) {
+      hapticSuccess()
+      persist([...completed, focal.slug])
+    }
     setPhase('sequence')
   }
 
   const toggle = (slug: string) => {
+    hapticSelect()
     persist(
       completed.includes(slug) ? completed.filter((s) => s !== slug) : [...completed, slug],
     )

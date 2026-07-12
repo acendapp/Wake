@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import type { Plan, ReadinessState } from '@/engine/types'
 import { VOICES } from '@/lib/alarmCore'
+import { hapticImpact } from '@/lib/haptics'
 import { logicalNow } from '@/lib/time'
 import type { Weather, WeatherCondition } from '@/lib/weather'
 import { day, goldGradient } from '@/theme/colors'
@@ -346,7 +347,10 @@ export function TodayHome({
 
             <Pressable
               style={styles.gapButton}
-              onPress={onStart}
+              onPress={() => {
+                hapticImpact()
+                onStart()
+              }}
               accessibilityRole="button"
               accessibilityLabel={focalDone ? 'Routine done — review it' : 'Start activity'}
             >

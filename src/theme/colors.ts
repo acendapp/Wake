@@ -14,7 +14,7 @@ export const day = {
   background: '#FAF8F4', // soft warm cream
   surface: '#FFFFFF', // cards sit just above the cream
   text: '#2A2A2A', // charcoal — the "Wake" wordmark
-  muted: '#8A7B6A', // muted warm brown/gray (taglines, secondary)
+  muted: '#6E5F4E', // warm brown/gray for secondary text — darkened to clear WCAG AA (4.5:1) on the cream ground
   gold: '#8A6D2F', // deep antique gold — the accent
   goldButton: '#9A7340', // warm antique gold — the START button base
   goldTint: '#FBF6EC', // a whisper of gold — settled/done rows on cream

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native'
 import { VoicePicker } from '@/components/VoicePicker'
 import { WakeTimePicker } from '@/components/WakeTimePicker'
 import { isAlarmAvailable } from '@/lib/alarm'
+import { hapticSelect } from '@/lib/haptics'
 import {
   minutesForTier,
   tierFromMinutes,
@@ -138,7 +139,10 @@ export function RoutineTierChooser({
           <Pressable
             key={String(o.tier)}
             style={[styles.option, selected && styles.optionOn]}
-            onPress={() => onRoutineMinutesChange(minutesForTier(o.tier))}
+            onPress={() => {
+              hapticSelect()
+              onRoutineMinutesChange(minutesForTier(o.tier))
+            }}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
           >

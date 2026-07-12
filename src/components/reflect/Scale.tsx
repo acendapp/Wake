@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { hapticSelect } from '@/lib/haptics'
 import { day } from '@/theme/colors'
 
 // A 1–10 tap scale rendered as a row of bars that fill with gold up to the
@@ -44,7 +45,10 @@ export function Scale({ label, value, onChange, lowLabel, highLabel, max = 10 }:
               key={n}
               style={styles.cell}
               hitSlop={6}
-              onPress={() => onChange(n)}
+              onPress={() => {
+                hapticSelect()
+                onChange(n)
+              }}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
