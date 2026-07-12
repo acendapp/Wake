@@ -14,6 +14,7 @@ import { getDay, logicalDate, saveCompletedSlugs, type DayRow } from '@/lib/days
 import { useEntitlement } from '@/lib/entitlement'
 import { hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { useProfile } from '@/lib/profile'
+import { REC, RECORDING } from '@/lib/recording'
 import { day } from '@/theme/colors'
 
 // The morning routine, performed. Pushed from Today's START button — a focused,
@@ -113,6 +114,10 @@ export default function RoutineScreen() {
   const focal = plan?.oneThing ?? null
   // The optional remainder — everything in the sequence except the focal point.
   const rest: Action[] = plan ? plan.sequence.filter((a) => a.slug !== plan.oneThing.slug) : []
+  // ⚠️ RECORDING overrides (marketing footage) — display only; focal.slug still
+  // drives completion. See src/lib/recording.ts.
+  const focalTitle = RECORDING ? REC.focalTitle : (focal?.title ?? '')
+  const focalExample = RECORDING ? REC.focalExample : (focal?.example ?? '')
 
   // Optimistic check-off: the UI flips instantly, the write follows. A failed
   // write surfaces quietly and the evening reflection remains the safety net.
@@ -241,9 +246,9 @@ export default function RoutineScreen() {
           <View style={styles.focalHero}>
             <Feather name="sun" size={24} color={day.gold} />
             <Text style={styles.eyebrow}>{isSample ? 'Sample · your focal point' : 'Your focal point'}</Text>
-            <Text style={styles.focalTitle}>{focal.title}</Text>
-            {focal.example ? <Text style={styles.focalExample}>{focal.example}</Text> : null}
-            {focal.description ? (
+            <Text style={styles.focalTitle}>{focalTitle}</Text>
+            {focalExample ? <Text style={styles.focalExample}>{focalExample}</Text> : null}
+            {!RECORDING && focal.description ? (
               <Text style={styles.focalWhy}>{focal.description}</Text>
             ) : null}
             <View style={styles.timeChip}>
@@ -283,7 +288,7 @@ export default function RoutineScreen() {
               <Feather name="check" size={26} color={day.onAccent} />
             </View>
             <Text style={styles.doneTitle}>The hardest part is behind you — the day is yours.</Text>
-            <Text style={styles.doneSub}>{focal.title}</Text>
+            <Text style={styles.doneSub}>{focalTitle}</Text>
           </View>
 
           <View style={styles.starRow}>

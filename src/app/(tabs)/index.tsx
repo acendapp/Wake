@@ -34,6 +34,7 @@ import { errorMessage } from '@/lib/errors'
 import { hapticImpact, hapticSuccess } from '@/lib/haptics'
 import { getCelebratedMilestone, setCelebratedMilestone } from '@/lib/prefs'
 import { useProfile } from '@/lib/profile'
+import { REC, RECORDING } from '@/lib/recording'
 import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
 import { computeTodayInsight, computeYouStats, milestoneReached } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
@@ -220,6 +221,7 @@ export default function Index() {
   // milestone REACHED (not an exact match) means a user who didn't open the app on
   // the precise day still gets the moment.
   useEffect(() => {
+    if (RECORDING) return // never pop the celebration during marketing footage
     if (streak == null) return
     const reached = milestoneReached(streak)
     if (reached == null) return
@@ -254,7 +256,7 @@ export default function Index() {
 
   // First name from the onboarding profile; falls back gracefully for any older
   // account created before names were collected.
-  const userName = profile?.first_name?.trim() || 'there'
+  const userName = RECORDING ? REC.name : profile?.first_name?.trim() || 'there'
 
   const submitCheckIn = async () => {
     hapticImpact()

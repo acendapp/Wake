@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { logicalDate, markWoke } from '@/lib/days'
 import { hapticImpact, hapticSelect } from '@/lib/haptics'
 import { useProfile } from '@/lib/profile'
+import { REC, RECORDING } from '@/lib/recording'
 import { day } from '@/theme/colors'
 
 // The wake screen — the calm "good morning" moment that eases the user into the
@@ -50,8 +51,10 @@ function nowLabel(): string {
 export default function WakeScreen() {
   const router = useRouter()
   const { profile } = useProfile()
-  const name = profile?.first_name?.trim() || 'there'
-  const [time] = useState(nowLabel)
+  // ⚠️ RECORDING overrides (marketing footage) — see src/lib/recording.ts.
+  const name = RECORDING ? REC.name : profile?.first_name?.trim() || 'there'
+  const [liveTime] = useState(nowLabel)
+  const time = RECORDING ? REC.wakeTimeLabel : liveTime
   // The "Preview the wake-up" entry (Settings) passes ?preview=1 so it never
   // writes to today's row — only a real alarm wake should record it.
   const { preview } = useLocalSearchParams<{ preview?: string }>()
@@ -109,7 +112,7 @@ export default function WakeScreen() {
             {time}
           </Text>
           <Text style={styles.greeting}>
-            {greeting()}, {name}.
+            {RECORDING ? REC.greetingWord : greeting()}, {name}.
           </Text>
           <Text style={styles.sub}>Take a breath. Your day starts when you&rsquo;re ready.</Text>
         </View>

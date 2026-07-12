@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { Plan, ReadinessState } from '@/engine/types'
 import { VOICES } from '@/lib/alarmCore'
 import { hapticImpact } from '@/lib/haptics'
+import { REC, RECORDING } from '@/lib/recording'
 import { logicalNow } from '@/lib/time'
 import type { Weather, WeatherCondition } from '@/lib/weather'
 import { day, goldGradient } from '@/theme/colors'
@@ -235,14 +236,21 @@ export function TodayHome({
   const dateLine = `${WEEKDAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}.`
 
   const sequence = plan?.sequence ?? []
-  const activity = plan?.oneThing?.title ?? ''
-  const activityExample = plan?.oneThing?.example ?? ''
+  // ⚠️ RECORDING overrides (marketing footage) — see src/lib/recording.ts.
+  const activity = RECORDING ? REC.focalTitle : (plan?.oneThing?.title ?? '')
+  const activityExample = RECORDING ? REC.focalExample : (plan?.oneThing?.example ?? '')
   const focalDone = plan?.oneThing ? completedSlugs.includes(plan.oneThing.slug) : false
-  const dayDemand = `${dayDifficulty}/10`
+  const dayDemand = RECORDING ? REC.demand : `${dayDifficulty}/10`
+  const displayLastNight = RECORDING ? REC.lastNight : lastNight
+  const displayRoutineTime = RECORDING ? REC.routineTime : routineTime
+  const displayStreak = RECORDING ? REC.streak : streak
+  const greetingText = RECORDING ? REC.greetingWord : greetingWord(new Date().getHours())
   // Wake-alarm home card display.
-  const wakeVoiceName = VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null
-  const wakeTimeLabel = wakeTime ? formatClock(wakeTime) : null
-  const wakeArmed = wakeEnabled && !!wakeTimeLabel
+  const wakeVoiceName = RECORDING
+    ? REC.wakeVoiceName
+    : (VOICES.find((v) => v.id === wakeVoiceId)?.name ?? null)
+  const wakeTimeLabel = RECORDING ? REC.wakeTimeLabel : wakeTime ? formatClock(wakeTime) : null
+  const wakeArmed = RECORDING ? true : wakeEnabled && !!wakeTimeLabel
   // Clamp before driving the bar flex — an out-of-range value would otherwise
   // make a fill vanish (flex 0) or invert the bar (negative remainder).
   const youBar = Math.max(0, Math.min(10, readiness))
@@ -304,21 +312,21 @@ export function TodayHome({
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.cardHeaderText}>
-              <Text style={styles.cardGreeting}>{greetingWord(new Date().getHours())}, {userName}.</Text>
+              <Text style={styles.cardGreeting}>{greetingText}, {userName}.</Text>
               <Text style={styles.cardDate}>{dateLine}</Text>
             </View>
 
             <View style={styles.cardHeaderRight}>
               {/* Morning streak — the daily reinforcer, surfaced where users land
                   instead of buried on the You tab. Sunrise motif = mornings risen. */}
-              {streak && streak > 0 ? (
+              {displayStreak && displayStreak > 0 ? (
                 <View
                   style={styles.streakChip}
                   accessibilityRole="text"
-                  accessibilityLabel={`${streak} morning streak`}
+                  accessibilityLabel={`${displayStreak} morning streak`}
                 >
                   <Feather name="sunrise" size={13} color={COLORS.gold} />
-                  <Text style={styles.streakCount}>{streak}</Text>
+                  <Text style={styles.streakCount}>{displayStreak}</Text>
                 </View>
               ) : null}
 
@@ -360,7 +368,9 @@ export function TodayHome({
                   </Text>
                 ) : (
                   <Text style={styles.insightText} numberOfLines={2}>
-                    {insight ?? 'Your patterns will show here as you check in.'}
+                    {RECORDING
+                      ? REC.insight
+                      : (insight ?? 'Your patterns will show here as you check in.')}
                   </Text>
                 )}
               </View>
@@ -462,7 +472,7 @@ export function TodayHome({
 
               <View style={styles.glanceItem}>
                 <Feather name="moon" size={16} color="#1A1A1A" />
-                <Text style={styles.glanceValue}>{lastNight}</Text>
+                <Text style={styles.glanceValue}>{displayLastNight}</Text>
                 <Text style={styles.glanceLabel}>Last night</Text>
               </View>
 
@@ -470,7 +480,7 @@ export function TodayHome({
 
               <View style={styles.glanceItem}>
                 <Feather name="clock" size={16} color="#1A1A1A" />
-                <Text style={styles.glanceValue}>{routineTime}</Text>
+                <Text style={styles.glanceValue}>{displayRoutineTime}</Text>
                 <Text style={styles.glanceLabel}>Routine</Text>
               </View>
             </View>
