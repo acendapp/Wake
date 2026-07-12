@@ -197,6 +197,32 @@ export type TodayHomeProps = {
   onWakePress?: () => void
 }
 
+// Render an insight line with its magnitude tinted — green when the effect is
+// positive ("…runs 3 points higher"), red when negative ("…2 lower"). Applies to
+// both real insights (computeTodayInsight) and the recording placeholder. Falls
+// back to plain text when there's no number to color.
+function renderInsight(text: string) {
+  const m = text.match(
+    /(\d+(?:\.\d+)?\s*(?:points?|pts?)?)\s*(higher|more|better|above|up|lower|fewer|less|under|below|down)/i,
+  )
+  if (!m) {
+    return (
+      <Text style={styles.insightText} numberOfLines={2}>
+        {text}
+      </Text>
+    )
+  }
+  const positive = /^(higher|more|better|above|up)$/i.test(m[2])
+  const start = text.indexOf(m[1])
+  return (
+    <Text style={styles.insightText} numberOfLines={2}>
+      {text.slice(0, start)}
+      <Text style={{ color: positive ? COLORS.positive : COLORS.negative }}>{m[1]}</Text>
+      {text.slice(start + m[1].length)}
+    </Text>
+  )
+}
+
 export function TodayHome({
   userName,
   weather,
@@ -367,11 +393,11 @@ export function TodayHome({
                     <Text style={{ color: COLORS.negative }}>under 5</Text>.
                   </Text>
                 ) : (
-                  <Text style={styles.insightText} numberOfLines={2}>
-                    {RECORDING
+                  renderInsight(
+                    RECORDING
                       ? REC.insight
-                      : (insight ?? 'Your patterns will show here as you check in.')}
-                  </Text>
+                      : (insight ?? 'Your patterns will show here as you check in.'),
+                  )
                 )}
               </View>
             </View>

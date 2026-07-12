@@ -123,7 +123,7 @@ export default function Index() {
   // Morning check-in inputs (used only until checked in). `forceCheckIn` lets the
   // evening "log today anyway" link drop into the check-in past the pivot.
   const [readinessInput, setReadinessInput] = useState(6)
-  const [demandInput, setDemandInput] = useState(5)
+  const [demandInput, setDemandInput] = useState(RECORDING ? 6 : 5)
   const [forceCheckIn, setForceCheckIn] = useState(false)
   // Set by the rested-state "set up my morning anyway" link, to leave the calm
   // rested view and show the check-in for a user who'd tapped "just wake me".
@@ -242,7 +242,10 @@ export default function Index() {
   const now = logicalNow()
   const isEvening = isEveningNow()
   const checkedIn = today?.readiness != null
-  const demandKnown = today?.day_difficulty != null
+  // RECORDING: skip the "what's today asking?" scale so the check-in only asks
+  // readiness, then goes straight to the home (demand defaults to 6 to match the
+  // hardcoded "6/10" glance). See src/lib/recording.ts.
+  const demandKnown = RECORDING ? true : today?.day_difficulty != null
   // Tonight's reflection is done — tomorrow is already set up, so the evening
   // "set up tomorrow" prompt must not reappear when they land back on Today.
   const reflectedToday = today?.evening_completed_at != null
