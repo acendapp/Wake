@@ -31,7 +31,7 @@ import {
   type DayRow,
 } from '@/lib/days'
 import { errorMessage } from '@/lib/errors'
-import { hapticSuccess } from '@/lib/haptics'
+import { hapticImpact, hapticSuccess } from '@/lib/haptics'
 import { getCelebratedMilestone, setCelebratedMilestone } from '@/lib/prefs'
 import { useProfile } from '@/lib/profile'
 import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
@@ -257,6 +257,7 @@ export default function Index() {
   const userName = profile?.first_name?.trim() || 'there'
 
   const submitCheckIn = async () => {
+    hapticImpact()
     setSubmitting(true)
     setSubmitError(null)
     try {

@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useEntitlement } from '@/lib/entitlement'
+import { hapticImpact, hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { day } from '@/theme/colors'
 
@@ -69,12 +70,14 @@ export default function PaywallScreen() {
   }, [])
 
   const onStart = async () => {
+    hapticImpact()
     setBusy(true)
     setNotice(null)
     // Real billing runs the store flow; with no key set this flips the mock. On
     // success the gate routes to tabs and unmounts this screen. On failure (e.g.
     // the user cancelled), drop back so they can try again.
     const ok = await purchase(selected)
+    if (ok) hapticSuccess()
     if (!ok && mountedRef.current) {
       setBusy(false)
       setNotice('Purchase didn’t complete. You can try again.')
@@ -129,7 +132,10 @@ export default function PaywallScreen() {
               <Pressable
                 key={plan.id}
                 style={[styles.plan, on && styles.planOn]}
-                onPress={() => setSelected(plan.id)}
+                onPress={() => {
+                  hapticSelect()
+                  setSelected(plan.id)
+                }}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: on }}
               >
