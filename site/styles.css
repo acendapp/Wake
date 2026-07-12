@@ -536,3 +536,57 @@ summary:focus-visible {
     transition: none;
   }
 }
+
+/* ── Signature motion: hero sunrise glow + living phone ───────────────────── */
+.hero { position: relative; overflow: hidden; }
+.hero__copy,
+.hero .phone { position: relative; z-index: 1; }
+.hero__glow {
+  position: absolute;
+  top: -35%;
+  right: -12%;
+  width: 65%;
+  height: 130%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    rgba(201, 154, 84, 0.32),
+    rgba(201, 154, 84, 0.08) 55%,
+    rgba(201, 154, 84, 0) 74%
+  );
+  animation: sunrise 9s ease-in-out infinite alternate;
+}
+@keyframes sunrise {
+  from { opacity: 0.6; transform: translateY(12px) scale(1); }
+  to   { opacity: 1;   transform: translateY(-12px) scale(1.06); }
+}
+@media (max-width: 52rem) {
+  .hero__glow { top: -18%; right: -28%; width: 92%; height: 66%; }
+}
+
+/* A slow, subtle float so the device feels alive, not a static screenshot. */
+.phone { animation: float 7s ease-in-out 0.6s infinite alternate; }
+@keyframes float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-7px); }
+}
+
+/* Cards lift on hover for a touch of tactility. */
+.pillar,
+.plan,
+.step__num {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+.pillar:hover,
+.plan:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 26px 64px -30px rgba(60, 45, 20, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__glow { animation: none; opacity: 0.8; }
+  .phone { animation: none; }
+  .pillar:hover,
+  .plan:hover { transform: none; }
+}
