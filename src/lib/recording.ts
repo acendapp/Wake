@@ -6,12 +6,12 @@
 // or data — so screen recordings are consistent and look intentional. It overrides
 // DISPLAY only; it does not write anything. Search for `RECORDING` to find every
 // override (TodayHome, routine, wake, index). Flip back to false before any build.
-export const RECORDING = false
+export const RECORDING = true
 
 // The hardcoded values shown while RECORDING. One place so the footage stays
 // consistent across every screen.
 export const REC = {
-  name: 'Sarah',
+  name: 'James',
   greetingWord: 'Good morning',
   wakeTimeLabel: '6:30 AM',
   wakeVoiceName: 'Aurora',
