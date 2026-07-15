@@ -77,9 +77,13 @@ const EVERY_DAY = [
   'sunday',
 ] as const
 
-/** AlarmKit wants the bundled sound's name WITHOUT extension. */
+/** The bundled sound file for today's clip — passed to AlarmKit's
+ *  AlertSound.named(). It needs the filename WITH extension (e.g. "maria-01.caf");
+ *  without it, iOS can't resolve the file in the app bundle and silently falls
+ *  back to the default alarm sound. (The module's README says "without extension"
+ *  — that's wrong for .caf resources.) */
 function soundNameForToday(voiceId: string): string {
-  return soundForDate(new Date(), voiceId).replace(/\.[^.]+$/, '')
+  return soundForDate(new Date(), voiceId)
 }
 
 /**
