@@ -10,9 +10,10 @@ import {
 } from './alarmCore'
 
 describe('VOICES catalog', () => {
-  it('offers three male and three female voices', () => {
-    expect(VOICES.filter((v) => v.gender === 'male')).toHaveLength(3)
-    expect(VOICES.filter((v) => v.gender === 'female')).toHaveLength(3)
+  it('offers both male and female voices, led by the default', () => {
+    expect(VOICES.some((v) => v.gender === 'male')).toBe(true)
+    expect(VOICES.some((v) => v.gender === 'female')).toBe(true)
+    expect(VOICES[0].id).toBe(DEFAULT_VOICE) // Maria (the real, recorded voice) leads
   })
 
   it('has unique ids and a valid default', () => {
@@ -29,13 +30,7 @@ describe('VOICES catalog', () => {
 
 describe('clipsForVoice', () => {
   it('names files per voice with padded indices', () => {
-    expect(clipsForVoice('aurora')).toEqual([
-      'aurora-01.caf',
-      'aurora-02.caf',
-      'aurora-03.caf',
-      'aurora-04.caf',
-      'aurora-05.caf',
-    ])
+    expect(clipsForVoice('maria')).toEqual(['maria-01.caf', 'maria-02.caf'])
     expect(clipsForVoice('theo')).toHaveLength(CLIPS_PER_VOICE)
   })
 })

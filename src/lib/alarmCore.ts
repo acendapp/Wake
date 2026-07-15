@@ -23,6 +23,9 @@ export interface Voice {
 }
 
 export const VOICES: Voice[] = [
+  // Maria is the first REAL voice — she has recorded clips in assets/audio/. The
+  // rest below are planned personas with no audio yet (silent until recorded).
+  { id: 'maria', name: 'Maria', gender: 'female', tagline: 'Warm and grounding — a real, human good-morning.' },
   { id: 'theo', name: 'Theo', gender: 'male', tagline: 'Warm and grounded — the friend who believes in you.' },
   { id: 'atlas', name: 'Atlas', gender: 'male', tagline: 'Strong and motivating — a gentle push to rise.' },
   { id: 'julian', name: 'Julian', gender: 'male', tagline: 'Smooth and unhurried — calm like dawn radio.' },
@@ -31,11 +34,14 @@ export const VOICES: Voice[] = [
   { id: 'nova', name: 'Nova', gender: 'female', tagline: 'Clear and uplifting — energy without the noise.' },
 ]
 
-/** The voice a new user gets until they choose one. */
-export const DEFAULT_VOICE = 'aurora'
+/** The voice a new user gets until they choose one — Maria, the only voice with
+ *  real recorded audio right now. */
+export const DEFAULT_VOICE = 'maria'
 
-/** How many rotating clips each voice provides. */
-export const CLIPS_PER_VOICE = 5
+/** How many rotating clips each voice provides. Maria currently has 2 recordings.
+ *  NOTE: this is a single global count — when voices ship with DIFFERENT numbers of
+ *  clips, move the count onto each Voice and derive it per-voice. */
+export const CLIPS_PER_VOICE = 2
 
 export function isKnownVoice(id: string | null | undefined): boolean {
   return !!id && VOICES.some((v) => v.id === id)
