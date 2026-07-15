@@ -10,9 +10,10 @@ import { Image as ExpoImage } from 'expo-image'
 import { Stack, usePathname, useRouter } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
+import { LaunchAnimation } from '@/components/LaunchAnimation'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
@@ -92,6 +93,8 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   // holds until the reload settles, then redirects (a new account → /paywall).
   const everReady = useRef(false)
   if (ready) everReady.current = true
+  // The app-open animation plays once per cold launch, over the app, then dissolves.
+  const [launchDone, setLaunchDone] = useState(false)
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync()
@@ -149,11 +152,14 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   if (!everReady.current) return null
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: BACKGROUND },
-      }}
-    />
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: BACKGROUND },
+        }}
+      />
+      {!launchDone && <LaunchAnimation onDone={() => setLaunchDone(true)} />}
+    </>
   )
 }
