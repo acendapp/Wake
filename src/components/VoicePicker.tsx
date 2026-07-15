@@ -4,12 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { VOICES, type Voice } from '@/lib/alarmCore'
 import { day } from '@/theme/colors'
 
-// The wake-alarm voice picker — grouped Women/Men cards. Used by the Settings
-// screen and onboarding.
+// The wake-alarm voice picker — a simple list of voices by name. Used by the
+// Settings screen and onboarding.
 //
-// NOTE: tap-to-preview is intentionally out for now — the real voice clips aren't
-// recorded yet (placeholders removed). When they land in assets/audio/, re-add a
-// play/pause preview button per card (expo-audio + a per-voice clip map).
+// NOTE: tap-to-preview is intentionally out for now. When we wire expo-audio to
+// the bundled clips, re-add a play/pause preview button per card.
 
 type Props = {
   value: string
@@ -17,22 +16,16 @@ type Props = {
 }
 
 export function VoicePicker({ value, onChange }: Props) {
-  const group = (gender: Voice['gender']) =>
-    VOICES.filter((v) => v.gender === gender).map((v) => (
-      <VoiceCard
-        key={v.id}
-        voice={v}
-        selected={value === v.id}
-        onPress={() => onChange(v.id)}
-      />
-    ))
-
   return (
-    <View>
-      <Text style={styles.groupLabel}>Women</Text>
-      <View style={styles.list}>{group('female')}</View>
-      <Text style={[styles.groupLabel, styles.groupLabelGap]}>Men</Text>
-      <View style={styles.list}>{group('male')}</View>
+    <View style={styles.list}>
+      {VOICES.map((v) => (
+        <VoiceCard
+          key={v.id}
+          voice={v}
+          selected={value === v.id}
+          onPress={() => onChange(v.id)}
+        />
+      ))}
     </View>
   )
 }
@@ -52,29 +45,15 @@ function VoiceCard({
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={`${voice.name}. ${voice.tagline}`}
+      accessibilityLabel={voice.name}
     >
-      <View style={styles.text}>
-        <Text style={[styles.name, selected && styles.nameOn]}>{voice.name}</Text>
-        <Text style={styles.tagline}>{voice.tagline}</Text>
-      </View>
+      <Text style={[styles.name, selected && styles.nameOn]}>{voice.name}</Text>
       {selected && <Feather name="check" size={20} color={day.gold} />}
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
-  groupLabel: {
-    fontFamily: 'PlayfairDisplay_500Medium',
-    fontSize: 14,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: day.muted,
-    marginBottom: 12,
-  },
-  groupLabelGap: {
-    marginTop: 24,
-  },
   list: {
     gap: 12,
   },
@@ -93,11 +72,6 @@ const styles = StyleSheet.create({
     borderColor: day.gold,
     borderWidth: 1.5,
   },
-  text: {
-    flex: 1,
-    gap: 3,
-    marginRight: 12,
-  },
   name: {
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 17,
@@ -105,11 +79,5 @@ const styles = StyleSheet.create({
   },
   nameOn: {
     color: day.gold,
-  },
-  tagline: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    lineHeight: 19,
-    color: day.muted,
   },
 })

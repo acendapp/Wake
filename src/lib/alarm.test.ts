@@ -10,10 +10,10 @@ import {
 } from './alarmCore'
 
 describe('VOICES catalog', () => {
-  it('offers both male and female voices, led by the default', () => {
-    expect(VOICES.some((v) => v.gender === 'male')).toBe(true)
-    expect(VOICES.some((v) => v.gender === 'female')).toBe(true)
+  it('is non-empty, led by the default, with a name on every voice', () => {
+    expect(VOICES.length).toBeGreaterThan(0)
     expect(VOICES[0].id).toBe(DEFAULT_VOICE) // Maria (the real, recorded voice) leads
+    expect(VOICES.every((v) => v.name.length > 0)).toBe(true)
   })
 
   it('has unique ids and a valid default', () => {
@@ -22,7 +22,7 @@ describe('VOICES catalog', () => {
   })
 
   it('recognizes known vs unknown voices', () => {
-    expect(isKnownVoice('aurora')).toBe(true)
+    expect(isKnownVoice('maria')).toBe(true)
     expect(isKnownVoice('nope')).toBe(false)
     expect(isKnownVoice(null)).toBe(false)
   })

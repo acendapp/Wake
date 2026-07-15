@@ -13,26 +13,14 @@ export type WakeAlarm = { enabled: boolean; time: string | null; voice: string }
 // (see docs/voice-clips.md). The files don't exist yet — these ids are the
 // recording target.
 
-export type VoiceGender = 'male' | 'female'
 export interface Voice {
   id: string
   name: string
-  gender: VoiceGender
-  /** One-line character of the voice, shown in the picker. */
-  tagline: string
 }
 
-export const VOICES: Voice[] = [
-  // Maria is the first REAL voice — she has recorded clips in assets/audio/. The
-  // rest below are planned personas with no audio yet (silent until recorded).
-  { id: 'maria', name: 'Maria', gender: 'female', tagline: 'Warm and grounding — a real, human good-morning.' },
-  { id: 'theo', name: 'Theo', gender: 'male', tagline: 'Warm and grounded — the friend who believes in you.' },
-  { id: 'atlas', name: 'Atlas', gender: 'male', tagline: 'Strong and motivating — a gentle push to rise.' },
-  { id: 'julian', name: 'Julian', gender: 'male', tagline: 'Smooth and unhurried — calm like dawn radio.' },
-  { id: 'aurora', name: 'Aurora', gender: 'female', tagline: 'Bright and hopeful — like sunrise in a voice.' },
-  { id: 'sage', name: 'Sage', gender: 'female', tagline: 'Soft and soothing — a calm, steady start.' },
-  { id: 'nova', name: 'Nova', gender: 'female', tagline: 'Clear and uplifting — energy without the noise.' },
-]
+// Only voices with REAL recorded clips (assets/audio/<id>-NN.caf) belong here.
+// Right now that's just Maria; add more as their recordings land.
+export const VOICES: Voice[] = [{ id: 'maria', name: 'Maria' }]
 
 /** The voice a new user gets until they choose one — Maria, the only voice with
  *  real recorded audio right now. */
