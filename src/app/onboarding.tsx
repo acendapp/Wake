@@ -1,7 +1,6 @@
-import { Feather, Ionicons } from '@expo/vector-icons'
-import { Image } from 'expo-image'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Feather } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
+import { useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
@@ -122,16 +121,6 @@ const SEXES: { value: Sex; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-// What a morning routine moves — the pillars shown in the welcome tab.
-const PILLARS: {
-  icon: React.ComponentProps<typeof Feather>['name']
-  title: string
-}[] = [
-  { icon: 'zap', title: 'Energy' },
-  { icon: 'target', title: 'Focus' },
-  { icon: 'sun', title: 'Mood' },
-]
-
 // Steps that count toward the progress bar (intro + finish sit outside it).
 // 1 intent · 2 chronotype · 3 demographics · 4 wake alarm + routine length.
 const FIRST_QUESTION = 1
@@ -147,22 +136,12 @@ const CHRONO_READINESS: Record<Chronotype, number> = { early: 6, neither: 5, lat
 
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
-  const { signUp, signOut, session } = useAuth()
+  const { signUp, session } = useAuth()
   const router = useRouter()
-  const insets = useSafeAreaInsets()
 
-  // "Create an account" on the sign-in screen routes here with ?start=questions
-  // to skip the welcome beat and open on the first question (step 1).
-  const { start } = useLocalSearchParams<{ start?: string }>()
-  const [step, setStep] = useState(start === 'questions' ? FIRST_QUESTION : 0)
-
-  // The root gate can also land here with ?start=questions while this screen is
-  // ALREADY mounted on the welcome beat (signing in with an account that never
-  // finished onboarding). Params don't re-run the useState initializer above, so
-  // nudge off the welcome beat when the param arrives.
-  useEffect(() => {
-    if (start === 'questions') setStep((s) => (s === 0 ? FIRST_QUESTION : s))
-  }, [start])
+  // Onboarding opens straight on the first question — no welcome screen. Returning
+  // users jump to /sign-in via the persistent "Sign in" link in the header.
+  const [step, setStep] = useState(FIRST_QUESTION)
   const [intent, setIntent] = useState<Intent | null>(null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(null)
   const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
@@ -186,7 +165,6 @@ export default function OnboardingScreen() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [scienceOpen, setScienceOpen] = useState(false)
   // Which intent's ⓘ explainer is open on the first question (null = none).
   const [intentInfo, setIntentInfo] = useState<Intent | null>(null)
 
@@ -225,7 +203,7 @@ export default function OnboardingScreen() {
   }, [chronotype, routineMinutes])
 
   const next = () => setStep((s) => s + 1)
-  const back = () => setStep((s) => Math.max(0, s - 1))
+  const back = () => setStep((s) => Math.max(FIRST_QUESTION, s - 1))
 
   // Final step: create the account, then persist the answers gathered so far.
   // saveOnboarding stamps onboarding_completed_at; refresh() then flips the root
@@ -282,125 +260,6 @@ export default function OnboardingScreen() {
     }
   }
 
-  // The welcome beat: a full-bleed sunrise, the wordmark resting near the top,
-  // and a single Begin. The question steps below run on the plain cream surface.
-  if (step === 0) {
-    return (
-      <View style={styles.welcomeRoot}>
-        <Image
-          source={require('../../assets/images/welcome-bg.jpg')}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-        />
-        {/* Soft cream wash so the sunrise sits further back and the copy leads. */}
-        <View style={[StyleSheet.absoluteFill, styles.welcomeWash]} />
-
-        <SafeAreaView style={styles.welcomeSafe} edges={['top']}>
-          <View style={styles.welcomeTop}>
-            <Text style={styles.welcomeBrand}>Wake</Text>
-            <View style={styles.starRow}>
-              <View style={styles.starLine} />
-              <Ionicons name="star" size={13} color={day.gold} style={styles.starIcon} />
-              <View style={styles.starLine} />
-            </View>
-            <Text style={styles.welcomeTagline}>
-              Your morning sets{'\n'}the next{' '}
-              <Text style={styles.welcomeTaglineAccent}>16</Text> hours.
-            </Text>
-          </View>
-
-          <View style={styles.welcomeMiddle}>
-            <View style={styles.welcomeTab}>
-              <Text style={styles.tabLead}>
-                Wake adapts to your body and your day,{'\n'}building a routine every
-                morning to lift:
-              </Text>
-              <View style={styles.tabRow}>
-                {PILLARS.map((p, i) => (
-                  <Fragment key={p.title}>
-                    {i > 0 && <View style={styles.tabDivider} />}
-                    <View style={styles.tabCell}>
-                      <Feather name={p.icon} size={22} color={day.text} />
-                      <Text style={styles.tabCellTitle}>{p.title}</Text>
-                    </View>
-                  </Fragment>
-                ))}
-              </View>
-              <Pressable
-                style={styles.tabScience}
-                onPress={() => setScienceOpen(true)}
-                hitSlop={8}
-                accessibilityRole="button"
-              >
-                <Text style={styles.tabScienceLine}>
-                  How you wake up shapes{'\n'}your long-term health.{' '}
-                  <Ionicons name="information-circle" size={15} color={day.gold} />
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={[styles.welcomeFooter, { paddingBottom: insets.bottom + 18 }]}>
-            <Pressable style={styles.button} onPress={next} accessibilityRole="button">
-              {/* A signed-in user here means onboarding was never finished — the
-                  CTA is about completing setup, not creating an account. */}
-              <Text style={styles.buttonLabel}>{session ? 'Finish setting up' : 'Sign up'}</Text>
-            </Pressable>
-            {/* Already signed in (e.g. a half-finished signup left a session) →
-                offer a way out instead of a pointless "Sign in". Signed out → the
-                returning-user path into the sign-in screen. */}
-            {session ? (
-              <Pressable
-                style={styles.buttonSecondary}
-                onPress={() => signOut()}
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonSecondaryLabel}>Sign out</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={styles.buttonSecondary}
-                onPress={() => router.push('/sign-in')}
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonSecondaryLabel}>Sign in</Text>
-              </Pressable>
-            )}
-          </View>
-        </SafeAreaView>
-
-        <Modal
-          visible={scienceOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setScienceOpen(false)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setScienceOpen(false)}>
-            <Pressable style={styles.modalCard} onPress={() => {}}>
-              <Text style={styles.modalTitle}>Your actions when you wake matter</Text>
-              <Text style={styles.modalBody}>
-                How you wake up sets your circadian rhythm, the internal clock that
-                runs your energy, focus, and mood for the rest of the day.
-              </Text>
-              <Text style={styles.modalBody}>
-                Over time, it adds up to more than one good day. The way you wake up,
-                morning after morning, shapes your long-term health. Building the right
-                routines can lift your well-being for the long run.
-              </Text>
-              <Text style={styles.modalBody}>
-                Wake builds that routine for you each morning, tuned to how you woke up
-                and what your day holds, so it pays off today and over the years.
-              </Text>
-              <Pressable style={styles.modalClose} onPress={() => setScienceOpen(false)}>
-                <Text style={styles.modalCloseLabel}>Got it</Text>
-              </Pressable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      </View>
-    )
-  }
-
   // The editorial curation beat — full-bleed, immersive, no chrome. Auto-advances
   // to account creation when the lines finish.
   if (step === 5 && intent && chronotype) {
@@ -414,8 +273,9 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {step >= 1 && step <= LAST_QUESTION && (
-        <View style={styles.header}>
+      <View style={styles.header}>
+        {/* Back — only within the question steps (never before the first). */}
+        {step > FIRST_QUESTION && step <= LAST_QUESTION ? (
           <Pressable
             onPress={back}
             hitSlop={12}
@@ -425,10 +285,27 @@ export default function OnboardingScreen() {
           >
             <Feather name="chevron-left" size={26} color={day.muted} />
           </Pressable>
-          <Progress current={step} />
+        ) : (
           <View style={styles.headerSpacer} />
-        </View>
-      )}
+        )}
+
+        {/* Progress pips — question steps only. */}
+        {step <= LAST_QUESTION ? <Progress current={step} /> : <View style={styles.flex} />}
+
+        {/* Sign in — available at any point, for returning (signed-out) users. */}
+        {!session ? (
+          <Pressable
+            onPress={() => router.push('/sign-in')}
+            hitSlop={12}
+            disabled={saving}
+            accessibilityRole="button"
+          >
+            <Text style={styles.headerSignIn}>Sign in</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -794,6 +671,11 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 26,
+  },
+  headerSignIn: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 15,
+    color: day.gold,
   },
   progress: {
     flexDirection: 'row',
