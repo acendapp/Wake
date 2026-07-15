@@ -17,10 +17,29 @@ The wake alarm plays a short, warm, spoken good-morning that **rotates one per d
   first voice someone hears each day.
 - **Pacing:** start soft, leave a beat of silence at the very start (~0.5s) so it
   eases in rather than blasting.
-- **Levels:** record clean and fairly quiet; the alarm system handles loudness.
-  Avoid clipping. Mono is fine.
-- **Sample rate:** 44.1kHz, 16-bit is plenty.
+- **Levels:** record clean, avoid clipping. Don't worry about matching volume between
+  voices by ear — every clip is **loudness-normalized in processing** (see below) so all
+  voices ring at the same volume regardless of how loud each actor recorded.
+- **Sample rate:** 44.1kHz, 16-bit is plenty. Mono is fine (we downmix anyway).
 - **Quiet room**, pop filter if you have one. A phone in a closet works in a pinch.
+
+## ⚠️ Processing — normalize EVERY clip to the shared loudness target
+
+So all voices (Maria, Rowan, and every future actor) are the **same perceived volume**,
+each clip is normalized to **−16 LUFS integrated, −1.5 dBTP** with a two-pass loudnorm,
+then written as mono PCM `.caf`. Do this for every new clip — never drop a raw recording
+straight into `assets/audio/`. From any source (`.mov`/`.mp3`/`.wav`):
+
+```sh
+# pass 1: measure
+ffmpeg -i in.mov -af loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json -f null -
+# pass 2: apply the measured values (linear=true keeps the natural dynamics)
+ffmpeg -y -i in.mov -af "loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=…:measured_TP=…:measured_LRA=…:measured_thresh=…:offset=…:linear=true" \
+  -ar 44100 -ac 1 -c:a pcm_s16le assets/audio/<voiceId>-NN.caf
+```
+
+(In practice the two-pass limiter often lands clips around −19 LUFS to stay under the
+peak ceiling — that's fine; what matters is that they all land at the **same** level.)
 
 ## Suggested lines (write your own — these set the feel)
 

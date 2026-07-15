@@ -14,6 +14,7 @@ import { day } from '@/theme/colors'
 // listed here show a preview button.
 const PREVIEW: Record<string, number> = {
   maria: require('../../assets/audio/maria-01.caf'),
+  rowan: require('../../assets/audio/rowan-01.caf'),
 }
 
 type Props = {

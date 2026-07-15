@@ -19,8 +19,12 @@ export interface Voice {
 }
 
 // Only voices with REAL recorded clips (assets/audio/<id>-NN.caf) belong here.
-// Right now that's just Maria; add more as their recordings land.
-export const VOICES: Voice[] = [{ id: 'maria', name: 'Maria' }]
+// Add more as their recordings land. All clips are loudness-normalized to a shared
+// target so every voice rings at the same volume (see docs/voice-clips.md).
+export const VOICES: Voice[] = [
+  { id: 'maria', name: 'Maria' },
+  { id: 'rowan', name: 'Rowan' },
+]
 
 /** The voice a new user gets until they choose one — Maria, the only voice with
  *  real recorded audio right now. */
