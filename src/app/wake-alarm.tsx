@@ -16,6 +16,7 @@ import { VoicePicker } from '@/components/VoicePicker'
 import { WakeTimePicker } from '@/components/WakeTimePicker'
 import { applyWakeAlarm, DEFAULT_VOICE, isAlarmAvailable } from '@/lib/alarm'
 import { errorMessage } from '@/lib/errors'
+import { requestNotificationPermission, syncReminders } from '@/lib/notifications'
 import { updateProfile, useProfile } from '@/lib/profile'
 import { day } from '@/theme/colors'
 
@@ -56,6 +57,9 @@ export default function WakeAlarmScreen() {
       const wakeTime = enabled ? time : null
       await updateProfile({ wakeEnabled: enabled, wakeTime, wakeVoice: voice })
       await applyWakeAlarm({ enabled, time: wakeTime, voice })
+      // Prompt for notification permission (when enabling) + re-arm the reminders.
+      if (enabled) await requestNotificationPermission()
+      await syncReminders({ wakeEnabled: enabled, wakeTime, firstName: profile?.first_name })
       await refresh()
       close()
     } catch (e) {

@@ -21,6 +21,7 @@ import { generatePlan } from '@/engine/generatePlan'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
+import { requestNotificationPermission, syncReminders } from '@/lib/notifications'
 import {
   saveOnboarding,
   useProfile,
@@ -251,6 +252,13 @@ export default function OnboardingScreen() {
         enabled: wakeEnabled,
         time: wakeEnabled ? wakeTime : null,
         voice: wakeVoice,
+      })
+      // Ask for notification permission and schedule the morning + evening reminders.
+      await requestNotificationPermission()
+      await syncReminders({
+        wakeEnabled,
+        wakeTime: wakeEnabled ? wakeTime : null,
+        firstName,
       })
       await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
       // No setSaving(false): the screen unmounts as the gate navigates away.

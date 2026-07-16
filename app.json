@@ -58,6 +58,7 @@
         }
       ],
       "expo-audio",
+      "expo-notifications",
       "./plugins/withWakeAudio"
     ],
     "experiments": {

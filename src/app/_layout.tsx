@@ -17,6 +17,7 @@ import { LaunchAnimation } from '@/components/LaunchAnimation'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
+import { syncReminders } from '@/lib/notifications'
 import { ProfileProvider, useProfile } from '@/lib/profile'
 import { getWeather } from '@/lib/weather'
 import { day } from '@/theme/colors'
@@ -112,6 +113,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       voice: profile.wake_voice ?? DEFAULT_VOICE,
     }).catch(() => {})
   }, [profile?.wake_enabled, profile?.wake_time, profile?.wake_voice])
+
+  // Keep the daily reminders (morning nudge + evening "set up tomorrow") in sync on
+  // every launch. No-op without notification permission; the evening reminder
+  // schedules even when the alarm is off.
+  useEffect(() => {
+    void syncReminders({
+      wakeEnabled: profile?.wake_enabled ?? false,
+      wakeTime: profile?.wake_time ?? null,
+      firstName: profile?.first_name,
+    })
+  }, [profile?.wake_enabled, profile?.wake_time, profile?.first_name])
 
   useEffect(() => {
     if (!ready) return
