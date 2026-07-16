@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Session } from '@supabase/supabase-js'
+import * as Linking from 'expo-linking'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AppState, Platform } from 'react-native'
 import { AUTH_STORAGE_KEY, supabase } from './supabase'
@@ -19,6 +20,11 @@ type AuthContextValue = {
   signUp: (email: string, password: string) => Promise<SignUpResult>
   /** Send a password-reset email. Errors surface as a message, null on success. */
   resetPassword: (email: string) => Promise<{ error: string | null }>
+  /** True once a password-reset link has been opened, until the new password is
+   *  set — the root gate holds the user on the reset screen while this is true. */
+  recovery: boolean
+  /** Set a new password (the reset-password screen, after a recovery link). */
+  updatePassword: (password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   /** Permanently delete the account + all data, then clear the local session. */
   deleteAccount: () => Promise<{ error: string | null }>
@@ -45,6 +51,9 @@ function friendlyAuthError(message: string): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [initializing, setInitializing] = useState(true)
+  // Set when the app is opened via a password-reset link; the root gate then holds
+  // the user on /reset-password until they set a new password.
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -77,9 +86,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Password-reset deep link. The reset email points at wake://reset-password with
+  // the recovery session in it (PKCE `?code=` or implicit `#access_token=`). We
+  // establish that session, then flip into recovery mode so the gate shows the
+  // set-new-password screen instead of routing into the app. (detectSessionInUrl is
+  // off on native, so we parse the URL ourselves.)
+  useEffect(() => {
+    if (Platform.OS === 'web') return
+    const handleUrl = async (url: string | null) => {
+      if (!url || !url.includes('reset-password')) return
+      try {
+        const code = url.match(/[?&]code=([^&]+)/)?.[1]
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(decodeURIComponent(code))
+        } else {
+          const params = new URLSearchParams(url.split('#')[1] ?? '')
+          const access_token = params.get('access_token')
+          const refresh_token = params.get('refresh_token')
+          if (access_token && refresh_token) {
+            await supabase.auth.setSession({ access_token, refresh_token })
+          }
+        }
+        setRecovery(true)
+      } catch {
+        // A malformed / expired link just leaves the user on sign-in.
+      }
+    }
+    void Linking.getInitialURL().then(handleUrl)
+    const sub = Linking.addEventListener('url', (e) => handleUrl(e.url))
+    return () => sub.remove()
+  }, [])
+
   const value: AuthContextValue = {
     session,
     initializing,
+    recovery,
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       return { error: error ? friendlyAuthError(error.message) : null }
@@ -91,8 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null, needsConfirmation: data.session === null }
     },
     resetPassword: async (email) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      // Point the reset link back into the app so it opens the set-new-password
+      // screen (add this URL to Supabase → Auth → URL Configuration → Redirect URLs).
+      const redirectTo = Linking.createURL('/reset-password')
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
       return { error: error ? friendlyAuthError(error.message) : null }
+    },
+    updatePassword: async (password) => {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) return { error: friendlyAuthError(error.message) }
+      setRecovery(false) // done — the gate resumes normal routing
+      return { error: null }
     },
     signOut: async () => {
       // Signing out must always work from this device's point of view. Supabase's

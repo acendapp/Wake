@@ -74,7 +74,7 @@ export default function RootLayout() {
 // first session check, and (when signed in) the profile + entitlement have all
 // resolved, so there's no flash of the wrong screen.
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
-  const { session, initializing } = useAuth()
+  const { session, initializing, recovery } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
   const { entitled, loading: entitlementLoading } = useEntitlement()
   // usePathname returns the clean, group-stripped path ('/sign-in', '/onboarding',
@@ -127,6 +127,12 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   useEffect(() => {
     if (!ready) return
+    // A password-reset link was opened — hold the user on the set-new-password
+    // screen (with the recovery session live) until they set a new password.
+    if (recovery) {
+      if (pathname !== '/reset-password') router.replace('/reset-password')
+      return
+    }
     const onSignIn = pathname === '/sign-in'
     const onOnboarding = pathname === '/onboarding'
     const onPaywall = pathname === '/paywall'
@@ -159,7 +165,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     }
     // Fully set up — keep them out of the pre-app screens.
     if (onSignIn || onOnboarding || onPaywall) router.replace('/')
-  }, [ready, session, profile, entitled, pathname, router])
+  }, [ready, recovery, session, profile, entitled, pathname, router])
 
   if (!everReady.current) return null
 
