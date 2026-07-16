@@ -520,7 +520,11 @@ export default function OnboardingScreen() {
           )}
 
           <Pressable
-            style={[styles.button, !buttonEnabled && styles.buttonDisabled]}
+            style={({ pressed }) => [
+              styles.button,
+              !buttonEnabled && styles.buttonDisabled,
+              pressed && buttonEnabled && { opacity: 0.88 },
+            ]}
             onPress={step === 7 ? createAccount : next}
             disabled={!buttonEnabled}
             accessibilityRole="button"
@@ -612,7 +616,7 @@ function ChoiceCard({
 }) {
   return (
     <Pressable
-      style={[styles.card, selected && styles.cardOn]}
+      style={({ pressed }) => [styles.card, selected && styles.cardOn, pressed && { opacity: 0.9 }]}
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}

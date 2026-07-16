@@ -131,7 +131,7 @@ export default function PaywallScreen() {
             return (
               <Pressable
                 key={plan.id}
-                style={[styles.plan, on && styles.planOn]}
+                style={({ pressed }) => [styles.plan, on && styles.planOn, pressed && { opacity: 0.92 }]}
                 onPress={() => {
                   hapticSelect()
                   setSelected(plan.id)
@@ -158,7 +158,7 @@ export default function PaywallScreen() {
         <Text style={styles.legal}>{legalCopy}</Text>
 
         <Pressable
-          style={[styles.cta, busy && styles.ctaDisabled]}
+          style={({ pressed }) => [styles.cta, busy && styles.ctaDisabled, pressed && !busy && { opacity: 0.88 }]}
           onPress={onStart}
           disabled={busy}
           accessibilityRole="button"

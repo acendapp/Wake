@@ -66,7 +66,11 @@ export default function ResetPasswordScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            style={[styles.button, !canSubmit && styles.buttonDisabled]}
+            style={({ pressed }) => [
+              styles.button,
+              !canSubmit && styles.buttonDisabled,
+              pressed && canSubmit && { opacity: 0.88 },
+            ]}
             onPress={submit}
             disabled={!canSubmit}
             accessibilityRole="button"

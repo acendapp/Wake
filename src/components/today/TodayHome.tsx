@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
   glanceLabel: {
     // Small system-font eyebrow under the value — same treatment as the date and
     // Focal Point labels (uppercase, tracked, muted), not the Playfair content face.
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1011,7 +1011,7 @@ const styles = StyleSheet.create({
     // More gap under the greeting. The divider flows beneath this row, so it
     // shifts down by the same amount automatically — the date↔divider gap holds.
     marginTop: 8,
-    fontSize: 8.5,
+    fontSize: 10,
     fontWeight: '500', // a touch heavier than the default 400
     // Uppercase + light tracking turns the date into a small eyebrow label.
     textTransform: 'uppercase',
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
   },
   focalLabel: {
     marginBottom: 20, // match the activity→icon gap below (graphBadge marginTop)
-    fontSize: 8.5, // same size as the date eyebrow in the header
+    fontSize: 10, // same treatment as the date eyebrow in the header
     fontWeight: '700', // a touch bolder still
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1272,7 +1272,7 @@ const styles = StyleSheet.create({
   sequenceTitle: {
     // Matches the date eyebrow exactly (system font, 8.5px, uppercase, tracked,
     // muted) per the request to mirror the date/day line's treatment.
-    fontSize: 8.5,
+    fontSize: 10,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1327,7 +1327,7 @@ const styles = StyleSheet.create({
   stepMinutes: {
     // Subtle right-aligned time estimate — reinforces the "if you have the time"
     // framing. Same muted eyebrow treatment as the other small labels.
-    fontSize: 8.5,
+    fontSize: 10,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
