@@ -26,6 +26,17 @@ const PACKAGE_FOR_PLAN: Record<PlanId, string> = {
 }
 
 type PurchasesModule = typeof import('react-native-purchases').default
+type StoreProduct = import('react-native-purchases').PurchasesStoreProduct
+
+/** Live, store-authoritative pricing for a plan, for display on the paywall. */
+export type PlanPricing = {
+  /** Localized recurring price exactly as the store charges it, e.g. "$59.99". */
+  priceString: string
+  /** Localized per-month equivalent (annual price ÷ 12), or null if not derivable. */
+  perMonthString: string | null
+  /** Free-trial length in days from the intro offer, or 0 if the plan has none. */
+  trialDays: number
+}
 
 let cached: PurchasesModule | null | undefined
 /** The native Purchases module if present in this binary, else null (cached). */
@@ -114,6 +125,66 @@ export async function restorePurchases(): Promise<boolean> {
     return !!info.entitlements.active[ENTITLEMENT_ID]
   } catch {
     return false
+  }
+}
+
+/** Days of free trial from a product's intro offer (0 when it isn't a free trial). */
+function trialDaysOf(prod: StoreProduct): number {
+  const intro = prod.introPrice
+  if (!intro || intro.price !== 0) return 0
+  const n = intro.periodNumberOfUnits ?? 0
+  switch (intro.periodUnit) {
+    case 'DAY':
+      return n
+    case 'WEEK':
+      return n * 7
+    case 'MONTH':
+      return n * 30
+    case 'YEAR':
+      return n * 365
+    default:
+      return 0
+  }
+}
+
+/** The per-month equivalent of an annual price, localized in the product's currency. */
+function perMonthOf(prod: StoreProduct): string | null {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: prod.currencyCode,
+    }).format(prod.price / 12)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Live pricing for the paywall, read from the current offering. Returns null when
+ * billing isn't configured (Expo Go / no key) or the offering can't be fetched, so
+ * the paywall falls back to its own copy. Only the plans actually present are keyed.
+ */
+export async function getPlanPricing(): Promise<Partial<Record<PlanId, PlanPricing>> | null> {
+  const P = await ensureConfigured()
+  if (!P) return null
+  try {
+    const current = (await P.getOfferings()).current
+    if (!current) return null
+    const out: Partial<Record<PlanId, PlanPricing>> = {}
+    for (const plan of ['annual', 'monthly'] as PlanId[]) {
+      const prod = current.availablePackages.find(
+        (p) => p.identifier === PACKAGE_FOR_PLAN[plan],
+      )?.product
+      if (!prod) continue
+      out[plan] = {
+        priceString: prod.priceString,
+        perMonthString: plan === 'annual' ? perMonthOf(prod) : null,
+        trialDays: trialDaysOf(prod),
+      }
+    }
+    return Object.keys(out).length ? out : null
+  } catch {
+    return null
   }
 }
 

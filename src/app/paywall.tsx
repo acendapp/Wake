@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { getPlanPricing, type PlanPricing } from '@/lib/billing'
 import { useEntitlement } from '@/lib/entitlement'
 import { hapticImpact, hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
@@ -13,9 +14,10 @@ import { day } from '@/theme/colors'
 // user here, so this screen never navigates itself — granting entitlement flips
 // the gate, which routes into the tabs.
 //
-// MOCK: there is no real billing. "Start Your Free Week" just calls grant().
-// When RevenueCat / StoreKit land (a dev build, not Expo Go), swap onStart for
-// the real purchase call and wire the footer links — nothing else changes.
+// Billing is real (RevenueCat — see lib/billing.ts): the CTA runs the store
+// purchase and the prices shown come live from the current offering. Without an
+// API key or the native module (Expo Go), it degrades to a device-local mock and
+// the hardcoded PLANS copy below, so the whole flow still works for testing.
 //
 // PAYWALL_MODE controls dismissibility. 'hard' = no escape; 'soft' = a real
 // "Not now" for everyone. Pre-launch/pre-PMF we ship 'soft' so a new user can
@@ -58,6 +60,19 @@ export default function PaywallScreen() {
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [pricing, setPricing] = useState<Partial<Record<PlanId, PlanPricing>> | null>(null)
+
+  // Pull live, localized prices from the store offering so the paywall never drifts
+  // from what's actually charged. Null (Expo Go / no key / offline) keeps the copy below.
+  useEffect(() => {
+    let active = true
+    void getPlanPricing().then((p) => {
+      if (active) setPricing(p)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // The gate usually unmounts this screen on success; guard the post-await setState
   // for the failure paths where it stays mounted.
@@ -95,10 +110,29 @@ export default function PaywallScreen() {
     // On success the gate routes away as entitlement flips.
   }
 
+  // Overlay live store prices onto the plan copy; fall back to the static PLANS
+  // whenever billing isn't configured (Expo Go, no key, offline).
+  const plans = PLANS.map((base) => {
+    const live = pricing?.[base.id]
+    if (!live) return base
+    if (base.id === 'annual') {
+      const priceLine =
+        live.trialDays > 0
+          ? `${live.trialDays} days free, then ${live.priceString}/year`
+          : `${live.priceString}/year`
+      return {
+        ...base,
+        price: priceLine,
+        detail: live.perMonthString ? `Just ${live.perMonthString}/month` : base.detail,
+      }
+    }
+    return { ...base, price: `${live.priceString}/month` }
+  })
+
   // The annual plan carries the 7-day trial; monthly bills immediately. Keep the
   // fine print and the CTA honest about whichever plan is actually selected.
   const isAnnual = selected === 'annual'
-  const monthlyPrice = PLANS.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
+  const monthlyPrice = plans.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
   const legalCopy = isAnnual
     ? 'Try your custom sequence free for 7 days. You won’t be charged until your trial ends. Cancel anytime in your system settings.'
     : `Billed ${monthlyPrice}, auto-renewing until you cancel. No free trial on the monthly plan. Cancel anytime in your system settings.`
@@ -126,7 +160,7 @@ export default function PaywallScreen() {
         </View>
 
         <View style={styles.plans}>
-          {PLANS.map((plan) => {
+          {plans.map((plan) => {
             const on = selected === plan.id
             return (
               <Pressable
