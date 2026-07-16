@@ -30,11 +30,13 @@ import {
   saveMorning,
   type DayRow,
 } from '@/lib/days'
+import { useEntitlement } from '@/lib/entitlement'
 import { errorMessage } from '@/lib/errors'
 import { hapticImpact, hapticSuccess } from '@/lib/haptics'
 import { getCelebratedMilestone, setCelebratedMilestone } from '@/lib/prefs'
 import { useProfile } from '@/lib/profile'
 import { REC, RECORDING } from '@/lib/recording'
+import { maybeRequestReview } from '@/lib/review'
 import { isAlarmOnly, isFocalOnly, tierShortLabel } from '@/lib/routineTier'
 import { computeTodayInsight, computeYouStats, milestoneReached } from '@/lib/stats'
 import { isEveningNow, logicalNow } from '@/lib/time'
@@ -92,6 +94,7 @@ function wrap(key: string, node: React.ReactNode) {
 export default function Index() {
   const router = useRouter()
   const { profile } = useProfile()
+  const { entitled } = useEntitlement()
 
   // Today's row (+ yesterday, for the "last night" read), reloaded whenever the
   // tab regains focus so a fresh reflection or check-in shows immediately.
@@ -642,7 +645,13 @@ export default function Index() {
     {celebration != null && (
       <StreakCelebration
         milestone={celebration}
-        onDismiss={() => setCelebration(null)}
+        onDismiss={() => {
+          const reached = celebration
+          setCelebration(null)
+          // A paid user who just celebrated a 7+ day streak is at a genuine high
+          // point — a great, non-annoying moment to ask for an App Store review.
+          if (reached != null && reached >= 7) void maybeRequestReview(entitled)
+        }}
       />
     )}
     </>,

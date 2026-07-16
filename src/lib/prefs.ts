@@ -57,3 +57,25 @@ export async function setCelebratedMilestone(milestone: number): Promise<void> {
     // Best-effort: worst case the celebration could re-show once.
   }
 }
+
+const REVIEW_ASKED_KEY = 'wake.reviewAskedAt'
+
+/** When we last asked for an App Store review (ms epoch), or 0 if never. */
+export async function getReviewAskedAt(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(REVIEW_ASKED_KEY)
+    const n = raw == null ? 0 : Number(raw)
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+/** Record that we just asked for a review, so we don't ask again for a while. */
+export async function setReviewAskedAt(ts: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(REVIEW_ASKED_KEY, String(ts))
+  } catch {
+    // Best-effort.
+  }
+}
