@@ -25,6 +25,9 @@ type AuthContextValue = {
   recovery: boolean
   /** Set a new password (the reset-password screen, after a recovery link). */
   updatePassword: (password: string) => Promise<{ error: string | null }>
+  /** Abandon a password reset: clears recovery + the recovery session so the gate
+   *  routes back to the signed-out onboarding flow (its first question). */
+  cancelRecovery: () => Promise<void>
   signOut: () => Promise<void>
   /** Permanently delete the account + all data, then clear the local session. */
   deleteAccount: () => Promise<{ error: string | null }>
@@ -147,6 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { error: friendlyAuthError(error.message) }
       setRecovery(false) // done — the gate resumes normal routing
       return { error: null }
+    },
+    cancelRecovery: async () => {
+      // Drop the recovery session + flag so the gate sends the user back to the
+      // signed-out onboarding flow instead of pinning them on the reset screen.
+      setRecovery(false)
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        // best-effort — the in-memory clear below still ends the session
+      }
+      setSession(null)
     },
     signOut: async () => {
       // Signing out must always work from this device's point of view. Supabase's

@@ -20,7 +20,7 @@ import { day } from '@/theme/colors'
 // just set the new password and hand routing back to the gate.
 
 export default function ResetPasswordScreen() {
-  const { updatePassword } = useAuth()
+  const { updatePassword, cancelRecovery } = useAuth()
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -39,6 +39,12 @@ export default function ResetPasswordScreen() {
     }
     // Password set + recovery cleared — the gate now routes into the app.
     router.replace('/')
+  }
+
+  const cancel = async () => {
+    // Clearing recovery + the session lets the gate route back to onboarding's
+    // first question on its own — no manual navigation (which would race the gate).
+    await cancelRecovery()
   }
 
   return (
@@ -80,6 +86,16 @@ export default function ResetPasswordScreen() {
             ) : (
               <Text style={styles.buttonLabel}>Save password</Text>
             )}
+          </Pressable>
+
+          <Pressable
+            onPress={cancel}
+            disabled={busy}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={({ pressed }) => [styles.cancel, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.cancelLabel}>Cancel</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -133,5 +149,15 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 17,
     color: day.onAccent,
+  },
+  cancel: {
+    alignItems: 'center',
+    marginTop: 18,
+    paddingVertical: 6,
+  },
+  cancelLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 15,
+    color: day.muted,
   },
 })
