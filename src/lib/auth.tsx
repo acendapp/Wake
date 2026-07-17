@@ -134,7 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword: async (email) => {
       // Point the reset link back into the app so it opens the set-new-password
       // screen (add this URL to Supabase → Auth → URL Configuration → Redirect URLs).
-      const redirectTo = Linking.createURL('/reset-password')
+      // Use the fixed app scheme, NOT Linking.createURL: in a dev build the latter
+      // resolves to the Metro dev-server URL (http://localhost…), so the email link
+      // points at localhost ("connection refused"). A constant wake:// deep link
+      // works in both dev and production and must match a Supabase Redirect URL.
+      const redirectTo = 'wake://reset-password'
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
       return { error: error ? friendlyAuthError(error.message) : null }
     },
