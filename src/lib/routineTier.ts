@@ -99,7 +99,7 @@ export type TierOption = {
  *  the real routine lengths ascending. */
 export const TIER_OPTIONS: TierOption[] = [
   { tier: 'alarm', label: 'Alarm only', sub: 'Just wake me — no routine.', requiresAlarm: true },
-  { tier: 'focal', label: 'Alarm + one action', sub: 'Wake, then your single focal move.', requiresAlarm: true },
+  { tier: 'focal', label: 'Alarm + one action', sub: 'Wake, then one high-impact action.', requiresAlarm: true },
   { tier: 5, label: '5 minutes', sub: 'A quick, essential routine.', requiresAlarm: false },
   { tier: 10, label: '10 minutes', sub: 'A fuller morning.', requiresAlarm: false },
   { tier: 15, label: '15 minutes', sub: 'The complete routine.', requiresAlarm: false },
