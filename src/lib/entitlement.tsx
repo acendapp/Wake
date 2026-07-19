@@ -111,7 +111,11 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       if (ok) setEntitled(true)
       return ok
     }
-    // No real billing yet — flip the mock so the flow can be exercised end-to-end.
+    // Billing isn't configured. In dev / Expo Go, flip the mock so the flow can be
+    // exercised end-to-end. In production this must NEVER grant access for free —
+    // fail closed so a misconfigured build (e.g. a missing RevenueCat key) can't
+    // hand out premium instead of taking payment.
+    if (!__DEV__) return false
     await setMockEntitled(true)
     setEntitled(true)
     return true
