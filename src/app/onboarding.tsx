@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
@@ -324,6 +325,10 @@ export default function OnboardingScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Cross-fade each step so questions dissolve into one another rather than
+              hard-swapping — same calm beat as the evening Reflect ritual. Keyed on
+              `step` so it remounts (and re-fades) only on a real step change. */}
+          <Animated.View key={step} entering={FadeIn.duration(240)}>
           {step === 1 && (
           <Question
             title="What do you want your mornings to do for you?"
@@ -503,6 +508,7 @@ export default function OnboardingScreen() {
             </View>
           </View>
         )}
+          </Animated.View>
         </ScrollView>
 
         <View style={styles.footer}>

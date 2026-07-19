@@ -176,7 +176,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           headerShown: false,
           contentStyle: { backgroundColor: BACKGROUND },
         }}
-      />
+      >
+        {/* The gate reaches these screens via router.replace(), which otherwise
+            snaps with no transition. A soft cross-fade turns the onboarding →
+            paywall → tabs journey (and the recovery bounce) into a calm dissolve
+            instead of an instant cut. Every other (pushed) screen keeps the
+            default slide, which is already smooth. */}
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen name="paywall" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="reset-password" options={{ animation: 'fade' }} />
+      </Stack>
       {!launchDone && <LaunchAnimation onDone={() => setLaunchDone(true)} />}
     </>
   )
