@@ -238,23 +238,30 @@ export default function OnboardingScreen() {
       })
       // Seed the device-local default so the evening routine stepper starts here.
       await setPreferredRoutineMinutes(routineMinutes)
-      // Arm the wake alarm if opted in (no-op until the native tier exists; the
-      // preference is already persisted above for a later dev build to pick up).
-      await applyWakeAlarm({
-        enabled: wakeEnabled,
-        time: wakeEnabled ? wakeTime : null,
-        voice: wakeVoice,
-      })
-      // Ask for notification permission and schedule the morning + evening reminders.
-      await requestNotificationPermission()
-      await syncReminders({
-        wakeEnabled,
-        wakeTime: wakeEnabled ? wakeTime : null,
-        firstName,
-      })
+      // Best-effort side effects — arming the alarm or scheduling reminders must
+      // never fail account creation. The profile is already saved + stamped
+      // onboarded above; a native alarm/notification rejection here used to throw
+      // the whole flow back to a generic "Something went wrong", stranding a user
+      // who actually has an account. Let them proceed to the paywall regardless.
+      try {
+        await applyWakeAlarm({
+          enabled: wakeEnabled,
+          time: wakeEnabled ? wakeTime : null,
+          voice: wakeVoice,
+        })
+        await requestNotificationPermission()
+        await syncReminders({
+          wakeEnabled,
+          wakeTime: wakeEnabled ? wakeTime : null,
+          firstName,
+        })
+      } catch (e) {
+        if (__DEV__) console.warn('[onboarding] post-save side effect failed (non-fatal)', e)
+      }
       await refresh() // onboarded → the gate routes to /paywall (not yet entitled)
       // No setSaving(false): the screen unmounts as the gate navigates away.
     } catch (e) {
+      if (__DEV__) console.warn('[onboarding] createAccount failed', e)
       setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
       setSaving(false)
     }
