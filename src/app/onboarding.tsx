@@ -134,7 +134,7 @@ const DEFAULT_WAKE_TIME = '07:00'
 
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
-  const { signUp, session } = useAuth()
+  const { signUp, session, signOut } = useAuth()
   const router = useRouter()
 
   // Onboarding opens straight on the first question — no welcome screen. Returning
@@ -299,7 +299,9 @@ export default function OnboardingScreen() {
         {/* Progress pips — question steps only. */}
         {step <= LAST_QUESTION ? <Progress current={step} /> : <View style={styles.flex} />}
 
-        {/* Sign in — available at any point, for returning (signed-out) users. */}
+        {/* Signed out: "Sign in" for returning users. Signed in but still in
+            onboarding (e.g. account made, onboarding not finished): "Sign out", so
+            no one gets stranded here with no way back out. */}
         {!session ? (
           <Pressable
             onPress={() => router.push('/sign-in')}
@@ -310,7 +312,14 @@ export default function OnboardingScreen() {
             <Text style={styles.headerSignIn}>Sign in</Text>
           </Pressable>
         ) : (
-          <View style={styles.headerSpacer} />
+          <Pressable
+            onPress={() => void signOut()}
+            hitSlop={12}
+            disabled={saving}
+            accessibilityRole="button"
+          >
+            <Text style={styles.headerSignIn}>Sign out</Text>
+          </Pressable>
         )}
       </View>
 
