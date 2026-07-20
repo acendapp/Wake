@@ -7,11 +7,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { PasswordInput } from '@/components/PasswordInput'
 import { useAuth } from '@/lib/auth'
 import { day } from '@/theme/colors'
 
@@ -23,10 +23,11 @@ export default function ResetPasswordScreen() {
   const { updatePassword, cancelRecovery } = useAuth()
   const router = useRouter()
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canSubmit = password.length >= 6 && !busy
+  const canSubmit = password.length >= 6 && password === confirmPassword && !busy
 
   const submit = async () => {
     setBusy(true)
@@ -57,18 +58,24 @@ export default function ResetPasswordScreen() {
           <Text style={styles.title}>Set a new password</Text>
           <Text style={styles.body}>Choose a new password for your account.</Text>
 
-          <TextInput
-            style={styles.input}
+          <PasswordInput
             value={password}
             onChangeText={setPassword}
             placeholder="New password"
-            placeholderTextColor={day.muted}
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="new-password"
-            textContentType="newPassword"
             editable={!busy}
+            inputStyle={styles.input}
           />
+          <PasswordInput
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm new password"
+            editable={!busy}
+            inputStyle={styles.input}
+            containerStyle={styles.confirmSpacing}
+          />
+          {confirmPassword.length > 0 && password !== confirmPassword ? (
+            <Text style={styles.mismatch}>Passwords don&rsquo;t match.</Text>
+          ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
@@ -132,6 +139,13 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   error: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13.5,
+    color: day.negative,
+    marginTop: 12,
+  },
+  confirmSpacing: { marginTop: 12 },
+  mismatch: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 13.5,
     color: day.negative,

@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,8 +17,8 @@ import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
+import { PasswordInput } from '@/components/PasswordInput'
 import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
-import { generatePlan } from '@/engine/generatePlan'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
@@ -132,10 +132,6 @@ const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
 // Where the wake-time picker starts before the user adjusts it.
 const DEFAULT_WAKE_TIME = '07:00'
 
-// Seed the routine preview's "readiness" from chronotype — early risers wake more
-// ready, slow starters less. A neutral day-difficulty gives a realistic first plan.
-const CHRONO_READINESS: Record<Chronotype, number> = { early: 6, neither: 5, late: 4 }
-
 export default function OnboardingScreen() {
   const { refresh } = useProfile()
   const { signUp, session } = useAuth()
@@ -164,6 +160,7 @@ export default function OnboardingScreen() {
   // Account is created at the end of the flow (step 6), once the user is invested.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -186,23 +183,17 @@ export default function OnboardingScreen() {
   // First name is required on the final step; the greeting depends on it.
   const nameReady = firstName.trim().length > 0
   const canCreateAccount =
-    nameReady && isValidEmail(email) && password.length >= 6 && !saving
+    nameReady &&
+    isValidEmail(email) &&
+    password.length >= 6 &&
+    password === confirmPassword &&
+    !saving
 
   // The account step (7) normally creates an account; if the user is already signed
   // in (e.g. they came in via the sign-in screen's create-account path), it just
   // saves — but a first name is still required either way.
   const buttonEnabled =
     step === 7 ? (needsAccount ? canCreateAccount : nameReady && !saving) : canAdvance && !saving
-
-  // A real, deterministic preview of the user's first morning, seeded from their
-  // answers — shown on the preview step BEFORE the account/paywall so the promised
-  // routine is delivered, not withheld. generatePlan is pure/synchronous.
-  const previewPlan = useMemo(() => {
-    const readiness = chronotype ? CHRONO_READINESS[chronotype] : 5
-    // Enough budget to show a real sequence even for the alarm-only / focal tiers.
-    const minutes = routineMinutes >= 5 ? routineMinutes : 10
-    return generatePlan({ readiness, dayDifficulty: 6, routineMinutes: minutes })
-  }, [chronotype, routineMinutes])
 
   const next = () => setStep((s) => s + 1)
   const back = () => setStep((s) => Math.max(FIRST_QUESTION, s - 1))
@@ -275,7 +266,7 @@ export default function OnboardingScreen() {
     return (
       <CurationLoader
         lines={curationLines(intent, chronotype, routineMinutes)}
-        onDone={() => setStep(6)}
+        onDone={() => setStep(7)}
       />
     )
   }
@@ -413,36 +404,6 @@ export default function OnboardingScreen() {
           </Question>
         )}
 
-        {step === 6 && (
-          <View>
-            <Text style={styles.questionTitle}>Here&rsquo;s your first morning.</Text>
-            <Text style={styles.caption}>
-              Built from your answers — your focal point, and a short sequence to
-              match. It sharpens a little more every day you use it.
-            </Text>
-
-            <View style={styles.previewCard}>
-              <Text style={styles.previewLabel}>Focal Point</Text>
-              <Text style={styles.previewFocal}>{previewPlan.oneThing.title}</Text>
-              {previewPlan.oneThing.example ? (
-                <Text style={styles.previewExample}>{previewPlan.oneThing.example}</Text>
-              ) : null}
-
-              {previewPlan.sequence.length > 0 && (
-                <>
-                  <View style={styles.previewDivider} />
-                  {previewPlan.sequence.map((s) => (
-                    <View key={s.slug} style={styles.previewStep}>
-                      <View style={styles.previewDot} />
-                      <Text style={styles.previewStepText}>{s.title}</Text>
-                    </View>
-                  ))}
-                </>
-              )}
-            </View>
-          </View>
-        )}
-
         {step === 7 && (
           <View>
             <Text style={styles.questionTitle}>Save your routine.</Text>
@@ -491,18 +452,23 @@ export default function OnboardingScreen() {
                     textContentType="emailAddress"
                     editable={!saving}
                   />
-                  <TextInput
-                    style={styles.input}
+                  <PasswordInput
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Password"
-                    placeholderTextColor={day.muted}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoComplete="new-password"
-                    textContentType="newPassword"
                     editable={!saving}
+                    inputStyle={styles.input}
                   />
+                  <PasswordInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm password"
+                    editable={!saving}
+                    inputStyle={styles.input}
+                  />
+                  {confirmPassword.length > 0 && password !== confirmPassword ? (
+                    <Text style={styles.mismatch}>Passwords don&rsquo;t match.</Text>
+                  ) : null}
                 </>
               )}
             </View>
@@ -937,56 +903,11 @@ const styles = StyleSheet.create({
     marginTop: 28,
     gap: 14,
   },
-  previewCard: {
-    marginTop: 26,
-    backgroundColor: day.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: day.border,
-    borderRadius: 20,
-    padding: 22,
-  },
-  previewLabel: {
-    fontFamily: 'PlayfairDisplay_500Medium',
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: day.gold,
-    marginBottom: 8,
-  },
-  previewFocal: {
-    fontFamily: 'PlayfairDisplay_600SemiBold',
-    fontSize: 22,
-    lineHeight: 28,
-    color: day.text,
-  },
-  previewExample: {
+  mismatch: {
     fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 15,
-    lineHeight: 22,
-    color: day.muted,
-    marginTop: 6,
-  },
-  previewDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: day.border,
-    marginVertical: 16,
-  },
-  previewStep: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 6,
-  },
-  previewDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: day.gold,
-  },
-  previewStepText: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 16,
-    color: day.text,
+    fontSize: 13.5,
+    color: day.negative,
+    marginTop: -6,
   },
   input: {
     fontFamily: 'PlayfairDisplay_400Regular',
