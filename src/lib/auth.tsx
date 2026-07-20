@@ -89,28 +89,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Password-reset deep link. The reset email points at wake://reset-password with
-  // the recovery session in it (PKCE `?code=` or implicit `#access_token=`). We
-  // establish that session, then flip into recovery mode so the gate shows the
-  // set-new-password screen instead of routing into the app. (detectSessionInUrl is
-  // off on native, so we parse the URL ourselves.)
+  // Password-reset deep link. The reset email sends the user to wake://reset-password
+  // with the recovery credential attached. Depending on the auth flow it arrives as a
+  // PKCE `?code=`, a `?token_hash=` (verifyOtp), or an implicit `#access_token=`
+  // fragment — we handle all three. Critically, we only enter recovery mode once a
+  // session has actually landed, so we never show the reset screen with no session
+  // (which made "Save" fail with "Auth session missing"). detectSessionInUrl is off on
+  // native, so we parse the URL ourselves.
   useEffect(() => {
     if (Platform.OS === 'web') return
     const handleUrl = async (url: string | null) => {
       if (!url || !url.includes('reset-password')) return
       try {
-        const code = url.match(/[?&]code=([^&]+)/)?.[1]
+        const query = new URLSearchParams(url.split('#')[0].split('?')[1] ?? '')
+        const fragment = new URLSearchParams(url.split('#')[1] ?? '')
+        const code = query.get('code')
+        const tokenHash = query.get('token_hash') ?? query.get('token')
+        const accessToken = fragment.get('access_token') ?? query.get('access_token')
+        const refreshToken = fragment.get('refresh_token') ?? query.get('refresh_token')
+
         if (code) {
-          await supabase.auth.exchangeCodeForSession(decodeURIComponent(code))
-        } else {
-          const params = new URLSearchParams(url.split('#')[1] ?? '')
-          const access_token = params.get('access_token')
-          const refresh_token = params.get('refresh_token')
-          if (access_token && refresh_token) {
-            await supabase.auth.setSession({ access_token, refresh_token })
-          }
+          await supabase.auth.exchangeCodeForSession(code)
+        } else if (tokenHash) {
+          await supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash })
+        } else if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         }
-        setRecovery(true)
+
+        // Only hold the user on the reset screen if a recovery session truly exists.
+        const { data } = await supabase.auth.getSession()
+        if (data.session) setRecovery(true)
       } catch {
         // A malformed / expired link just leaves the user on sign-in.
       }

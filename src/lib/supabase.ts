@@ -32,5 +32,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     // No URL-based session detection on native (that's a web OAuth concern).
     detectSessionInUrl: false,
+    // PKCE flow: password-reset / email links come back as a `?code=` query param,
+    // which survives the redirect to our custom `wake://` scheme. The default
+    // implicit flow returns tokens in a `#fragment`, which iOS often drops when
+    // handing off to a custom scheme — leaving the reset screen with no session.
+    flowType: 'pkce',
   },
 })
