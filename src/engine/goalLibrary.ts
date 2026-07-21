@@ -465,7 +465,7 @@ export const GOAL_LIBRARY: Goal[] = [
     label: 'steady fuel',
     category: 'nutrition',
     scope: 'routine',
-    states: ['deficit'],
+    states: ['deficit', 'aligned', 'surplus'],
     intents: ['energize', 'focus'],
     priority: 56,
     variants: [
@@ -738,6 +738,129 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'Your body can take the load — bank the adaptation while you can.',
         category: 'movement',
         estMinutes: 45,
+      },
+    ],
+  },
+
+  // ── Catalog additions (behavioral-science content audit) ─────────────────
+  // A real meditation practice — the app positions as replacing a meditation app,
+  // but the only mindfulness move was a 2-min downshift; this gives the 10/15-min
+  // tiers an actual sit and a headline reason to exist.
+  {
+    slug: 'meditate',
+    label: 'train attention',
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['calm', 'focus'],
+    priority: 66,
+    variants: [
+      {
+        slug: 'meditate-10',
+        title: 'Meditate',
+        example: 'ten minutes following your breath — guided or in silence, whatever settles you.',
+        description: 'A short sit trains attention and lowers reactivity for the whole day.',
+        category: 'focus',
+        estMinutes: 10,
+      },
+      {
+        slug: 'meditate-5',
+        title: 'Meditate',
+        example: 'five quiet minutes noticing the breath; when the mind wanders, come back.',
+        description: 'A short sit trains attention and lowers reactivity for the whole day.',
+        category: 'focus',
+        estMinutes: 5,
+      },
+    ],
+  },
+  // Balanced breakfast for aligned/surplus mornings — nutrition was one deficit-only
+  // move, so a steady or high-capacity morning was never offered breakfast at all.
+  {
+    slug: 'fuel-well',
+    label: 'eat for a steady curve',
+    category: 'nutrition',
+    scope: 'routine',
+    states: ['aligned', 'surplus'],
+    intents: ['energize', 'focus'],
+    priority: 54,
+    variants: [
+      {
+        slug: 'fuel-well-8',
+        title: 'Eat a real breakfast',
+        example: 'protein plus something whole — eggs and fruit, yogurt and oats.',
+        description: 'A balanced first meal holds energy flat instead of spiking then crashing.',
+        category: 'nutrition',
+        estMinutes: 8,
+      },
+      {
+        slug: 'fuel-well-3',
+        title: 'Eat a real breakfast',
+        example: 'grab something with protein and fiber on the way — not just a pastry.',
+        description: 'A balanced first meal holds energy flat instead of spiking then crashing.',
+        category: 'nutrition',
+        estMinutes: 3,
+      },
+    ],
+  },
+  // Concrete task-prioritization — the single highest-evidence productivity ritual
+  // (identify your top few). Distinct from set-intention (feeling/tone).
+  {
+    slug: 'plan-day',
+    label: "set the day's targets",
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['focus'],
+    priority: 63,
+    variants: [
+      {
+        slug: 'plan-day-3',
+        title: "Choose today's top three",
+        example: 'write the three things that, if done, make today a win.',
+        description: 'A short ranked list turns a vague day into a plan you can act on.',
+        category: 'focus',
+        estMinutes: 3,
+      },
+    ],
+  },
+  // Caffeine guidance for surplus mornings (deficit + aligned already covered).
+  {
+    slug: 'time-caffeine',
+    label: 'caffeine timing',
+    category: 'caffeine',
+    scope: 'routine',
+    states: ['surplus'],
+    intents: ['focus', 'energize'],
+    priority: 50,
+    variants: [
+      {
+        slug: 'time-caffeine-1',
+        title: 'Time caffeine to the work',
+        example: 'save the cup for your first hard block, not the moment you wake.',
+        description: 'Spending caffeine on a peak you already have wastes it; aim it at the climb.',
+        category: 'caffeine',
+        estMinutes: 1,
+      },
+    ],
+  },
+  // A surplus-specific routine move so a high-capacity morning feels different from
+  // aligned — the flattering, shareable state deserves its own payoff.
+  {
+    slug: 'stretch-goal',
+    label: 'use the surplus',
+    category: 'focus',
+    scope: 'routine',
+    states: ['surplus'],
+    intents: ['focus', 'energize'],
+    priority: 58,
+    variants: [
+      {
+        slug: 'stretch-goal-2',
+        title: 'Set a stretch goal',
+        example: "name one thing to push further than usual today, while you've got the capacity.",
+        description: 'A surplus morning is the day to reach — spend the extra readiness on purpose.',
+        category: 'focus',
+        estMinutes: 2,
       },
     ],
   },
