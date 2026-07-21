@@ -10,9 +10,14 @@ import { day } from '@/theme/colors'
 // on-brand — serif numeral, sunrise motif, warm gold — not confetti.
 
 const LINES: Record<number, string> = {
+  1: 'Day one. Every good morning starts here.',
+  2: 'Two in a row — the hardest part is starting, and you did.',
   3: 'Three mornings in a row. The habit is taking hold.',
+  5: 'Five mornings. A pattern is forming.',
   7: 'A full week of good mornings. This is who you are now.',
+  10: 'Ten straight. Double digits.',
   14: 'Two weeks straight — most people never get here.',
+  21: 'Twenty-one mornings — long enough to be a habit now.',
   30: 'Thirty mornings. A month of rising well.',
   50: 'Fifty mornings. Waking well has become automatic.',
   75: 'Seventy-five mornings. Quietly remarkable.',

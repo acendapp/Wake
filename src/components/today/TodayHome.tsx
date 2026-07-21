@@ -458,8 +458,8 @@ export function TodayHome({
                 </>
               ) : (
                 <>
-                  <Text style={styles.wakeTitle}>Wake up to a voice you choose</Text>
-                  <Text style={styles.wakeSub}>Set your morning alarm →</Text>
+                  <Text style={styles.wakeTitle}>No blaring alarm. Just a voice.</Text>
+                  <Text style={styles.wakeSub}>Choose your voice and time →</Text>
                 </>
               )}
             </View>

@@ -35,7 +35,7 @@ export const METRIC_LABEL: Record<Metric, string> = { energy: 'Energy', mood: 'M
 // Streak lengths worth a one-time celebration. Crossing one fires the celebration
 // moment (see StreakCelebration); the last-celebrated value is persisted in prefs
 // so it fires exactly once.
-export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 75, 100, 150, 200, 365] as const
+export const STREAK_MILESTONES = [1, 2, 3, 5, 7, 10, 14, 21, 30, 50, 75, 100, 150, 200, 365] as const
 
 /**
  * The highest milestone the given streak has reached, or null if it hasn't reached

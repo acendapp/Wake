@@ -10,7 +10,6 @@ import type { Plan } from '../engine/types'
 describe('milestoneReached', () => {
   it('returns null below the first milestone', () => {
     expect(milestoneReached(0)).toBeNull()
-    expect(milestoneReached(2)).toBeNull()
   })
 
   it('fires exactly on a milestone value', () => {
@@ -21,9 +20,9 @@ describe('milestoneReached', () => {
 
   it('returns the highest milestone reached, not exact-match only', () => {
     // A user who didn't open on the exact day still gets the last milestone.
-    expect(milestoneReached(5)).toBe(3)
-    expect(milestoneReached(13)).toBe(7)
-    expect(milestoneReached(29)).toBe(14)
+    expect(milestoneReached(6)).toBe(5)
+    expect(milestoneReached(13)).toBe(10)
+    expect(milestoneReached(29)).toBe(21)
     expect(milestoneReached(1000)).toBe(365)
   })
 })

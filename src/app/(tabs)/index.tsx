@@ -362,7 +362,7 @@ export default function Index() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.altWrap}>
           <View>
-            <Text style={styles.altEyebrow}>Hmm</Text>
+            <Text style={styles.altEyebrow}>A hiccup</Text>
             <Text style={styles.altTitle}>We couldn&rsquo;t load today.</Text>
             <Text style={styles.altBody}>{loadError}</Text>
           </View>

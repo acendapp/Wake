@@ -40,13 +40,13 @@ const PLANS: {
 }[] = [
   {
     id: 'annual',
-    name: 'Commit Annually',
+    name: 'Yearly',
     price: '7 days free, then $59.99/year',
     detail: 'Just $4.99/month',
   },
   {
     id: 'monthly',
-    name: 'Flexible Monthly',
+    name: 'Monthly',
     price: '$9.99/month',
     detail: 'No trial included',
   },

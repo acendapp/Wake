@@ -241,7 +241,7 @@ export default function ReflectScreen() {
       void pregenerateTomorrow(logicalDate())
       if (mounted.current) setPhase('done')
     } catch (e) {
-      if (mounted.current) setSaveError(errorMessage(e, 'Could not save. Please try again.'))
+      if (mounted.current) setSaveError(errorMessage(e, 'Couldn’t save just now — give it another try.'))
     } finally {
       if (mounted.current) setSaving(false)
     }

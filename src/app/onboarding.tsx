@@ -262,7 +262,7 @@ export default function OnboardingScreen() {
       // No setSaving(false): the screen unmounts as the gate navigates away.
     } catch (e) {
       if (__DEV__) console.warn('[onboarding] createAccount failed', e)
-      setError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
+      setError(e instanceof Error ? e.message : 'That didn’t go through. Give it another try.')
       setSaving(false)
     }
   }
