@@ -158,6 +158,14 @@ export const GOAL_LIBRARY: Goal[] = [
     priority: 52,
     variants: [
       {
+        slug: 'gratitude-3',
+        title: 'Name something good',
+        example: 'write three things that went right lately, and why they did.',
+        description: 'A small gratitude beat steadies mood before the day pulls at it.',
+        category: 'focus',
+        estMinutes: 3,
+      },
+      {
         slug: 'gratitude-1',
         title: 'Name something good',
         example: "one thing you're grateful for — said out loud or written down.",
@@ -176,6 +184,14 @@ export const GOAL_LIBRARY: Goal[] = [
     intents: ['calm', 'energize', 'focus'],
     priority: 40,
     variants: [
+      {
+        slug: 'hydrate-salt-2',
+        title: 'Hydrate',
+        example: 'water with a pinch of salt or electrolytes — you lose both overnight.',
+        description: 'You wake up dehydrated and low on sodium; replacing both sharpens early focus.',
+        category: 'hydration',
+        estMinutes: 2,
+      },
       {
         slug: 'hydrate-1',
         title: 'Hydrate',
@@ -299,6 +315,14 @@ export const GOAL_LIBRARY: Goal[] = [
     intents: ['focus', 'calm'],
     priority: 62,
     variants: [
+      {
+        slug: 'clear-head-8',
+        title: 'Clear your head',
+        example: 'fill a page, whatever comes — morning pages, no editing.',
+        description: 'Getting thoughts out of your head frees up attention for the day.',
+        category: 'focus',
+        estMinutes: 8,
+      },
       {
         slug: 'clear-head-4',
         title: 'Clear your head',
@@ -651,6 +675,14 @@ export const GOAL_LIBRARY: Goal[] = [
     intents: ['focus'],
     priority: 64,
     variants: [
+      {
+        slug: 'read-12',
+        title: 'Read',
+        example: 'a proper dozen minutes in a good book while your mind is fresh.',
+        description: 'A little input while you’re sharp sets a thinking tone for the day.',
+        category: 'focus',
+        estMinutes: 12,
+      },
       {
         slug: 'read-6',
         title: 'Read',
