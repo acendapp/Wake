@@ -28,6 +28,7 @@ import { day } from '@/theme/colors'
 const PRELOAD_IMAGES = [
   require('../../assets/images/valley.jpg'),
   require('../../assets/images/welcome-bg.jpg'),
+  require('../../assets/images/reflect-bg.jpg'),
 ]
 
 // Warm pale cream that fills the whole app.

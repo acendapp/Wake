@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -54,6 +54,17 @@ const SAMPLE_PLAN = generatePlan({
 
 // 'home' (sample only: the populated Today view) → 'focal' → 'sequence'
 type Phase = 'home' | 'focal' | 'sequence'
+
+// Fade each top-level screen state in so loading → content and the error / empty
+// states never hard-cut (mirrors Today's state fader). Keyed per state so it
+// re-animates only on a real state change.
+function wrap(key: string, node: ReactNode) {
+  return (
+    <Animated.View key={key} entering={FadeIn.duration(260)} style={{ flex: 1 }}>
+      {node}
+    </Animated.View>
+  )
+}
 
 export default function RoutineScreen() {
   const router = useRouter()
@@ -162,16 +173,18 @@ export default function RoutineScreen() {
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
-    return (
+    return wrap(
+      'loading',
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Loading label="Getting your morning…" />
-      </SafeAreaView>
+      </SafeAreaView>,
     )
   }
 
   // ── Load failed (network/store error, not "not checked in") ──────────────────
   if (loadError) {
-    return (
+    return wrap(
+      'error',
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Header onClose={close} />
         <View style={styles.emptyWrap}>
@@ -212,7 +225,8 @@ export default function RoutineScreen() {
 
   // ── No plan yet (deep link / not checked in) ────────────────────────────────
   if (!plan || !focal) {
-    return (
+    return wrap(
+      'empty',
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Header onClose={close} />
         <View style={styles.emptyWrap}>

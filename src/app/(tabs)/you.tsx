@@ -149,13 +149,21 @@ function memberSince(createdAt: string | undefined): string | null {
 /** Eased count-up for hero numbers (0 → target over `duration` ms). */
 function useCountUp(target: number, duration = 900): number {
   const [value, setValue] = useState(0)
+  // Animate from the last shown value, not from 0 — so a stats refresh that nudges
+  // the streak (e.g. 12 → 13 after a check-in) ticks smoothly instead of snapping
+  // back to 0 and counting up again. First mount starts at 0, so the hero still
+  // counts up on open.
+  const from = useRef(0)
   useEffect(() => {
+    const base = from.current
     let raf: number
     const start = Date.now()
     const tick = () => {
       const t = Math.min(1, (Date.now() - start) / duration)
       const eased = 1 - Math.pow(1 - t, 3)
-      setValue(Math.round(target * eased))
+      const current = Math.round(base + (target - base) * eased)
+      setValue(current)
+      from.current = current
       if (t < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
