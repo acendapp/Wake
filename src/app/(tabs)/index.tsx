@@ -34,6 +34,7 @@ import {
 import { useEntitlement } from '@/lib/entitlement'
 import { errorMessage } from '@/lib/errors'
 import { hapticImpact, hapticSuccess } from '@/lib/haptics'
+import { syncReminders } from '@/lib/notifications'
 import {
   DEFAULT_ROUTINE_MINUTES,
   getCelebratedMilestone,
@@ -298,6 +299,18 @@ export default function Index() {
   const wokeOnly = today?.woke_at != null && !checkedIn
   const alarmOnlyPlanned = isAlarmOnly(effRoutineMinutes) && !checkedIn
   const restedToday = (wokeOnly || alarmOnlyPlanned) && !startRoutineAnyway && !isEvening
+
+  // Re-arm the local reminders with the live streak + whether tonight's reflection is
+  // done, so the evening nudge invokes loss aversion and never nags after reflecting.
+  useEffect(() => {
+    void syncReminders({
+      wakeEnabled: profile?.wake_enabled ?? false,
+      wakeTime: profile?.wake_time ?? null,
+      firstName: profile?.first_name,
+      streak: streak ?? 0,
+      reflectedToday,
+    })
+  }, [streak, reflectedToday, profile?.wake_enabled, profile?.wake_time, profile?.first_name])
 
   // First name from the onboarding profile; falls back gracefully for any older
   // account created before names were collected.
