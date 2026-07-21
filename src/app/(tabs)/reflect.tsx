@@ -21,7 +21,7 @@ import { Scale } from '@/components/reflect/Scale'
 import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
 import type { ReadinessState } from '@/engine/types'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
-import { addDays, getDay, logicalDate, saveEvening } from '@/lib/days'
+import { addDays, getDay, logicalDate, peekDay, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
 import {
@@ -102,9 +102,21 @@ export default function ReflectScreen() {
   // e.g. the app reloaded since), every answer is restored from the two rows it
   // was written to and the screen resumes on the done phase, where "Edit tonight's
   // check-in" reopens the flow with those answers — never a blank intro.
-  const [morningCall, setMorningCall] = useState(NO_MORNING_RECAP)
+  // Seed from the day cache (Today warms it) so the personalized recap + a restored
+  // "done" phase are correct on first paint — no swap from the fallback text, and no
+  // flash of the intro before a saved reflection restores. The effect below still runs
+  // to confirm and to load the full answer set (for editing) when the cache is cold.
+  const [morningCall, setMorningCall] = useState(() => {
+    const row = peekDay(logicalDate())
+    return row?.state && row.day_difficulty != null
+      ? recapLine(row.state, row.day_difficulty)
+      : NO_MORNING_RECAP
+  })
 
-  const [phase, setPhase] = useState<Phase>('intro')
+  const [phase, setPhase] = useState<Phase>(() => {
+    const row = peekDay(logicalDate())
+    return row?.evening_completed_at ? 'done' : 'intro'
+  })
   const [step, setStep] = useState(0)
 
   // The flow is a fixed three beats now, so the step list never changes.

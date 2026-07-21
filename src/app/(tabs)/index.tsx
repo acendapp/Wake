@@ -27,6 +27,7 @@ import {
   daysForStats,
   getDay,
   logicalDate,
+  peekDay,
   saveMorning,
   type DayRow,
 } from '@/lib/days'
@@ -218,6 +219,11 @@ export default function Index() {
 
   useFocusEffect(
     useCallback(() => {
+      // Paint the freshest known row synchronously before the network refetch, so
+      // returning from Reflect (which just wrote evening_completed_at) shows the
+      // post-reflection view at once — not a flash of the pre-reflection home.
+      const cached = peekDay(logicalDate())
+      if (cached !== undefined) setToday(cached)
       load()
     }, [load]),
   )

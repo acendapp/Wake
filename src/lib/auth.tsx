@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import * as Linking from 'expo-linking'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { AppState, Platform } from 'react-native'
+import { clearDayCache } from './days'
 import { AUTH_STORAGE_KEY, supabase } from './supabase'
 
 // App-wide auth state, backed by Supabase. The session is restored from
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setInitializing(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!next) clearDayCache() // sign-out / user switch: drop cached day rows
       setSession(next)
     })
 

@@ -79,6 +79,33 @@ async function currentUserId(): Promise<string> {
   return data.user.id
 }
 
+// Write-through in-memory cache of day rows. Lets a screen returning to focus paint
+// the freshest known row synchronously (peekDay) — no network flash — while it still
+// revalidates via getDay. Keyed by local_date for the current user; a user change
+// (or sign-out via clearDayCache) drops it so one account never sees another's rows.
+let cacheUserId: string | null = null
+const dayCache = new Map<string, DayRow | null>()
+
+function cachePut(userId: string, date: string, row: DayRow | null): void {
+  if (cacheUserId !== userId) {
+    dayCache.clear()
+    cacheUserId = userId
+  }
+  dayCache.set(date, row)
+}
+
+/** The last-known row for a date, synchronously (undefined if never loaded). A
+ *  best-effort optimistic value — callers still revalidate with getDay. */
+export function peekDay(date: string): DayRow | null | undefined {
+  return dayCache.get(date)
+}
+
+/** Drop all cached rows — call on sign-out so the next user starts clean. */
+export function clearDayCache(): void {
+  dayCache.clear()
+  cacheUserId = null
+}
+
 async function upsertDay(
   userId: string,
   date: string,
@@ -95,7 +122,9 @@ async function upsertDay(
     .select()
     .single()
   if (error) throw error
-  return data as DayRow
+  const row = data as DayRow
+  cachePut(userId, date, row)
+  return row
 }
 
 /** Read one day's row, or null if it doesn't exist yet. */
@@ -108,7 +137,9 @@ export async function getDay(date: string): Promise<DayRow | null> {
     .eq('local_date', date)
     .maybeSingle()
   if (error) throw error
-  return (data as DayRow) ?? null
+  const row = (data as DayRow) ?? null
+  cachePut(userId, date, row)
+  return row
 }
 
 /**
