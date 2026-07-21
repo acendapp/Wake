@@ -162,9 +162,20 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   // not count toward the number, and a two-day gap (or a second gap) still breaks
   // the run.
   let current = 0
-  const anchor = activeIdx.has(todayIdx) ? todayIdx : activeIdx.has(todayIdx - 1) ? todayIdx - 1 : null
+  // Anchor the current run at today, else yesterday, else the day before — the last
+  // case covers a still-alive run whose single grace day was yesterday's miss while
+  // today is merely un-logged (not yet a miss). Pre-consuming grace there keeps a
+  // hard-won streak from reading 0 all morning before the day's check-in.
+  let anchor: number | null = null
+  let preGrace = false
+  if (activeIdx.has(todayIdx)) anchor = todayIdx
+  else if (activeIdx.has(todayIdx - 1)) anchor = todayIdx - 1
+  else if (activeIdx.has(todayIdx - 2)) {
+    anchor = todayIdx - 2
+    preGrace = true
+  }
   if (anchor !== null) {
-    let graceUsed = false
+    let graceUsed = preGrace
     for (let i = anchor; ; i--) {
       if (activeIdx.has(i)) current++
       else if (!graceUsed && activeIdx.has(i - 1)) graceUsed = true // bridge one gap

@@ -85,6 +85,17 @@ describe('computeYouStats — streak', () => {
     expect(s.streak.current).toBe(2)
   })
 
+  it('keeps a still-alive streak visible before check-in when yesterday was the grace day', () => {
+    // Ran 06-01..06-03, missed 06-04 (the one grace day), today (06-05) not logged
+    // yet. The run is still alive and must read 3 all morning — not collapse to 0
+    // until the check-in re-anchors it.
+    const rows = ['2026-06-01', '2026-06-02', '2026-06-03'].map((d) =>
+      mk(d, { morning_completed_at: M }),
+    )
+    const s = computeYouStats(rows, '2026-06-05') // 06-04 missed, 06-05 un-logged
+    expect(s.streak.current).toBe(3)
+  })
+
   it('breaks the current streak after a two-day gap, but remembers the best', () => {
     const rows = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-08'].map((d) =>
       mk(d, { morning_completed_at: M }),

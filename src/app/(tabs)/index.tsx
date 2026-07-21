@@ -34,7 +34,12 @@ import {
 import { useEntitlement } from '@/lib/entitlement'
 import { errorMessage } from '@/lib/errors'
 import { hapticImpact, hapticSuccess } from '@/lib/haptics'
-import { getCelebratedMilestone, setCelebratedMilestone } from '@/lib/prefs'
+import {
+  DEFAULT_ROUTINE_MINUTES,
+  getCelebratedMilestone,
+  getPreferredRoutineMinutes,
+  setCelebratedMilestone,
+} from '@/lib/prefs'
 import { useProfile } from '@/lib/profile'
 import { REC, RECORDING } from '@/lib/recording'
 import { maybeRequestReview } from '@/lib/review'
@@ -101,6 +106,10 @@ export default function Index() {
   // tab regains focus so a fresh reflection or check-in shows immediately.
   const [loading, setLoading] = useState(true)
   const [today, setToday] = useState<DayRow | null>(null)
+  // The standing routine-tier preference (onboarding / settings). Today's own
+  // routine_minutes is written only by an evening reflection, so before that — the
+  // critical first morning — fall back to this so the chosen tier is honored.
+  const [preferredMinutes, setPreferredMinutes] = useState<number | null>(null)
   const [yesterday, setYesterday] = useState<DayRow | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -261,6 +270,12 @@ export default function Index() {
     }
   }, [streak])
 
+  // Load the standing routine-tier preference once — used until an evening
+  // reflection writes today's own routine_minutes.
+  useEffect(() => {
+    void getPreferredRoutineMinutes().then(setPreferredMinutes)
+  }, [])
+
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
   const now = logicalNow()
@@ -277,8 +292,11 @@ export default function Index() {
   // alarm (woke_at set), OR they pre-committed the alarm-only tier in last night's
   // reflection. Either way, show the calm rested state instead of nagging the
   // check-in — unless they've since asked to set up their morning after all.
+  // The day's tier: today's own routine_minutes once an evening reflection has set
+  // it, otherwise the standing preference (so the first morning honors onboarding).
+  const effRoutineMinutes = today?.routine_minutes ?? preferredMinutes ?? DEFAULT_ROUTINE_MINUTES
   const wokeOnly = today?.woke_at != null && !checkedIn
-  const alarmOnlyPlanned = isAlarmOnly(today?.routine_minutes) && !checkedIn
+  const alarmOnlyPlanned = isAlarmOnly(effRoutineMinutes) && !checkedIn
   const restedToday = (wokeOnly || alarmOnlyPlanned) && !startRoutineAnyway && !isEvening
 
   // First name from the onboarding profile; falls back gracefully for any older
@@ -296,7 +314,7 @@ export default function Index() {
       const plan = resolveMorningPlan({
         readiness: readinessInput,
         dayDifficulty,
-        routineMinutes: today?.routine_minutes,
+        routineMinutes: effRoutineMinutes,
         intent: profile?.intent,
         options: today?.plan_options,
       })
@@ -629,8 +647,8 @@ export default function Index() {
       // Live progress from the /routine screen (refreshed by the focus-reload).
       completedSlugs={row.completed_slugs ?? []}
       lastNight={lastNightWord(yesterday?.energy)}
-      routineTime={row.routine_minutes != null ? tierShortLabel(row.routine_minutes) : '—'}
-      focalOnly={isFocalOnly(row.routine_minutes)}
+      routineTime={tierShortLabel(effRoutineMinutes)}
+      focalOnly={isFocalOnly(effRoutineMinutes)}
       insight={insight}
       streak={streak}
       // A failed focus-reload (stale data still showing) surfaces here, tap to retry.
