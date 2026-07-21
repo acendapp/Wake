@@ -1,4 +1,4 @@
-import type { Plan, ReadinessState } from '../engine/types'
+import type { ReadinessState } from '../engine/types'
 
 // The You-page stats pipeline. This module is PURE (rows in → numbers out) and
 // imports only pure engine types — never the supabase/db layer — so the math is
@@ -20,7 +20,7 @@ export interface StatsDay {
   mood: number | null
   focus: number | null
   routine_minutes: number | null
-  plan: Plan | null
+  one_thing_slug: string | null
   completed_slugs: string[]
 }
 
@@ -115,7 +115,7 @@ const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length
  * read it defensively so a single bad row can never crash the whole You page.
  */
 function focalSlug(r: StatsDay): string | null {
-  return r.plan?.oneThing?.slug ?? null
+  return r.one_thing_slug ?? null
 }
 
 /** Integer percentages that sum to exactly 100 (largest-remainder rounding). */
@@ -250,16 +250,16 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
       const wd = weekdayOf(r.local_date)
       byDay.set(wd, [...(byDay.get(wd) ?? []), r.energy as number])
     }
-    let bestDay = -1
-    let bestAvg = -Infinity
-    for (const [wd, xs] of byDay) {
-      const a = avg(xs)
-      if (a > bestAvg) {
-        bestAvg = a
-        bestDay = wd
-      }
+    // Only claim a strongest day when it's earned: the winner needs ≥2 samples and a
+    // clear ≥0.5-point lead over the runner-up, so a single-reflection weekday is
+    // never presented as a portfolio fact (which would erode trust in every stat).
+    const ranked = [...byDay.entries()]
+      .map(([wd, xs]) => ({ wd, n: xs.length, a: avg(xs) }))
+      .sort((x, y) => y.a - x.a)
+    const top = ranked[0]
+    if (top && top.n >= 2 && (ranked.length < 2 || top.a - ranked[1].a >= 0.5)) {
+      strongestDay = SHORT_WEEKDAYS[top.wd]
     }
-    if (bestDay >= 0) strongestDay = SHORT_WEEKDAYS[bestDay]
   }
 
   // Follow-through: share of built mornings whose focal point got checked off.
@@ -297,15 +297,16 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
  * claiming a literal week-over-week comparison the gaps wouldn't support.
  */
 function deltaLine(metric: Metric, series: number[]): string | null {
-  // Need 14 reads so the prior window is a full seven, not a partial comparison.
-  if (series.length < 14) return null
-  const recent = series.slice(-7)
-  const prior = series.slice(-14, -7)
+  // Need 8 reads so the prior window is a full four — enough to put a real, moving
+  // number in front of a trial user, without claiming a week the gaps wouldn't support.
+  if (series.length < 8) return null
+  const recent = series.slice(-4)
+  const prior = series.slice(-8, -4)
   const pct = Math.round(((avg(recent) - avg(prior)) / avg(prior)) * 100)
   const label = METRIC_LABEL[metric]
-  if (pct >= 1) return `${label} is running ${pct}% above your previous seven.`
-  if (pct <= -1) return `${label} is running ${Math.abs(pct)}% below your previous seven.`
-  return `${label} is holding steady across your last fourteen.`
+  if (pct >= 1) return `${label} is running ${pct}% above your previous four mornings.`
+  if (pct <= -1) return `${label} is running ${Math.abs(pct)}% below your previous four mornings.`
+  return `${label} is holding steady across your last eight.`
 }
 
 /**

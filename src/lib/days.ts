@@ -191,22 +191,6 @@ export async function savePlanOptions(
   await upsertDay(userId, date, { plan_options: options })
 }
 
-/**
- * How many days the user has actually shown up for (a morning check-in or an
- * evening reflection). Drives the You page's cold-start gate: trends and
- * patterns only render once there's enough history to be honest about.
- */
-export async function completedDayCount(): Promise<number> {
-  const userId = await currentUserId()
-  const { count, error } = await supabase
-    .from('days')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null')
-  if (error) throw error
-  return count ?? 0
-}
-
 // The stats row shape lives in stats.ts (kept pure/testable); re-export it here so
 // callers can get it alongside `daysForStats`. Type-only — no runtime dependency.
 export type { StatsDay }
@@ -225,7 +209,7 @@ export async function daysForStats(limit = 400): Promise<StatsDay[]> {
   const { data, error } = await supabase
     .from('days')
     .select(
-      'local_date, morning_completed_at, evening_completed_at, woke_at, state, energy, mood, focus, routine_minutes, plan, completed_slugs',
+      'local_date, morning_completed_at, evening_completed_at, woke_at, state, energy, mood, focus, routine_minutes, one_thing_slug, completed_slugs',
     )
     .eq('user_id', userId)
     .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null,woke_at.not.is.null')
@@ -250,6 +234,7 @@ export async function daysWithPlans(): Promise<
     .eq('user_id', userId)
     .not('plan', 'is', null)
     .order('local_date', { ascending: false })
+    .limit(400) // newest-first, so this keeps the most recent ~400 mornings
   if (error) throw error
   return (data ?? []) as Pick<DayRow, 'local_date' | 'plan' | 'completed_slugs'>[]
 }

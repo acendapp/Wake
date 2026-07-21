@@ -5,7 +5,6 @@ import {
   milestoneReached,
   type StatsDay,
 } from './stats'
-import type { Plan } from '../engine/types'
 
 describe('milestoneReached', () => {
   it('returns null below the first milestone', () => {
@@ -27,28 +26,6 @@ describe('milestoneReached', () => {
   })
 })
 
-// A throwaway plan whose focal slug we control, for follow-through / patterns.
-function plan(focalSlug: string): Plan {
-  const move = {
-    slug: focalSlug,
-    title: 'Move',
-    example: 'x',
-    description: 'y',
-    category: 'movement' as const,
-    estMinutes: 3,
-  }
-  return {
-    state: 'deficit',
-    gap: -2,
-    headline: 'h',
-    subhead: 's',
-    oneThing: move,
-    sequence: [move],
-    accent: 'amber',
-    source: 'deterministic',
-  }
-}
-
 // Build a StatsDay with sensible defaults; override what a test cares about.
 function mk(date: string, o: Partial<StatsDay> = {}): StatsDay {
   return {
@@ -61,7 +38,7 @@ function mk(date: string, o: Partial<StatsDay> = {}): StatsDay {
     mood: o.mood ?? null,
     focus: o.focus ?? null,
     routine_minutes: o.routine_minutes ?? null,
-    plan: o.plan ?? null,
+    one_thing_slug: o.one_thing_slug ?? null,
     completed_slugs: o.completed_slugs ?? [],
   }
 }
@@ -199,41 +176,41 @@ describe('computeYouStats — trend', () => {
     expect(s.trend.energy[0]).toBe(6) // dropped the first 6
   })
 
-  it('computes a delta line only with two full weeks of reflections', () => {
+  it('computes a delta line only once there are two full four-morning windows', () => {
     const sparse = computeYouStats(
       ['2026-06-01', '2026-06-02'].map((d) => mk(d, { evening_completed_at: M, energy: 5, mood: 5, focus: 5 })),
       '2026-06-02',
     )
     expect(sparse.trendDelta.energy).toBeNull()
 
-    // 10 points is still a partial prior week → no delta (would be misleading).
+    // 6 points is still a partial prior window → no delta (would be misleading).
     const partial = computeYouStats(
-      Array.from({ length: 10 }, (_, i) =>
+      Array.from({ length: 6 }, (_, i) =>
         mk(`2026-06-${String(i + 1).padStart(2, '0')}`, { evening_completed_at: M, energy: 6, mood: 6, focus: 6 }),
       ),
-      '2026-06-10',
+      '2026-06-06',
     )
     expect(partial.trendDelta.energy).toBeNull()
 
-    // 14 points: prior week avg 4, recent week avg 8 → +100% above.
-    const rows = Array.from({ length: 14 }, (_, i) =>
+    // 8 points: prior four avg 4, recent four avg 8 → +100% above.
+    const rows = Array.from({ length: 8 }, (_, i) =>
       mk(`2026-06-${String(i + 1).padStart(2, '0')}`, {
         evening_completed_at: M,
-        energy: i < 7 ? 4 : 8,
+        energy: i < 4 ? 4 : 8,
         mood: 5,
         focus: 5,
       }),
     )
-    const rich = computeYouStats(rows, '2026-06-14')
-    expect(rich.trendDelta.energy).toBe('Energy is running 100% above your previous seven.')
+    const rich = computeYouStats(rows, '2026-06-08')
+    expect(rich.trendDelta.energy).toBe('Energy is running 100% above your previous four mornings.')
   })
 })
 
 describe('computeYouStats — portfolio', () => {
   it('counts mornings, sums routine minutes to hours, and computes follow-through', () => {
     const rows = [
-      mk('2026-06-01', { morning_completed_at: M, routine_minutes: 30, plan: plan('a'), completed_slugs: ['a'] }),
-      mk('2026-06-02', { morning_completed_at: M, routine_minutes: 30, plan: plan('b'), completed_slugs: [] }),
+      mk('2026-06-01', { morning_completed_at: M, routine_minutes: 30, one_thing_slug: 'a', completed_slugs: ['a'] }),
+      mk('2026-06-02', { morning_completed_at: M, routine_minutes: 30, one_thing_slug: 'b', completed_slugs: [] }),
     ]
     const s = computeYouStats(rows, '2026-06-02')
     expect(s.portfolio.morningsBuilt).toBe(2)
@@ -253,8 +230,8 @@ describe('computeYouStats — patterns', () => {
   it('surfaces the focal-point observation only when the data earns it', () => {
     // 3 done @ energy 8, 3 skipped @ energy 5 → +3 lift, both groups ≥3.
     const rows = [
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { plan: plan('a'), completed_slugs: ['a'], energy: 8 })),
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { plan: plan('a'), completed_slugs: [], energy: 5 })),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
     ]
     const s = computeYouStats(rows, '2026-06-30')
     expect(s.patterns).toHaveLength(1)
@@ -263,8 +240,8 @@ describe('computeYouStats — patterns', () => {
 
   it('stays empty when a group is too small', () => {
     const rows = [
-      mk('2026-06-01', { plan: plan('a'), completed_slugs: ['a'], energy: 8 }),
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { plan: plan('a'), completed_slugs: [], energy: 5 })),
+      mk('2026-06-01', { one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 }),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
     ]
     expect(computeYouStats(rows, '2026-06-30').patterns).toHaveLength(0)
   })
@@ -273,8 +250,8 @@ describe('computeYouStats — patterns', () => {
 describe('computeTodayInsight', () => {
   it('returns a line when focal completion clearly tracks higher energy', () => {
     const rows = [
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { plan: plan('a'), completed_slugs: ['a'], energy: 8 })),
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { plan: plan('a'), completed_slugs: [], energy: 5 })),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
+      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
     ]
     expect(computeTodayInsight(rows)).toBe(
       'Days you finish your focal point, your energy runs about 3.0 higher.',
@@ -285,7 +262,7 @@ describe('computeTodayInsight', () => {
     expect(computeTodayInsight([])).toBeNull()
     const flat = Array(6)
       .fill(0)
-      .map((_, i) => mk(`2026-06-0${i + 1}`, { plan: plan('a'), completed_slugs: i < 3 ? ['a'] : [], energy: 6 }))
+      .map((_, i) => mk(`2026-06-0${i + 1}`, { one_thing_slug: 'a', completed_slugs: i < 3 ? ['a'] : [], energy: 6 }))
     expect(computeTodayInsight(flat)).toBeNull() // no lift
   })
 })
