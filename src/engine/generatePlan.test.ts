@@ -33,7 +33,7 @@ describe('generatePlan', () => {
     const deficit = generatePlan({ readiness: 5, dayDifficulty: 8, routineMinutes: 30 })
     expect(deficit.state).toBe('deficit')
     // move-body is the top deficit goal; its largest fitting variant leads.
-    expect(deficit.oneThing.title).toBe('Move your body')
+    expect(deficit.oneThing.title).toBe('Get your blood moving')
 
     const surplus = generatePlan({ readiness: 9, dayDifficulty: 5, routineMinutes: 30 })
     expect(surplus.state).toBe('surplus')
@@ -56,7 +56,7 @@ describe('generatePlan', () => {
     expect(getUp).toBeDefined()
     expect(plan.sequence[0]).toBe(getUp)
     // The Focal Point stays the highest-leverage move, not the chronological first.
-    expect(plan.oneThing.title).toBe('Move your body')
+    expect(plan.oneThing.title).toBe('Get your blood moving')
   })
 
   it('never exceeds the time budget', () => {
@@ -72,8 +72,8 @@ describe('generatePlan', () => {
     // Principle B: the headline action is stable; only its duration shrinks.
     const roomy = generatePlan({ readiness: 5, dayDifficulty: 8, routineMinutes: 30 })
     const tight = generatePlan({ readiness: 5, dayDifficulty: 8, routineMinutes: 8 })
-    expect(roomy.oneThing.title).toBe('Move your body')
-    expect(tight.oneThing.title).toBe('Move your body')
+    expect(roomy.oneThing.title).toBe('Get your blood moving')
+    expect(tight.oneThing.title).toBe('Get your blood moving')
     expect(tight.oneThing.estMinutes).toBeLessThan(roomy.oneThing.estMinutes)
   })
 
@@ -144,7 +144,7 @@ describe('generatePlan', () => {
     const focus = generatePlan({ ...base, intent: 'focus' })
     // Same Gap, three different Focal Points — intent steers the lead.
     expect(calm.oneThing.title).toBe('Ease into the morning')
-    expect(energize.oneThing.title).toBe('Move your body')
+    expect(energize.oneThing.title).toBe('Get your blood moving')
     expect(focus.oneThing.title).toBe('Set one intention')
     expect(new Set([calm.oneThing.slug, energize.oneThing.slug, focus.oneThing.slug]).size).toBe(3)
   })
@@ -152,7 +152,7 @@ describe('generatePlan', () => {
   it('falls back to base priority order when no intent is set', () => {
     const plan = generatePlan({ readiness: 5, dayDifficulty: 8, routineMinutes: 20 })
     // move-body is the highest base-priority deficit routine goal.
-    expect(plan.oneThing.title).toBe('Move your body')
+    expect(plan.oneThing.title).toBe('Get your blood moving')
   })
 
   it('clamps out-of-range inputs', () => {

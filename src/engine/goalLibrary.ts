@@ -206,7 +206,7 @@ export const GOAL_LIBRARY: Goal[] = [
   {
     slug: 'get-up-now',
     label: 'get out of bed',
-    category: 'movement',
+    category: 'transition',
     scope: 'routine',
     states: ['deficit', 'aligned', 'surplus'],
     intents: ['energize', 'focus'],
@@ -217,7 +217,7 @@ export const GOAL_LIBRARY: Goal[] = [
         title: 'Get out of bed right away',
         example: 'feet on the floor, no snooze — up within a minute of waking.',
         description: 'The first decision of the day sets the tone; winning it is the win.',
-        category: 'movement',
+        category: 'transition',
         estMinutes: 1,
       },
     ],
@@ -244,7 +244,7 @@ export const GOAL_LIBRARY: Goal[] = [
   {
     slug: 'get-dressed',
     label: 'signal the day has begun',
-    category: 'movement',
+    category: 'transition',
     scope: 'routine',
     states: ['deficit', 'aligned', 'surplus'],
     intents: ['energize', 'focus'],
@@ -255,7 +255,7 @@ export const GOAL_LIBRARY: Goal[] = [
         title: 'Get dressed for the day',
         example: 'out of pajamas and into real clothes — it tells your brain the day has begun.',
         description: 'Changing clothes is a clean line between sleep and the day.',
-        category: 'movement',
+        category: 'transition',
         estMinutes: 4,
       },
     ],
@@ -263,7 +263,7 @@ export const GOAL_LIBRARY: Goal[] = [
   {
     slug: 'take-shower',
     label: 'wake up and reset',
-    category: 'movement',
+    category: 'transition',
     scope: 'routine',
     states: ['deficit', 'aligned', 'surplus'],
     intents: ['energize', 'calm'],
@@ -274,7 +274,7 @@ export const GOAL_LIBRARY: Goal[] = [
         title: 'Take a shower',
         example: 'a shower to fully wake up and reset.',
         description: 'Warm water plus a fresh start wakes the body and the mind.',
-        category: 'movement',
+        category: 'transition',
         estMinutes: 10,
       },
       {
@@ -282,7 +282,7 @@ export const GOAL_LIBRARY: Goal[] = [
         title: 'Take a shower',
         example: 'even a quick rinse resets you for the day.',
         description: 'Warm water plus a fresh start wakes the body and the mind.',
-        category: 'movement',
+        category: 'transition',
         estMinutes: 5,
       },
     ],
@@ -468,7 +468,7 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'move-body-8',
-        title: 'Move your body',
+        title: 'Get your blood moving',
         example: 'a short walk, a few stretches or squats — whatever feels easy this morning.',
         description: 'Moving at all is what lifts a low state — the form barely matters.',
         category: 'movement',
@@ -476,11 +476,40 @@ export const GOAL_LIBRARY: Goal[] = [
       },
       {
         slug: 'move-body-3',
-        title: 'Move your body',
+        title: 'Get your blood moving',
         example: 'even standing up to stretch or pace the room for a minute counts.',
         description: 'Moving at all is what lifts a low state — the form barely matters.',
         category: 'movement',
         estMinutes: 3,
+      },
+    ],
+  },
+  // Movement that serves a FOCUS morning (not just energy) — a walk to think, so
+  // intent, not only state, shapes which movement surfaces.
+  {
+    slug: 'walk-and-think',
+    label: 'move to think',
+    category: 'movement',
+    scope: 'routine',
+    states: ['deficit', 'aligned'],
+    intents: ['focus'],
+    priority: 70,
+    variants: [
+      {
+        slug: 'walk-think-10',
+        title: 'Walk and think',
+        example: 'ten minutes on foot with no phone — let the day’s plan sort itself out.',
+        description: 'Easy movement with no input is where the day’s thinking untangles.',
+        category: 'movement',
+        estMinutes: 10,
+      },
+      {
+        slug: 'walk-think-4',
+        title: 'Walk and think',
+        example: 'even a few minutes pacing or walking, turning over what matters today.',
+        description: 'Easy movement with no input is where the day’s thinking untangles.',
+        category: 'movement',
+        estMinutes: 4,
       },
     ],
   },
@@ -562,7 +591,7 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'easy-move-8',
-        title: 'Move your body, easy',
+        title: 'Keep your body moving',
         example: 'a gentle walk or a few stretches — nothing that spends the state.',
         description: 'Light movement consolidates a stable, ready state.',
         category: 'movement',
@@ -570,7 +599,7 @@ export const GOAL_LIBRARY: Goal[] = [
       },
       {
         slug: 'easy-move-3',
-        title: 'Move your body, easy',
+        title: 'Keep your body moving',
         example: 'a quick stretch by the bed is enough.',
         description: 'Light movement consolidates a stable, ready state.',
         category: 'movement',
@@ -650,7 +679,7 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'prime-body-10',
-        title: 'Move your body',
+        title: 'Prime your body',
         example: 'a brisk walk, a short mobility flow — use the energy without burning it.',
         description: 'High capacity is worth priming so a ready body matches a ready mind.',
         category: 'movement',
@@ -658,7 +687,7 @@ export const GOAL_LIBRARY: Goal[] = [
       },
       {
         slug: 'prime-body-4',
-        title: 'Move your body',
+        title: 'Prime your body',
         example: 'a few minutes of stretching or squats to switch the muscles on.',
         description: 'High capacity is worth priming so a ready body matches a ready mind.',
         category: 'movement',

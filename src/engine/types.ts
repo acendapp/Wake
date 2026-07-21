@@ -17,13 +17,13 @@ export type Intent = 'calm' | 'energize' | 'focus'
 
 export type ActionCategory =
   | 'movement'
+  | 'transition'
   | 'light'
   | 'hydration'
   | 'caffeine'
   | 'nutrition'
   | 'focus'
   | 'digital'
-  | 'wind_up'
 
 export type Mode =
   | 'founder'

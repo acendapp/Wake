@@ -43,13 +43,13 @@ const CATEGORY_META: Record<
   { label: string; icon: React.ComponentProps<typeof Feather>['name'] }
 > = {
   movement: { label: 'Movement', icon: 'activity' },
+  transition: { label: 'Transition', icon: 'log-in' },
   light: { label: 'Light', icon: 'sun' },
   focus: { label: 'Focus', icon: 'target' },
   hydration: { label: 'Hydration', icon: 'droplet' },
   caffeine: { label: 'Caffeine', icon: 'coffee' },
   nutrition: { label: 'Nutrition', icon: 'heart' },
   digital: { label: 'Digital', icon: 'smartphone' },
-  wind_up: { label: 'Wind-up', icon: 'wind' },
 }
 
 const STATE_LABEL: Record<ReadinessState, string> = {
