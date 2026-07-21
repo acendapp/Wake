@@ -50,6 +50,29 @@ async function setMockEntitled(value: boolean): Promise<void> {
   }
 }
 
+// The last entitlement a real store check confirmed, persisted so a transient
+// RevenueCat/network error (e.g. an offline reinstall before the SDK has cached
+// CustomerInfo) fails OPEN for a previously-paid user instead of bouncing them to
+// the paywall. Cleared on sign-out.
+const LAST_ENTITLED_KEY = 'wake.lastEntitled'
+
+async function getLastEntitled(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(LAST_ENTITLED_KEY)) === 'true'
+  } catch {
+    return false
+  }
+}
+
+async function setLastEntitled(value: boolean): Promise<void> {
+  try {
+    if (value) await AsyncStorage.setItem(LAST_ENTITLED_KEY, 'true')
+    else await AsyncStorage.removeItem(LAST_ENTITLED_KEY)
+  } catch {
+    // Best-effort.
+  }
+}
+
 type EntitlementContextValue = {
   /** True once the user may pass the paywall (real entitlement, mock, or dev bypass). */
   entitled: boolean
@@ -85,6 +108,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       setDevBypassed(false)
       setLoadedFor(null)
       void setMockEntitled(false)
+      void setLastEntitled(false)
       void logOutBilling()
       return
     }
@@ -92,7 +116,16 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       let value: boolean
       if (isBillingConfigured()) {
         await logInBilling(uid)
-        value = await billingIsEntitled()
+        const checked = await billingIsEntitled() // true | false | null (store error)
+        if (checked === null) {
+          // Live check failed (RevenueCat outage, or an offline reinstall before the
+          // SDK cached CustomerInfo). Fail OPEN for a previously-entitled user so a
+          // paying subscriber is never stranded on the paywall by a transient error.
+          value = await getLastEntitled()
+        } else {
+          value = checked
+          void setLastEntitled(checked)
+        }
       } else {
         value = await getMockEntitled()
       }
@@ -108,7 +141,10 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   const purchase = useCallback(async (plan: PlanId) => {
     if (isBillingConfigured()) {
       const ok = await purchasePlan(plan)
-      if (ok) setEntitled(true)
+      if (ok) {
+        setEntitled(true)
+        void setLastEntitled(true)
+      }
       return ok
     }
     // Billing isn't configured. In dev / Expo Go, flip the mock so the flow can be
@@ -124,7 +160,10 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   const restore = useCallback(async () => {
     if (!isBillingConfigured()) return false
     const ok = await restorePurchases()
-    if (ok) setEntitled(true)
+    if (ok) {
+      setEntitled(true)
+      void setLastEntitled(true)
+    }
     return ok
   }, [])
 

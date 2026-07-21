@@ -84,15 +84,18 @@ export async function logInBilling(appUserId: string): Promise<void> {
   }
 }
 
-/** Whether the signed-in user currently holds the premium entitlement. */
-export async function isEntitled(): Promise<boolean> {
+/** Whether the signed-in user holds the premium entitlement: true / false, or null
+ *  when the store check errored (unknown — the caller decides how to treat it). */
+export async function isEntitled(): Promise<boolean | null> {
   const P = await ensureConfigured()
   if (!P) return false
   try {
     const info = await P.getCustomerInfo()
     return !!info.entitlements.active[ENTITLEMENT_ID]
   } catch {
-    return false
+    // Unknown — a store/network error, not a definitive "not entitled". The caller
+    // fails open for a previously-entitled user rather than bouncing them.
+    return null
   }
 }
 
