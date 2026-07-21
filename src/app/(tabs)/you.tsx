@@ -51,9 +51,9 @@ const MIN_MORNINGS_FOR_TRENDS = 3
 
 // Label + color for each gap-mix segment; the stats pipeline supplies the pcts.
 const GAP_META: Record<GapKey, { label: string; color: string }> = {
-  deficit: { label: 'In a deficit', color: day.negative },
-  aligned: { label: 'Aligned', color: day.gold },
-  surplus: { label: 'In surplus', color: day.positive },
+  deficit: { label: 'Restore', color: day.negative },
+  aligned: { label: 'Ready', color: day.gold },
+  surplus: { label: 'Charged', color: day.positive },
 }
 const GAP_ORDER: GapKey[] = ['deficit', 'aligned', 'surplus']
 
@@ -470,8 +470,8 @@ export default function YouScreen() {
                   </>
                 ) : (
                   <Text style={styles.coldCardCopy}>
-                    Check in on a morning and Wake starts tracking how you arrive — in
-                    deficit, aligned, or in surplus.
+                    Check in on a morning and Wake starts tracking how you arrive —
+                    Restore, Ready, or Charged.
                   </Text>
                 )}
               </View>
@@ -585,8 +585,8 @@ export default function YouScreen() {
                   ))}
                 </View>
                 <Text style={styles.coldCardCopy}>
-                  Once we&rsquo;ve seen a few mornings, you&rsquo;ll see how often you arrive in
-                  deficit, aligned, or in surplus.
+                  Once we&rsquo;ve seen a few mornings, you&rsquo;ll see how often you arrive
+                  Restore, Ready, or Charged.
                 </Text>
               </View>
             </Section>

@@ -53,9 +53,9 @@ const CATEGORY_META: Record<
 }
 
 const STATE_LABEL: Record<ReadinessState, string> = {
-  deficit: 'In a deficit',
-  aligned: 'Aligned',
-  surplus: 'In surplus',
+  deficit: 'Restore',
+  aligned: 'Ready',
+  surplus: 'Charged',
 }
 
 const INTENT_LABEL: Record<Intent, string> = {

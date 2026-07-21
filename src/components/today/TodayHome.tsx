@@ -88,16 +88,16 @@ const GAP_SUMMARY: Record<ReadinessState, { read: string; move: string }> = {
 // muted traffic light: red behind, neutral matched, green ahead. The row whose
 // state matches the live `gapState` is emphasized when the popup opens.
 const GAP_LEGEND: { state: ReadinessState; label: string; dot: string; move: string }[] = [
-  { state: 'deficit', label: 'Deficit', dot: COLORS.negative, move: 'The day asks for more than you are bringing.' },
-  { state: 'aligned', label: 'Aligned', dot: COLORS.tagline, move: "You're matched to what's ahead." },
-  { state: 'surplus', label: 'Surplus', dot: COLORS.positive, move: 'You have more in the tank than the day requires.' },
+  { state: 'deficit', label: 'Restore', dot: COLORS.negative, move: 'The day asks for more than you are bringing.' },
+  { state: 'aligned', label: 'Ready', dot: COLORS.tagline, move: "You're matched to what's ahead." },
+  { state: 'surplus', label: 'Charged', dot: COLORS.positive, move: 'You have more in the tank than the day requires.' },
 ]
 
 // The noun that completes "Right now, you're in ___." at the foot of the popup.
 const GAP_FOOTNOTE: Record<ReadinessState, string> = {
-  deficit: 'a deficit',
-  aligned: 'alignment',
-  surplus: 'a surplus',
+  deficit: 'Restore',
+  aligned: 'Ready',
+  surplus: 'Charged',
 }
 
 // The You-vs-Day card's title, per state. "The Gap" only reads right when there

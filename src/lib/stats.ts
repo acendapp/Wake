@@ -230,7 +230,7 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
     const dominant: GapKey = counts[1] === maxCount ? 'aligned' : keys[counts.indexOf(maxCount)]
     gapRead =
       dominant === 'aligned'
-        ? "Most mornings, you're matched to what your day asks. The work now is turning deficits into alignment."
+        ? "Most mornings, you're matched to what your day asks. The work now is closing the gap on the mornings you wake behind."
         : dominant === 'deficit'
           ? "You're often arriving behind what your day asks. Small morning wins are how that gap closes."
           : 'You frequently arrive with more than the day needs — momentum worth spending well.'

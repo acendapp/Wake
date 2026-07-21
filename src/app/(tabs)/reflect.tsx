@@ -49,11 +49,11 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 function recapLine(state: ReadinessState, dayDifficulty: number): string {
   switch (state) {
     case 'deficit':
-      return `Today you were running a deficit against a ${dayDifficulty}/10 day.`
+      return `You woke behind a ${dayDifficulty}/10 day — a morning to restore.`
     case 'aligned':
-      return `Today you were matched to a ${dayDifficulty}/10 day.`
+      return `You woke Ready, matched to a ${dayDifficulty}/10 day.`
     case 'surplus':
-      return `Today you had a surplus over a ${dayDifficulty}/10 day.`
+      return `You woke Charged, ahead of a ${dayDifficulty}/10 day.`
   }
 }
 
