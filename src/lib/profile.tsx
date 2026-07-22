@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from './auth'
-import { profileRoutineHint } from './routineTier'
+import { SEQUENCE_MINUTES } from './routineTier'
 import { supabase } from './supabase'
 
 // The standing per-user profile (`public.profiles`) — the signals captured at
@@ -58,7 +58,6 @@ export type OnboardingInput = {
   intent: Intent
   chronotype: Chronotype
   frictionPoint?: FrictionPoint | null
-  routineMinutes: number
   constraints?: string[]
   ageRange?: AgeRange | null
   sex?: Sex | null
@@ -104,9 +103,8 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
         intent: input.intent,
         chronotype: input.chronotype,
         friction_point: input.frictionPoint ?? null,
-        // Standing hint only (CHECK 1–240): clamp the alarm-only 0 up to 1. The
-        // per-day row + device pref carry the exact tier (see routineTier.ts).
-        routine_minutes: profileRoutineHint(input.routineMinutes),
+        // Kept for continuity; every morning now uses a fixed sequence budget.
+        routine_minutes: SEQUENCE_MINUTES,
         constraints: input.constraints ?? [],
         age_range: input.ageRange ?? null,
         sex: input.sex ?? null,
@@ -132,7 +130,6 @@ export async function saveOnboarding(input: OnboardingInput): Promise<ProfileRow
 export async function updateProfile(patch: {
   intent?: Intent
   chronotype?: Chronotype
-  routineMinutes?: number
   wakeEnabled?: boolean
   wakeTime?: string | null
   wakeVoice?: string
@@ -141,7 +138,6 @@ export async function updateProfile(patch: {
   const dbPatch: Record<string, unknown> = {}
   if (patch.intent !== undefined) dbPatch.intent = patch.intent
   if (patch.chronotype !== undefined) dbPatch.chronotype = patch.chronotype
-  if (patch.routineMinutes !== undefined) dbPatch.routine_minutes = profileRoutineHint(patch.routineMinutes)
   if (patch.wakeEnabled !== undefined) dbPatch.wake_enabled = patch.wakeEnabled
   if (patch.wakeTime !== undefined) dbPatch.wake_time = patch.wakeTime
   if (patch.wakeVoice !== undefined) dbPatch.wake_voice = patch.wakeVoice

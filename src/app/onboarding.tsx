@@ -31,8 +31,6 @@ import {
   type Intent,
   type Sex,
 } from '@/lib/profile'
-import { DEFAULT_ROUTINE_MINUTES, setPreferredRoutineMinutes } from '@/lib/prefs'
-import { tierFromMinutes } from '@/lib/routineTier'
 import { day } from '@/theme/colors'
 
 // First-run onboarding. A short, unhurried ritual that captures the standing
@@ -76,8 +74,8 @@ const CHRONOTYPES: Choice<Chronotype>[] = [
 ]
 
 // Phrasings for the curation loader — the editorial beat reflects the leading
-// signals back at the user (intent → chronotype) plus the time budget.
-// Demographics stay silent, so a skip never leaves a blank line.
+// signals back at the user (intent → chronotype). Demographics stay silent, so
+// a skip never leaves a blank line.
 const INTENT_PHRASE: Record<Intent, string> = {
   calm: 'ease you into the day',
   energize: 'get you up and moving',
@@ -89,22 +87,11 @@ const CHRONO_PHRASE: Record<Chronotype, string> = {
   neither: 'however you wake',
 }
 
-function curationLines(
-  intent: Intent,
-  chronotype: Chronotype,
-  routineMinutes: number,
-): string[] {
-  const tier = tierFromMinutes(routineMinutes)
-  const fit =
-    tier === 'alarm'
-      ? 'Keeping your morning to a gentle wake…'
-      : tier === 'focal'
-        ? 'Distilling it down to your single focal move…'
-        : `Fitting it into your ${tier}-minute window…`
+function curationLines(intent: Intent, chronotype: Chronotype): string[] {
   return [
     `Building a morning sequence to ${INTENT_PHRASE[intent]}…`,
     `Mapping your energy curve to ${CHRONO_PHRASE[chronotype]}…`,
-    fit,
+    'Distilling it down to your focal point…',
   ]
 }
 
@@ -124,7 +111,7 @@ const SEXES: { value: Sex; label: string }[] = [
 ]
 
 // Steps that count toward the progress bar (intro + finish sit outside it).
-// 1 intent · 2 chronotype · 3 demographics · 4 wake alarm + routine length.
+// 1 intent · 2 chronotype · 3 demographics · 4 wake alarm.
 const FIRST_QUESTION = 1
 const LAST_QUESTION = 4
 const QUESTION_COUNT = LAST_QUESTION - FIRST_QUESTION + 1
@@ -142,12 +129,9 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(FIRST_QUESTION)
   const [intent, setIntent] = useState<Intent | null>(null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(null)
-  const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   const [ageRange, setAgeRange] = useState<AgeRange | null>(null)
   const [sex, setSex] = useState<Sex | null>(null)
-  // The wake-alarm opt-in, on the combined wake + routine step. On by default —
-  // the voice alarm is the point of Wake; turning it off reveals only the timed
-  // routine tiers.
+  // The wake-alarm opt-in. On by default — the voice alarm is the point of Wake.
   const [wakeEnabled, setWakeEnabled] = useState(true)
   const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
   const [wakeVoice, setWakeVoice] = useState(DEFAULT_VOICE)
@@ -229,15 +213,12 @@ export default function OnboardingScreen() {
         lastName: lastName.trim() || null,
         intent,
         chronotype,
-        routineMinutes,
         ageRange,
         sex,
         wakeEnabled,
         wakeTime: wakeEnabled ? wakeTime : null,
         wakeVoice,
       })
-      // Seed the device-local default so the evening routine stepper starts here.
-      await setPreferredRoutineMinutes(routineMinutes)
       // Best-effort side effects — arming the alarm or scheduling reminders must
       // never fail account creation. The profile is already saved + stamped
       // onboarded above; a native alarm/notification rejection here used to throw
@@ -272,7 +253,7 @@ export default function OnboardingScreen() {
   if (step === 5 && intent && chronotype) {
     return (
       <CurationLoader
-        lines={curationLines(intent, chronotype, routineMinutes)}
+        lines={curationLines(intent, chronotype)}
         onDone={() => setStep(7)}
       />
     )
@@ -404,15 +385,13 @@ export default function OnboardingScreen() {
         {step === 4 && (
           <Question
             title="Now, how you wake."
-            caption="A real alarm that greets you by voice and eases you into the day — then choose how long your morning runs. Change either anytime."
+            caption="A real alarm that greets you by voice and eases you into the day. Change it anytime."
           >
             <WakeRoutineStep
               wakeEnabled={wakeEnabled}
               onWakeEnabledChange={setWakeEnabled}
               wakeTime={wakeTime}
               onWakeTimeChange={setWakeTime}
-              routineMinutes={routineMinutes}
-              onRoutineMinutesChange={setRoutineMinutes}
               wakeVoice={wakeVoice}
               onWakeVoiceChange={setWakeVoice}
               showVoicePicker

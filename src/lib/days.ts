@@ -1,4 +1,5 @@
 import type { DayReads, Lookback, Plan, ReadinessState } from '@/engine/types'
+import { SEQUENCE_MINUTES } from './routineTier'
 import type { StatsDay } from './stats'
 import { supabase } from './supabase'
 import { logicalNow } from './time'
@@ -268,17 +269,12 @@ export async function saveEvening(
     reads: DayReads
     note?: string
     tomorrowDemand: number
-    routineMinutes: number
   },
 ): Promise<void> {
   const userId = await currentUserId()
-  // Clamp to the column's CHECK range (0–240) so a stray stored preference can
-  // never make the write throw a constraint violation and block the reflection.
-  // 0 and 1 are the encoded alarm-only / focal-only tiers (see routineTier.ts).
-  const routineMinutes = Math.max(0, Math.min(240, Math.round(input.routineMinutes)))
   await upsertDay(userId, addDays(date, 1), {
     day_difficulty: input.tomorrowDemand,
-    routine_minutes: routineMinutes,
+    routine_minutes: SEQUENCE_MINUTES,
     // Invalidate any cached pre-gen for tomorrow: editing the reflection can change
     // demand/length, and a plan built for the old inputs must not survive. pregenerate-
     // Tomorrow (fired right after this in finish()) repopulates; if it can't (offline),

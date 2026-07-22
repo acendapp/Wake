@@ -10,7 +10,7 @@ import type { Lookback, Plan, ReadinessState } from '@/engine/types'
 
 import { addDays, getDay, recentReflections, savePlanOptions, type DayRow } from './days'
 import type { ProfileRow } from './profile'
-import { planBudgetForTier } from './routineTier'
+import { SEQUENCE_MINUTES } from './routineTier'
 import { supabase } from './supabase'
 
 // The Claude personalization orchestration (Model C). Pre-generates tomorrow's
@@ -20,7 +20,6 @@ import { supabase } from './supabase'
 // unavailable model, or an off-contract response never blocks the user.
 
 const STATES: ReadinessState[] = ['deficit', 'aligned', 'surplus']
-const DEFAULT_BUDGET = 15
 const DEFAULT_DEMAND = 5
 
 /** A readiness that classifies to `state` against `dayDifficulty` — used to
@@ -134,11 +133,9 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
       getDay(targetDate),
     ])
     const dayDifficulty = targetRow?.day_difficulty ?? DEFAULT_DEMAND
-    // Map the routine tier to a generation budget: the alarm-only / focal-only
-    // tiers still build a full plan (for a strong focal point); the morning just
-    // renders less of it. A missing value defaults to the full routine.
-    const budget =
-      targetRow?.routine_minutes == null ? DEFAULT_BUDGET : planBudgetForTier(targetRow.routine_minutes)
+    // Fixed generation budget — the focal point plus an optional sequence. The user
+    // self-paces by doing or skipping; there's no per-user routine length.
+    const budget = SEQUENCE_MINUTES
     const reflections = reflectionRows.map(toReflectionSummary)
 
     const plans = await Promise.all(
@@ -175,16 +172,13 @@ export function pregenerateTomorrow(today: string): Promise<boolean> {
 export function resolveMorningPlan(input: {
   readiness: number
   dayDifficulty: number
-  routineMinutes?: number | null
   intent?: ProfileRow['intent']
   options?: DayRow['plan_options']
 }): Plan {
   const fallback = generatePlan({
     readiness: input.readiness,
     dayDifficulty: input.dayDifficulty,
-    // The alarm-only / focal-only tiers still generate a full plan (for a strong
-    // focal point); the morning renders less of it.
-    routineMinutes: planBudgetForTier(input.routineMinutes),
+    routineMinutes: SEQUENCE_MINUTES,
     intent: input.intent,
   })
   const cached = input.options?.[fallback.state]

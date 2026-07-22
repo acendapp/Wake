@@ -18,7 +18,6 @@ export const REC = {
   streak: 14,
   lastNight: 'Rested',
   demand: '6/10',
-  routineTime: '10 min',
   focalTitle: 'Write a page in your journal',
   focalExample: 'A few lines on how you slept, and one thing you want from today.',
   insight: 'On mornings you journal first, your focus runs 3 points higher.',

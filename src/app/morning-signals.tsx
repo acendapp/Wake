@@ -4,13 +4,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { RoutineTierChooser } from '@/components/reflect/WakeRoutineStep'
 import { errorMessage } from '@/lib/errors'
-import {
-  DEFAULT_ROUTINE_MINUTES,
-  getPreferredRoutineMinutes,
-  setPreferredRoutineMinutes,
-} from '@/lib/prefs'
 import {
   updateProfile,
   useProfile,
@@ -20,10 +14,9 @@ import {
 import { day } from '@/theme/colors'
 
 // The "Morning signals" settings screen, opened from the You page. Lets a user
-// revise the standing inputs the personalization layer reads — intent, how their
-// mornings tend to start (chronotype), and their default routine length. Mirrors
-// the onboarding copy so the two read as one voice. Saving writes the profile
-// and the device-local routine default, refreshes the profile, and pops back.
+// revise the standing inputs the personalization layer reads — intent and how
+// their mornings tend to start (chronotype). Mirrors the onboarding copy so the
+// two read as one voice. Saving writes the profile, refreshes it, and pops back.
 
 const INTENTS: { value: Intent; title: string; blurb: string }[] = [
   { value: 'calm', title: 'Calm', blurb: 'Ease me into the day, gently.' },
@@ -43,23 +36,8 @@ export default function MorningSignalsScreen() {
 
   const [intent, setIntent] = useState<Intent | null>(profile?.intent ?? null)
   const [chronotype, setChronotype] = useState<Chronotype | null>(profile?.chronotype ?? null)
-  const [routineMinutes, setRoutineMinutes] = useState(
-    profile?.routine_minutes ?? DEFAULT_ROUTINE_MINUTES,
-  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Seed the routine length from the device-local preference (the source the
-  // evening stepper uses), so this screen agrees with the rest of the app.
-  useEffect(() => {
-    let active = true
-    getPreferredRoutineMinutes().then((m) => {
-      if (active) setRoutineMinutes(m)
-    })
-    return () => {
-      active = false
-    }
-  }, [])
 
   // Pre-fill the choices once the profile arrives. The `useState` seeds capture
   // only the first render's value, so if the provider is still mid-fetch when this
@@ -81,8 +59,7 @@ export default function MorningSignalsScreen() {
     setSaving(true)
     setError(null)
     try {
-      await updateProfile({ intent, chronotype, routineMinutes })
-      await setPreferredRoutineMinutes(routineMinutes)
+      await updateProfile({ intent, chronotype })
       await refresh()
       close()
     } catch (e) {
@@ -131,16 +108,6 @@ export default function MorningSignalsScreen() {
             />
           ))}
         </View>
-
-        <Text style={[styles.groupLabel, styles.groupLabelGap]}>Default routine length</Text>
-        <Text style={styles.groupCaption}>
-          Your usual length — you can still nudge it any evening for the next morning.
-        </Text>
-        <RoutineTierChooser
-          routineMinutes={routineMinutes}
-          onRoutineMinutesChange={setRoutineMinutes}
-          alarmEnabled={profile?.wake_enabled ?? false}
-        />
       </ScrollView>
 
       <View style={styles.footer}>
@@ -230,14 +197,6 @@ const styles = StyleSheet.create({
   },
   groupLabelGap: {
     marginTop: 32,
-  },
-  groupCaption: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: day.muted,
-    marginTop: -6,
-    marginBottom: 16,
   },
   options: {
     gap: 12,

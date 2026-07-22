@@ -162,11 +162,6 @@ export type TodayHomeProps = {
   completedSlugs: string[]
   /** Coarse word for how last night ended ("Steady", "Drained", "—"). */
   lastNight: string
-  /** Display string for the routine length ("10 min", "Focal only", "—"). */
-  routineTime: string
-  /** The "alarm + one action" tier — render only the focal point, hide the full
-   *  sequence card. */
-  focalOnly?: boolean
   /**
    * A real one-line insight from the user's history (see computeTodayInsight),
    * or null when there isn't enough data yet — in which case the slot shows an
@@ -232,8 +227,6 @@ export function TodayHome({
   plan,
   completedSlugs,
   lastNight,
-  routineTime,
-  focalOnly = false,
   insight = null,
   streak = null,
   notice = null,
@@ -268,7 +261,6 @@ export function TodayHome({
   const focalDone = plan?.oneThing ? completedSlugs.includes(plan.oneThing.slug) : false
   const dayDemand = RECORDING ? REC.demand : `${dayDifficulty}/10`
   const displayLastNight = RECORDING ? REC.lastNight : lastNight
-  const displayRoutineTime = RECORDING ? REC.routineTime : routineTime
   const displayStreak = RECORDING ? REC.streak : streak
   const greetingText = RECORDING ? REC.greetingWord : greetingWord(new Date().getHours())
   // Wake-alarm home card display.
@@ -501,14 +493,6 @@ export function TodayHome({
                 <Text style={styles.glanceValue}>{displayLastNight}</Text>
                 <Text style={styles.glanceLabel}>Last night</Text>
               </View>
-
-              <View style={styles.glanceDivider} />
-
-              <View style={styles.glanceItem}>
-                <Feather name="clock" size={16} color="#1A1A1A" />
-                <Text style={styles.glanceValue}>{displayRoutineTime}</Text>
-                <Text style={styles.glanceLabel}>Routine</Text>
-              </View>
             </View>
           </View>
         </View>
@@ -551,7 +535,6 @@ export function TodayHome({
           <Text style={styles.gapMove}>{GAP_SUMMARY[gapState].move}</Text>
         </View>
 
-        {focalOnly ? null : (
         <View style={styles.cardSequence}>
           <Pressable
             style={styles.sequenceHeader}
@@ -602,7 +585,6 @@ export function TodayHome({
             </View>
           )}
         </View>
-        )}
       </ScrollView>
 
       <Modal

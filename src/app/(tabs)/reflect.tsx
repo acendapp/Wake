@@ -24,11 +24,6 @@ import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { addDays, getDay, logicalDate, peekDay, saveEvening } from '@/lib/days'
 import { pregenerateTomorrow } from '@/lib/routine'
 import { errorMessage } from '@/lib/errors'
-import {
-  DEFAULT_ROUTINE_MINUTES,
-  getPreferredRoutineMinutes,
-  setPreferredRoutineMinutes,
-} from '@/lib/prefs'
 import { updateProfile, useProfile } from '@/lib/profile'
 import { isEveningNow, logicalNow } from '@/lib/time'
 import { day } from '@/theme/colors'
@@ -127,7 +122,6 @@ export default function ReflectScreen() {
   const [mood, setMood] = useState(6)
   const [focus, setFocus] = useState(6)
   const [demand, setDemand] = useState(5)
-  const [routineMinutes, setRoutineMinutes] = useState(DEFAULT_ROUTINE_MINUTES)
   // The voice-alarm toggle defaults on; seeded from the profile below.
   const [wakeEnabled, setWakeEnabled] = useState(true)
   const [wakeTime, setWakeTime] = useState(DEFAULT_WAKE_TIME)
@@ -171,19 +165,10 @@ export default function ReflectScreen() {
             if (row.energy != null) setEnergy(row.energy)
             if (row.mood != null) setMood(row.mood)
             if (row.focus != null) setFocus(row.focus)
-            // Demand + routine length live on tomorrow's row (see saveEvening).
+            // Demand lives on tomorrow's row (see saveEvening).
             if (tomorrow?.day_difficulty != null) setDemand(tomorrow.day_difficulty)
-            if (tomorrow?.routine_minutes != null) setRoutineMinutes(tomorrow.routine_minutes)
             setPhase('done')
           }
-        }
-        // Fresh reflection only: seed the routine length from the standing
-        // preference. Skipped when restoring, so it can never clobber the length
-        // actually saved for tomorrow (the two used to race in separate effects).
-        if (!restoring) {
-          getPreferredRoutineMinutes().then((m) => {
-            if (active) setRoutineMinutes(m)
-          })
         }
       })
       .catch(() => {})
@@ -218,10 +203,7 @@ export default function ReflectScreen() {
       await saveEvening(logicalDate(), {
         reads: { energy, mood, focus },
         tomorrowDemand: demand,
-        routineMinutes,
       })
-      // Remember this length as the new standing default for next time.
-      void setPreferredRoutineMinutes(routineMinutes)
       // Persist the wake toggle + tomorrow's time, and arm/cancel the alarm to
       // match (best-effort — the reflection is already saved, so a failure here
       // never blocks it).
@@ -396,8 +378,6 @@ export default function ReflectScreen() {
               setFocus,
               demand,
               setDemand,
-              routineMinutes,
-              setRoutineMinutes,
               wakeEnabled,
               setWakeEnabled,
               wakeTime,
@@ -440,8 +420,6 @@ type StepProps = {
   setFocus: (n: number) => void
   demand: number
   setDemand: (n: number) => void
-  routineMinutes: number
-  setRoutineMinutes: (n: number) => void
   wakeEnabled: boolean
   setWakeEnabled: (v: boolean) => void
   wakeTime: string
@@ -476,16 +454,14 @@ function renderStep(key: StepKey, p: StepProps) {
       return (
         <StepHeader
           eyebrow="Tomorrow's morning"
-          question="How do you want to wake, and how long?"
-          helper="Your voice alarm and morning length — set them just for tomorrow."
+          question="How do you want to wake?"
+          helper="Your voice alarm and wake time — set them just for tomorrow."
         >
           <WakeRoutineStep
             wakeEnabled={p.wakeEnabled}
             onWakeEnabledChange={p.setWakeEnabled}
             wakeTime={p.wakeTime}
             onWakeTimeChange={p.setWakeTime}
-            routineMinutes={p.routineMinutes}
-            onRoutineMinutesChange={p.setRoutineMinutes}
           />
         </StepHeader>
       )
