@@ -240,13 +240,21 @@ export default function Index() {
     return () => sub.remove()
   }, [load])
 
+  // The celebration is a reward for finishing the morning, so it must never fire on
+  // a bare app-open. Gate it on today actually being done — a completed check-in or
+  // the "just wake me" path. Without this, a streak that ticks a milestone overnight
+  // (e.g. via the grace bridge in computeYouStats) would pop the moment the Today
+  // tab loads, before the user has done anything today.
+  const morningDoneToday = today?.morning_completed_at != null || today?.woke_at != null
+
   // Celebrate when the streak crosses a milestone (3, 7, 14, 30…), once each. The
   // last-celebrated value is persisted so it never re-fires; keying on the highest
-  // milestone REACHED (not an exact match) means a user who didn't open the app on
-  // the precise day still gets the moment.
+  // milestone REACHED (not an exact match) means a user who missed the precise day
+  // still gets the moment — it just waits until they've completed that morning.
   useEffect(() => {
     if (RECORDING) return // never pop the celebration during marketing footage
     if (streak == null) return
+    if (!morningDoneToday) return // only after they've finished the morning
     const reached = milestoneReached(streak)
     if (reached == null) return
     let cancelled = false
@@ -259,7 +267,7 @@ export default function Index() {
     return () => {
       cancelled = true
     }
-  }, [streak])
+  }, [streak, morningDoneToday])
 
   // The logical "now": until 3am this is still yesterday's date, so the weekday
   // eyebrow and the evening pivot roll over together.
