@@ -93,12 +93,12 @@ const GAP_LEGEND: { state: ReadinessState; label: string; dot: string; move: str
   { state: 'surplus', label: 'Charged', dot: COLORS.positive, move: 'You have more in the tank than the day requires.' },
 ]
 
-// Completes "Right now, you're ___." at the foot of the popup. Restore takes an
-// "in" (a mode); Ready and Charged read as adjectives ("you're ready / charged").
-const GAP_FOOTNOTE: Record<ReadinessState, { lead: string; word: string }> = {
-  deficit: { lead: 'in ', word: 'Restore' },
-  aligned: { lead: '', word: 'Ready' },
-  surplus: { lead: '', word: 'Charged' },
+// Completes "Right now, ___." at the foot of the popup. Restore is an action
+// ("you should Restore"); Ready and Charged are states you're in.
+const GAP_FOOTNOTE: Record<ReadinessState, { prefix: string; word: string }> = {
+  deficit: { prefix: 'you should ', word: 'Restore' },
+  aligned: { prefix: 'you’re ', word: 'Ready' },
+  surplus: { prefix: 'you’re ', word: 'Charged' },
 }
 
 // The You-vs-Day card's title, per state — the readiness state's name. (The info
@@ -654,7 +654,7 @@ export function TodayHome({
             </View>
 
             <Text style={styles.modalFootnote}>
-              Right now, you&rsquo;re {GAP_FOOTNOTE[gapState].lead}
+              Right now, {GAP_FOOTNOTE[gapState].prefix}
               <Text style={{ color: GAP_LEGEND.find((row) => row.state === gapState)!.dot }}>
                 {GAP_FOOTNOTE[gapState].word}
               </Text>
