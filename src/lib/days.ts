@@ -210,7 +210,7 @@ export async function daysForStats(limit = 400): Promise<StatsDay[]> {
   const { data, error } = await supabase
     .from('days')
     .select(
-      'local_date, morning_completed_at, evening_completed_at, woke_at, state, energy, mood, focus, routine_minutes, one_thing_slug, completed_slugs',
+      'local_date, morning_completed_at, evening_completed_at, woke_at, state, energy, mood, focus, routine_minutes, one_thing_slug, completed_slugs, plan',
     )
     .eq('user_id', userId)
     .or('morning_completed_at.not.is.null,evening_completed_at.not.is.null,woke_at.not.is.null')

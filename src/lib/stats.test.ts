@@ -40,7 +40,14 @@ function mk(date: string, o: Partial<StatsDay> = {}): StatsDay {
     routine_minutes: o.routine_minutes ?? null,
     one_thing_slug: o.one_thing_slug ?? null,
     completed_slugs: o.completed_slugs ?? [],
+    plan: o.plan ?? null,
   }
+}
+
+// A minimal plan carrying only the moves' slug + estMinutes — all `minutesDone`
+// reads. Cast past the full Plan shape, which the stats math never touches.
+function planWith(moves: { slug: string; estMinutes: number }[]): StatsDay['plan'] {
+  return { sequence: moves } as unknown as StatsDay['plan']
 }
 
 const M = '2026-06-01T08:00:00Z' // a stamp meaning "this happened"
@@ -207,22 +214,52 @@ describe('computeYouStats — trend', () => {
 })
 
 describe('computeYouStats — portfolio', () => {
-  it('counts mornings, sums routine minutes to hours, and computes follow-through', () => {
+  it('credits the estMinutes of the moves actually completed', () => {
+    const rows = [
+      mk('2026-06-01', {
+        morning_completed_at: M,
+        one_thing_slug: 'focal',
+        completed_slugs: ['focal', 'stretch'],
+        plan: planWith([
+          { slug: 'focal', estMinutes: 5 },
+          { slug: 'stretch', estMinutes: 10 },
+          { slug: 'skipped', estMinutes: 30 },
+        ]),
+      }),
+    ]
+    const s = computeYouStats(rows, '2026-06-01')
+    expect(s.portfolio.morningsBuilt).toBe(1)
+    // 5 + 10 done; the skipped 30-min move earns nothing → 15 min, shown as minutes.
+    expect(s.portfolio.timeInvested).toBe('15m')
+    expect(s.portfolio.followThrough).toBe('100%')
+  })
+
+  it('switches to hours once the total passes sixty minutes', () => {
+    const move = (m: number) => planWith([{ slug: 'x', estMinutes: m }])
+    const rows = [
+      mk('2026-06-01', { morning_completed_at: M, one_thing_slug: 'x', completed_slugs: ['x'], plan: move(45) }),
+      mk('2026-06-02', { morning_completed_at: M, one_thing_slug: 'x', completed_slugs: ['x'], plan: move(45) }),
+    ]
+    const s = computeYouStats(rows, '2026-06-02')
+    expect(s.portfolio.timeInvested).toBe('1.5h') // 90 min
+  })
+
+  it('falls back to the stored routine budget for rows without a plan', () => {
     const rows = [
       mk('2026-06-01', { morning_completed_at: M, routine_minutes: 30, one_thing_slug: 'a', completed_slugs: ['a'] }),
       mk('2026-06-02', { morning_completed_at: M, routine_minutes: 30, one_thing_slug: 'b', completed_slugs: [] }),
     ]
     const s = computeYouStats(rows, '2026-06-02')
     expect(s.portfolio.morningsBuilt).toBe(2)
-    expect(s.portfolio.hoursInvested).toBe('1.0h') // 60 min
+    expect(s.portfolio.timeInvested).toBe('1.0h') // 60 min, from the budget fallback
     expect(s.portfolio.followThrough).toBe('50%') // 1 of 2 focal points done
   })
 
-  it('shows em dashes when there is nothing to measure', () => {
+  it('shows em dashes / zero when there is nothing to measure', () => {
     const s = computeYouStats([], '2026-06-03')
     expect(s.portfolio.followThrough).toBe('—')
     expect(s.portfolio.strongestDay).toBe('—')
-    expect(s.portfolio.hoursInvested).toBe('0h')
+    expect(s.portfolio.timeInvested).toBe('0m')
   })
 })
 

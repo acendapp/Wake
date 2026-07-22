@@ -108,7 +108,7 @@ const SAMPLE_STATS: YouStats = {
   ],
   gapRead:
     "Most mornings, you're matched to what your day asks. The work now is closing the gap on the mornings you wake behind.",
-  portfolio: { morningsBuilt: 34, hoursInvested: '7.2h', strongestDay: 'Tue', followThrough: '86%' },
+  portfolio: { morningsBuilt: 34, timeInvested: '7.2h', strongestDay: 'Tue', followThrough: '86%' },
   patterns: [
     {
       icon: 'trending-up',
@@ -518,7 +518,7 @@ export default function YouScreen() {
               <View style={styles.statGrid}>
                 {[
                   { value: String(viewStats.portfolio.morningsBuilt), label: 'mornings built' },
-                  { value: viewStats.portfolio.hoursInvested, label: 'invested in you' },
+                  { value: viewStats.portfolio.timeInvested, label: 'invested in you' },
                   { value: viewStats.portfolio.strongestDay, label: 'strongest day' },
                   { value: viewStats.portfolio.followThrough, label: 'follow-through' },
                 ].map((s) => (

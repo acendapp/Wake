@@ -1,4 +1,4 @@
-import type { ReadinessState } from '../engine/types'
+import type { Plan, ReadinessState } from '../engine/types'
 
 // The You-page stats pipeline. This module is PURE (rows in → numbers out) and
 // imports only pure engine types — never the supabase/db layer — so the math is
@@ -22,6 +22,9 @@ export interface StatsDay {
   routine_minutes: number | null
   one_thing_slug: string | null
   completed_slugs: string[]
+  /** The day's plan — its moves carry the estMinutes used to credit real time
+   *  invested (see minutesDone). Null on older rows / a "just wake me" day. */
+  plan: Plan | null
 }
 
 export type Metric = 'energy' | 'mood' | 'focus'
@@ -83,7 +86,7 @@ export interface YouStats {
   gapRead: string | null
   portfolio: {
     morningsBuilt: number
-    hoursInvested: string // "7.2h"
+    timeInvested: string // "45m" | "3.2h"
     strongestDay: string // "Tue" | "—"
     followThrough: string // "86%" | "—"
   }
@@ -116,6 +119,30 @@ const avg = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length
  */
 function focalSlug(r: StatsDay): string | null {
   return r.one_thing_slug ?? null
+}
+
+/**
+ * Minutes the user actually did on a morning: the estMinutes of the plan moves
+ * they checked off (completed_slugs). This is the honest "time invested" — a
+ * focal-only morning counts for less than a full sequence, and checking in
+ * without doing a move counts for nothing. Falls back to the stored routine
+ * budget only for older/corrupt rows with no usable plan, so their credit isn't
+ * silently dropped.
+ */
+function minutesDone(r: StatsDay): number {
+  const done = new Set(r.completed_slugs ?? [])
+  const seq = r.plan?.sequence
+  if (seq && seq.length > 0) {
+    return seq.reduce((sum, a) => (done.has(a.slug) ? sum + (a.estMinutes ?? 0) : sum), 0)
+  }
+  return r.routine_minutes ?? 0
+}
+
+/** Time-invested display: minutes under an hour ("45m"), hours once past one
+ *  ("3.2h") — small early totals read as real progress, no fake precision. */
+function formatInvested(totalMin: number): string {
+  if (totalMin < 60) return `${Math.max(0, Math.round(totalMin))}m`
+  return `${(totalMin / 60).toFixed(1)}h`
 }
 
 /** Integer percentages that sum to exactly 100 (largest-remainder rounding). */
@@ -239,8 +266,8 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   // ── Portfolio ──
   const mornings = rows.filter((r) => r.morning_completed_at)
   const morningsBuilt = mornings.length
-  const totalMin = mornings.reduce((sum, r) => sum + (r.routine_minutes ?? 0), 0)
-  const hoursInvested = totalMin === 0 ? '0h' : `${(totalMin / 60).toFixed(1)}h`
+  const totalMin = mornings.reduce((sum, r) => sum + minutesDone(r), 0)
+  const timeInvested = formatInvested(totalMin)
 
   // Strongest weekday by average energy — only claimed with ≥3 reflections.
   let strongestDay = '—'
@@ -283,7 +310,7 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
     week,
     gapMix,
     gapRead,
-    portfolio: { morningsBuilt, hoursInvested, strongestDay, followThrough },
+    portfolio: { morningsBuilt, timeInvested, strongestDay, followThrough },
     patterns,
   }
 }
