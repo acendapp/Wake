@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import Animated, { ZoomIn } from 'react-native-reanimated'
+import Animated, { FadeIn } from 'react-native-reanimated'
 
 import { day } from '@/theme/colors'
 
@@ -38,7 +38,7 @@ export function StreakCelebration({
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
       <Pressable style={styles.backdrop} onPress={onDismiss}>
-        <Animated.View entering={ZoomIn.springify().damping(15)} style={styles.card}>
+        <Animated.View entering={FadeIn.duration(420)} style={styles.card}>
           <View style={styles.rule}>
             <View style={styles.ruleLine} />
             <Feather name="sunrise" size={18} color={day.gold} />
