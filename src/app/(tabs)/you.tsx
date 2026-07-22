@@ -107,7 +107,7 @@ const SAMPLE_STATS: YouStats = {
     { key: 'surplus', pct: 19 },
   ],
   gapRead:
-    "Most mornings, you're matched to what your day asks. The work now is turning deficits into alignment.",
+    "Most mornings, you're matched to what your day asks. The work now is closing the gap on the mornings you wake behind.",
   portfolio: { morningsBuilt: 34, hoursInvested: '7.2h', strongestDay: 'Tue', followThrough: '86%' },
   patterns: [
     {

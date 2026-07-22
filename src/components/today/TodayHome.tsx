@@ -93,20 +93,20 @@ const GAP_LEGEND: { state: ReadinessState; label: string; dot: string; move: str
   { state: 'surplus', label: 'Charged', dot: COLORS.positive, move: 'You have more in the tank than the day requires.' },
 ]
 
-// The noun that completes "Right now, you're in ___." at the foot of the popup.
-const GAP_FOOTNOTE: Record<ReadinessState, string> = {
+// Completes "Right now, you're ___." at the foot of the popup. Restore takes an
+// "in" (a mode); Ready and Charged read as adjectives ("you're ready / charged").
+const GAP_FOOTNOTE: Record<ReadinessState, { lead: string; word: string }> = {
+  deficit: { lead: 'in ', word: 'Restore' },
+  aligned: { lead: '', word: 'Ready' },
+  surplus: { lead: '', word: 'Charged' },
+}
+
+// The You-vs-Day card's title, per state — the readiness state's name. (The info
+// popup keeps "The Gap" as the model's name; this is just the card's face.)
+const GAP_TITLE: Record<ReadinessState, string> = {
   deficit: 'Restore',
   aligned: 'Ready',
   surplus: 'Charged',
-}
-
-// The You-vs-Day card's title, per state. "The Gap" only reads right when there
-// IS a gap to close — alignment and surplus get their own names. (The info
-// popup keeps "The Gap" as the model's name; this is just the card's face.)
-const GAP_TITLE: Record<ReadinessState, string> = {
-  deficit: 'The Gap',
-  aligned: 'In Balance',
-  surplus: 'The Surplus',
 }
 
 // Ionicons glyph per coarse weather condition (see src/lib/weather.ts).
@@ -634,8 +634,8 @@ export function TodayHome({
               day demands.
             </Text>
             <Text style={styles.modalBody}>
-              If you are not in balance with the day ahead, the distance between them is
-              your gap or surplus.
+              Where you land is your read for the day — behind it is Restore, level with
+              it is Ready, and ahead of it is Charged.
             </Text>
 
             <View style={styles.legend}>
@@ -654,9 +654,9 @@ export function TodayHome({
             </View>
 
             <Text style={styles.modalFootnote}>
-              Right now, you&rsquo;re in{' '}
+              Right now, you&rsquo;re {GAP_FOOTNOTE[gapState].lead}
               <Text style={{ color: GAP_LEGEND.find((row) => row.state === gapState)!.dot }}>
-                {GAP_FOOTNOTE[gapState]}
+                {GAP_FOOTNOTE[gapState].word}
               </Text>
               .
             </Text>
