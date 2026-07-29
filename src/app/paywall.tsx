@@ -20,15 +20,16 @@ import { day } from '@/theme/colors'
 // the hardcoded PLANS copy below, so the whole flow still works for testing.
 //
 // PAYWALL_MODE controls dismissibility. 'hard' = no escape; 'soft' = a real
-// "Not now" for everyone. Pre-launch/pre-PMF we ship 'soft' so a new user can
-// reach the product and form the habit before the pay ask — the flip back to
-// 'hard' is a one-liner once conversion data justifies it (see the 5-agent audit:
-// account-creation + a hard wall stacked before any value is a severe drop-off).
+// "Not now" for everyone. LAUNCHING 'hard': every user must start the 7-day free
+// trial (or subscribe) to enter — the trial is the low-friction "taste it first"
+// valve, so there's no value stacked behind a pay-only wall. Flip to 'soft' only
+// if conversion data later argues for free access before the pay ask (see the
+// 5-agent audit: account-creation + a hard wall before any value risks drop-off).
 //
 // The pressure valve either way is "View a sample routine": one click-through
 // demo morning (the same sample the first-run Today shows), after which the user
 // lands back here. A taste of the mechanism, not ongoing value.
-const PAYWALL_MODE: 'hard' | 'soft' = 'soft'
+const PAYWALL_MODE: 'hard' | 'soft' = 'hard'
 
 type PlanId = 'annual' | 'monthly'
 
