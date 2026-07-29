@@ -428,7 +428,7 @@ export default function Index() {
                 Your mornings begin tomorrow, {userName}.
               </Text>
               <Text style={styles.eveningBody}>
-                Each evening, Reflect sets up the next morning — and you wake to a routine
+                Each day, Reflect sets up the next morning — and you wake to a routine
                 built for how you arrive. Until then, here&rsquo;s what one looks like.
               </Text>
             </View>
