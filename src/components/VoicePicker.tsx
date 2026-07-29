@@ -15,6 +15,8 @@ import { day } from '@/theme/colors'
 const PREVIEW: Record<string, number> = {
   maria: require('../../assets/audio/maria-01.caf'),
   rowan: require('../../assets/audio/rowan-01.caf'),
+  verity: require('../../assets/audio/verity-01.caf'),
+  marcus: require('../../assets/audio/marcus-01.caf'),
 }
 
 type Props = {

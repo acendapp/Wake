@@ -10,8 +10,8 @@ export type WakeAlarm = { enabled: boolean; time: string | null; voice: string }
 // The user picks which voice wakes them. Each voice is a persona with its own set
 // of bundled good-morning recordings; the alarm rotates one per day (soundForDate).
 // Recorded clips live under assets/audio/ named "<voiceId>-01.caf" … per voice
-// (see docs/voice-clips.md). The files don't exist yet — these ids are the
-// recording target.
+// (see docs/voice-clips.md), auto-bundled into the iOS main bundle by
+// plugins/withWakeAudio.js.
 
 export interface Voice {
   id: string
@@ -24,6 +24,8 @@ export interface Voice {
 export const VOICES: Voice[] = [
   { id: 'maria', name: 'Maria' },
   { id: 'rowan', name: 'Rowan' },
+  { id: 'verity', name: 'Verity' },
+  { id: 'marcus', name: 'Marcus' },
 ]
 
 /** The voice a new user gets until they choose one — Maria, the only voice with
