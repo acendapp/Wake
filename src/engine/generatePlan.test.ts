@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyState, generatePlan } from './generatePlan'
+import { classifyState, freshnessPenalty, generatePlan } from './generatePlan'
 
 const totalMinutes = (plan: ReturnType<typeof generatePlan>) =>
   plan.sequence.reduce((sum, a) => sum + a.estMinutes, 0)
@@ -159,5 +159,78 @@ describe('generatePlan', () => {
     const plan = generatePlan({ readiness: 99, dayDifficulty: -4 })
     expect(plan.state).toBe('surplus')
     expect(plan.gap).toBe(9) // 10 - 1
+  })
+})
+
+describe('freshnessPenalty', () => {
+  // 'move-body' owns variants 'move-body-8' / 'move-body-3' (the stored focal slug).
+  it('is zero with no recent focal history', () => {
+    expect(freshnessPenalty('move-body', [])).toBe(0)
+  })
+
+  it('is zero for a goal whose variants have not recently led', () => {
+    expect(freshnessPenalty('move-body', ['sunlight-3', 'set-intention-2'])).toBe(0)
+  })
+
+  it('penalizes a recent focal goal, heaviest for the most recent morning', () => {
+    const yesterday = freshnessPenalty('move-body', ['move-body-3'])
+    const twoDaysAgo = freshnessPenalty('move-body', ['sunlight-3', 'move-body-3'])
+    expect(yesterday).toBeGreaterThan(twoDaysAgo)
+    expect(twoDaysAgo).toBeGreaterThan(0)
+  })
+
+  it('sums across occurrences so a repeatedly-led goal drops furthest', () => {
+    const once = freshnessPenalty('move-body', ['move-body-3'])
+    const twice = freshnessPenalty('move-body', ['move-body-3', 'move-body-8'])
+    expect(twice).toBeGreaterThan(once)
+  })
+})
+
+describe('generatePlan — focal-point rotation', () => {
+  const base = { readiness: 5, dayDifficulty: 8, routineMinutes: 20 } as const
+
+  it('is unchanged when there is no focal history', () => {
+    const plain = generatePlan(base)
+    const withEmpty = generatePlan({ ...base, recentFocalSlugs: [] })
+    expect(withEmpty.oneThing.slug).toBe(plain.oneThing.slug)
+    expect(withEmpty.sequence.map((a) => a.slug)).toEqual(plain.sequence.map((a) => a.slug))
+  })
+
+  it('never repeats yesterday’s focal point (no intent set)', () => {
+    const plain = generatePlan(base)
+    const next = generatePlan({ ...base, recentFocalSlugs: [plain.oneThing.slug] })
+    expect(next.oneThing.slug).not.toBe(plain.oneThing.slug)
+  })
+
+  it('never repeats yesterday’s focal point (with an intent match)', () => {
+    // Even the strongest intent-matched lead rotates: the cluster gap is smaller
+    // than the leading freshness weight, so a user who never leaves 'energize' /
+    // deficit still gets a fresh One Thing each morning.
+    const plain = generatePlan({ ...base, intent: 'energize' })
+    const next = generatePlan({
+      ...base,
+      intent: 'energize',
+      recentFocalSlugs: [plain.oneThing.slug],
+    })
+    expect(next.oneThing.slug).not.toBe(plain.oneThing.slug)
+  })
+
+  it('cycles the lead: no back-to-back repeats, and the top move returns', () => {
+    // Simulate a user parked in one state across several mornings, feeding each
+    // day's focal point into the next day's history (most-recent first).
+    const history: string[] = []
+    const leads: string[] = []
+    for (let day = 0; day < 5; day++) {
+      const lead = generatePlan({ ...base, recentFocalSlugs: history }).oneThing.slug
+      leads.push(lead)
+      history.unshift(lead)
+    }
+    // No two consecutive mornings share a focal point — the whole point.
+    for (let i = 1; i < leads.length; i++) {
+      expect(leads[i]).not.toBe(leads[i - 1])
+    }
+    // The highest-leverage move (day 1's lead) is not suppressed forever — it
+    // reclaims the lead within the window as its penalty decays.
+    expect(leads.slice(1)).toContain(leads[0])
   })
 })

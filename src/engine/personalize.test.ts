@@ -34,6 +34,13 @@ describe('buildMessages', () => {
     expect(parsed.constraints_for_output.maxMoves).toBe(5)
     expect(Array.isArray(parsed.candidates)).toBe(true)
     expect(parsed.person.intent).toBe('energize')
+    expect(Array.isArray(parsed.recentFocalPoints)).toBe(true)
+  })
+
+  it('passes recent focal points through so the model can rotate the lead', () => {
+    const ctx = { ...baseCtx(), recentFocalSlugs: ['move-body-3', 'sunlight-3'] }
+    const { user } = buildMessages(ctx, buildCandidates(ctx.state))
+    expect(JSON.parse(user).recentFocalPoints).toEqual(['move-body-3', 'sunlight-3'])
   })
 })
 
@@ -157,5 +164,6 @@ function baseCtx(): PersonalizationContext {
     reflections: [
       { date: '2026-05-30', lookback: 'behind', energy: 4, mood: 5, focus: 4, note: null, completedSlugs: ['move-body-3'] },
     ],
+    recentFocalSlugs: [],
   }
 }

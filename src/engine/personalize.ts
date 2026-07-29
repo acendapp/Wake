@@ -47,6 +47,9 @@ export interface PersonalizationContext {
   ageRange: string | null
   sex: string | null
   reflections: ReflectionSummary[]
+  /** Recent focal-point slugs (stored `one_thing_slug`), most recent first — so
+   *  the model can rotate the lead instead of repeating a recent focal point. */
+  recentFocalSlugs: string[]
 }
 
 /** The structured shape we require back from the model. */
@@ -71,7 +74,7 @@ Hard rules — follow exactly:
 1. ONLY use moves from the provided candidate list. Never invent a move. Each pick must reference a real variant "slug" from a candidate.
 2. Pick at most "maxMoves" moves and keep the total of their "estMinutes" at or under "budgetMinutes". No single move may exceed "moveCap" minutes.
 3. Pick at most one variant per goal (one "goalSlug").
-4. Choose and order moves to fit THIS person — their intent, fitness, friction point, goals, constraints, and how recent mornings actually went (the reflections). Lead with the single highest-leverage move for them; that is "leadSlug".
+4. Choose and order moves to fit THIS person — their intent, fitness, friction point, goals, constraints, and how recent mornings actually went (the reflections). Lead with the single highest-leverage move for them; that is "leadSlug". Vary the lead day to day: avoid choosing a slug listed in "recentFocalPoints" as "leadSlug" unless it is clearly still the single best move for them today — a routine that feels fresh matters.
 5. Rewrite each move's "example" so it fits this person (their fitness, constraints, equipment). Keep it short, gentle, and optional in tone. The gain is in the broad ACTION, never the specific example — never prescribe an intensity someone may not be able to do.
 6. This is a wake-up routine (get out of bed and out of the room), not a workout or a work plan. Favor breadth of short moves.
 7. If you include the "get out of bed" move, order it FIRST in "moves" — nothing can come before getting out of bed. (It does not need to be "leadSlug" unless it's also the highest-leverage move.)
@@ -110,6 +113,7 @@ export function buildMessages(
       sex: ctx.sex,
     },
     recentMornings: ctx.reflections,
+    recentFocalPoints: ctx.recentFocalSlugs,
     candidates,
   })
   return { system: SYSTEM_PROMPT, user }

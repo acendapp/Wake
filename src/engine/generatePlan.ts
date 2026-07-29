@@ -92,6 +92,46 @@ function rankFor(goal: Goal, intent: Intent | null | undefined): number {
   return goal.priority + (matched ? INTENT_BONUS : 0)
 }
 
+// Recently-served focal goals get a decaying rank penalty so the lead rotates
+// through near-equal moves instead of repeating every morning — the variety a
+// user actually perceives as personalization. Weighted by recency (yesterday's
+// focal is pushed down most) and summed across occurrences, so a move that led
+// several recent mornings drops furthest.
+//
+// Tuning: the top routine goals for a state cluster within ~8 rank points of each
+// other (even with a +INTENT_BONUS match), so the leading weight (14) is set above
+// that gap to GUARANTEE the focal point changes day to day — no user parked in one
+// readiness state sees the same One Thing twice running. The fast decay then lets
+// the highest-leverage move reclaim the lead within a couple of days rather than
+// being suppressed for a week. Lower the first weight below the cluster gap if a
+// stable anchor is ever preferred over guaranteed rotation.
+const FRESHNESS_WEIGHTS = [14, 8, 4, 2]
+
+// Map each variant slug (what's stored per morning as `one_thing_slug`) back to
+// its goal, so recent focal history can be scored at the goal grain the ranker
+// works in. Built once from the library at module load.
+const VARIANT_TO_GOAL: Map<string, string> = new Map(
+  GOAL_LIBRARY.flatMap((g) => g.variants.map((v) => [v.slug, g.slug] as const)),
+)
+
+/**
+ * How far to push a goal down for having recently been the focal point. Sums a
+ * recency weight for each recent morning it led (most recent = heaviest), so both
+ * recency and frequency count. `recentFocalSlugs` are stored `one_thing_slug`
+ * values (variant slugs), most-recent first; unknown or empty entries score 0.
+ */
+export function freshnessPenalty(
+  goalSlug: string,
+  recentFocalSlugs: readonly string[],
+): number {
+  let penalty = 0
+  const n = Math.min(recentFocalSlugs.length, FRESHNESS_WEIGHTS.length)
+  for (let i = 0; i < n; i++) {
+    if (VARIANT_TO_GOAL.get(recentFocalSlugs[i]) === goalSlug) penalty += FRESHNESS_WEIGHTS[i]
+  }
+  return penalty
+}
+
 /** The state-derived framing (headline/subhead/accent) for a plan. Shared so the
  *  personalized plan reuses the same framing as the deterministic one. */
 export function framingFor(state: ReadinessState): (typeof FRAMING)[ReadinessState] {
@@ -132,11 +172,15 @@ export function generatePlan(input: PlanInput): Plan {
   const gap = readiness - dayDifficulty
   const framing = FRAMING[state]
 
-  // Only morning-routine goals for this state, ranked by leverage and then lifted
-  // by how well each serves the user's intent (the strongest prior we have).
+  // Only morning-routine goals for this state, ranked by leverage, lifted by how
+  // well each serves the user's intent (the strongest prior we have), and pushed
+  // down by how recently each was the focal point — so a user parked in one state
+  // sees the lead rotate instead of the same move every morning.
+  const recentFocalSlugs = input.recentFocalSlugs ?? []
+  const rank = (g: Goal) => rankFor(g, input.intent) - freshnessPenalty(g.slug, recentFocalSlugs)
   const candidates = GOAL_LIBRARY.filter(
     (g) => g.scope === 'routine' && g.states.includes(state),
-  ).sort((a, b) => rankFor(b, input.intent) - rankFor(a, input.intent))
+  ).sort((a, b) => rank(b) - rank(a))
 
   if (candidates.length === 0) {
     // Library invariant: every state has at least one routine goal. Fail loudly.

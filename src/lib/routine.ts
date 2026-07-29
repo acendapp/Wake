@@ -8,7 +8,14 @@ import {
 } from '@/engine/personalize'
 import type { Lookback, Plan, ReadinessState } from '@/engine/types'
 
-import { addDays, getDay, recentReflections, savePlanOptions, type DayRow } from './days'
+import {
+  addDays,
+  getDay,
+  recentFocalSlugs,
+  recentReflections,
+  savePlanOptions,
+  type DayRow,
+} from './days'
 import type { ProfileRow } from './profile'
 import { SEQUENCE_MINUTES } from './routineTier'
 import { supabase } from './supabase'
@@ -55,6 +62,7 @@ function buildContext(
   budget: number,
   profile: ProfileRow | null,
   reflections: ReflectionSummary[],
+  focalHistory: string[],
 ): PersonalizationContext {
   const readiness = representativeReadiness(state, dayDifficulty)
   return {
@@ -71,6 +79,7 @@ function buildContext(
     ageRange: profile?.age_range ?? null,
     sex: profile?.sex ?? null,
     reflections,
+    recentFocalSlugs: focalHistory,
   }
 }
 
@@ -82,6 +91,7 @@ async function personalizeState(
   budget: number,
   profile: ProfileRow | null,
   reflections: ReflectionSummary[],
+  focalHistory: string[],
 ): Promise<Plan> {
   const readiness = representativeReadiness(state, dayDifficulty)
   const fallback = generatePlan({
@@ -89,10 +99,11 @@ async function personalizeState(
     dayDifficulty,
     routineMinutes: budget,
     intent: profile?.intent ?? null,
+    recentFocalSlugs: focalHistory,
   })
 
   try {
-    const ctx = buildContext(state, dayDifficulty, budget, profile, reflections)
+    const ctx = buildContext(state, dayDifficulty, budget, profile, reflections, focalHistory)
     const { system, user } = buildMessages(ctx, buildCandidates(state))
     const { data, error } = await supabase.functions.invoke('generate-routine', {
       body: { system, user },
@@ -127,9 +138,10 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
   if (inFlight.has(targetDate)) return false
   inFlight.add(targetDate)
   try {
-    const [profile, reflectionRows, targetRow] = await Promise.all([
+    const [profile, reflectionRows, focalHistory, targetRow] = await Promise.all([
       fetchProfile(),
       recentReflections(5),
+      recentFocalSlugs(5),
       getDay(targetDate),
     ])
     const dayDifficulty = targetRow?.day_difficulty ?? DEFAULT_DEMAND
@@ -139,7 +151,9 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
     const reflections = reflectionRows.map(toReflectionSummary)
 
     const plans = await Promise.all(
-      STATES.map((state) => personalizeState(state, dayDifficulty, budget, profile, reflections)),
+      STATES.map((state) =>
+        personalizeState(state, dayDifficulty, budget, profile, reflections, focalHistory),
+      ),
     )
     const options: Partial<Record<ReadinessState, Plan>> = {}
     STATES.forEach((state, i) => {

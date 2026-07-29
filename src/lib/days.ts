@@ -255,6 +255,27 @@ export async function recentReflections(limit = 5): Promise<DayRow[]> {
 }
 
 /**
+ * The most recent morning focal-point slugs (`one_thing_slug`), newest first.
+ * Feeds the engine's freshness penalty (see generatePlan) so the focal point
+ * rotates day to day. Unlike recentReflections this does NOT require an evening
+ * reflection — a focal point is set every morning, reflected on or not.
+ */
+export async function recentFocalSlugs(limit = 5): Promise<string[]> {
+  const userId = await currentUserId()
+  const { data, error } = await supabase
+    .from('days')
+    .select('local_date, one_thing_slug')
+    .eq('user_id', userId)
+    .not('one_thing_slug', 'is', null)
+    .order('local_date', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return ((data as { one_thing_slug: string | null }[]) ?? [])
+    .map((r) => r.one_thing_slug)
+    .filter((s): s is string => s != null)
+}
+
+/**
  * Evening reflection: writes today's review and tomorrow's setup.
  *
  * Order matters — these are two non-atomic writes, so tomorrow's setup is

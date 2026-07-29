@@ -118,6 +118,14 @@ export interface PlanInput {
   routineMinutes?: number | null
   /** The user's morning intent (from onboarding). Steers selection and the lead. */
   intent?: Intent | null
+  /**
+   * Recent focal-point slugs (the stored `one_thing_slug` per morning), most
+   * recent first. A goal whose variant recently led gets a decaying rank penalty
+   * so the focal point rotates through near-equal moves instead of repeating for
+   * a user parked in one readiness state. Empty/omitted → no penalty (identical
+   * to the pre-freshness behavior).
+   */
+  recentFocalSlugs?: string[] | null
   /** Optional, for time-aware copy later. */
   now?: Date
   mode?: Mode | null
