@@ -13,11 +13,11 @@ import { StatusBar } from 'expo-status-bar'
 import { useEffect, useRef, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
+import { AppErrorBoundary } from '@/components/AppErrorBoundary'
 import { LaunchAnimation } from '@/components/LaunchAnimation'
 import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { EntitlementProvider, useEntitlement } from '@/lib/entitlement'
-import { syncReminders } from '@/lib/notifications'
 import { ProfileProvider, useProfile } from '@/lib/profile'
 import { getWeather } from '@/lib/weather'
 import { day } from '@/theme/colors'
@@ -54,16 +54,18 @@ export default function RootLayout() {
   }, [])
 
   return (
-    <AuthProvider>
-      <ProfileProvider>
-        <EntitlementProvider>
-          <SafeAreaProvider>
-            <StatusBar style="dark" />
-            <RootNavigator fontsReady={loaded || !!error} />
-          </SafeAreaProvider>
-        </EntitlementProvider>
-      </ProfileProvider>
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <ProfileProvider>
+          <EntitlementProvider>
+            <SafeAreaProvider>
+              <StatusBar style="dark" />
+              <RootNavigator fontsReady={loaded || !!error} />
+            </SafeAreaProvider>
+          </EntitlementProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   )
 }
 
@@ -115,16 +117,13 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     }).catch(() => {})
   }, [profile?.wake_enabled, profile?.wake_time, profile?.wake_voice])
 
-  // Keep the daily reminders (morning nudge + evening "set up tomorrow") in sync on
-  // every launch. No-op without notification permission; the evening reminder
-  // schedules even when the alarm is off.
-  useEffect(() => {
-    void syncReminders({
-      wakeEnabled: profile?.wake_enabled ?? false,
-      wakeTime: profile?.wake_time ?? null,
-      firstName: profile?.first_name,
-    })
-  }, [profile?.wake_enabled, profile?.wake_time, profile?.first_name])
+  // Daily reminders (morning nudge + evening "set up tomorrow") are scheduled by the
+  // Today screen — the single authority — which has the live streak + reflected-today
+  // state the evening nudge needs, and mounts on every launch for the onboarded users
+  // who actually have a morning loop. Onboarding bootstraps the first schedule and the
+  // wake-alarm settings screen re-syncs on change. Scheduling here too would double
+  // every reminder (two callers racing the cancel+reschedule) and clobber the
+  // streak-aware copy with a plainer baseline.
 
   useEffect(() => {
     if (!ready) return

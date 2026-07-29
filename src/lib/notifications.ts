@@ -119,14 +119,37 @@ function dayOfYear(d: Date): number {
   return Math.floor((d.getTime() - start.getTime()) / 86_400_000)
 }
 
+// All reminder mutations run through this serial queue. The cancel-all + reschedule
+// in syncRemindersImpl is NOT atomic, and several screens (root layout, Today,
+// onboarding, wake settings) can trigger a sync almost simultaneously on launch.
+// Run concurrently they interleave — both cancel, then both schedule — leaving a
+// DUPLICATE of every reminder (the "two notifications per event" bug). Chaining each
+// run onto the previous makes every cancel+schedule finish before the next starts,
+// so the last caller wins with exactly one set per user. cancelAll is app-wide (per
+// install), so this also collapses leftovers from a previously signed-in account.
+let mutationChain: Promise<void> = Promise.resolve()
+
+function enqueue(task: () => Promise<void>): Promise<void> {
+  // Run `task` whether the previous mutation resolved or rejected, and never let a
+  // rejection poison the stored chain.
+  const run = mutationChain.then(task, task)
+  mutationChain = run.catch(() => {})
+  return run
+}
+
 /**
  * Re-arm the daily reminders. Scheduled as dated one-shots for the next HORIZON_DAYS
  * (re-armed on every launch/focus), so copy rotates, the evening nudge is streak-aware,
  * and tonight's evening reminder is skipped once the reflection is done. The morning
  * cue fires even when the voice alarm is off (a large segment on pre-iOS-26.1). No-op
- * without the native module or permission.
+ * without the native module or permission. Serialized so overlapping callers can't
+ * double-schedule (see mutationChain).
  */
-export async function syncReminders(input: SyncInput): Promise<void> {
+export function syncReminders(input: SyncInput): Promise<void> {
+  return enqueue(() => syncRemindersImpl(input))
+}
+
+async function syncRemindersImpl(input: SyncInput): Promise<void> {
   const N = getNotifications()
   if (Platform.OS === 'web' || !N) return
   try {
@@ -146,7 +169,11 @@ export async function syncReminders(input: SyncInput): Promise<void> {
     const DATE = N.SchedulableTriggerInputTypes.DATE
 
     for (let i = 0; i < HORIZON_DAYS; i++) {
-      // ── Morning check-in cue (always, even with the alarm off) ──
+      // ── Morning check-in cue ──
+      // Fires every day whether or not the voice alarm is on. The alarm WAKES you;
+      // this banner is the separate, tappable "come check in" cue that persists in
+      // Notification Center after the alarm is dismissed — a re-engagement hook into
+      // the morning flow, not a duplicate of the alarm.
       const mDate = new Date(midnight)
       mDate.setDate(mDate.getDate() + i)
       mDate.setHours(morning.hour, morning.minute, 0, 0)
@@ -182,8 +209,13 @@ export async function syncReminders(input: SyncInput): Promise<void> {
   }
 }
 
-/** Cancel all scheduled reminders (e.g. a settings toggle off). */
-export async function clearReminders(): Promise<void> {
+/** Cancel all scheduled reminders (e.g. a settings toggle off). Serialized on the
+ *  same queue as syncReminders so a clear can't interleave with an in-flight sync. */
+export function clearReminders(): Promise<void> {
+  return enqueue(clearRemindersImpl)
+}
+
+async function clearRemindersImpl(): Promise<void> {
   const N = getNotifications()
   if (!N) return
   try {
