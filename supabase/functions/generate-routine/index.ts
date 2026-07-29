@@ -63,13 +63,13 @@ Deno.serve(async (req) => {
   // Record this call (best-effort; user_id defaults to auth.uid() under RLS).
   await supabase.from('routine_call_log').insert({})
 
-  let payload: { system?: unknown; user?: unknown; model?: unknown }
+  let payload: { system?: unknown; user?: unknown }
   try {
     payload = await req.json()
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
-  const { system, user, model } = payload
+  const { system, user } = payload
   if (typeof system !== 'string' || typeof user !== 'string') {
     return json({ error: 'Expected { system: string, user: string }' }, 400)
   }
@@ -85,7 +85,9 @@ Deno.serve(async (req) => {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: typeof model === 'string' && model ? model : ANTHROPIC_MODEL,
+        // Model is server-controlled only — never accept a client-supplied model,
+        // or an authenticated caller could force an expensive model on every call.
+        model: ANTHROPIC_MODEL,
         max_tokens: 1024,
         system,
         messages: [{ role: 'user', content: user }],

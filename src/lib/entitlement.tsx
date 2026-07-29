@@ -167,7 +167,12 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     return ok
   }, [])
 
-  const bypass = useCallback(() => setDevBypassed(true), [])
+  const bypass = useCallback(() => {
+    // Defense in depth: the paywall only wires this to a __DEV__-gated button, but
+    // guard here too so no bypass path can ever grant free premium in production.
+    if (!__DEV__) return
+    setDevBypassed(true)
+  }, [])
 
   return (
     <EntitlementContext.Provider
