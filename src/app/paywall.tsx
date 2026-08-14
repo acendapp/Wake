@@ -130,13 +130,33 @@ export default function PaywallScreen() {
     return { ...base, price: `${live.priceString}/month` }
   })
 
+  // The yearly-vs-monthly saving, for the badge on the annual plan. Computed from
+  // live numeric prices when available (so it stays right in every currency), else
+  // the known launch tiers — $59.99/yr against $9.99/mo × 12 ≈ 50%.
+  const savingsPct = (() => {
+    const a = pricing?.annual?.priceValue
+    const m = pricing?.monthly?.priceValue
+    if (a && m && m > 0) {
+      const pct = Math.round((1 - a / (m * 12)) * 100)
+      return pct > 0 ? pct : null
+    }
+    return 50
+  })()
+  const savingsBadge = savingsPct != null ? `Save ${savingsPct}%` : null
+
   // The annual plan carries the 7-day trial; monthly bills immediately. Keep the
   // fine print and the CTA honest about whichever plan is actually selected.
+  //
+  // Apple 3.1.2(c): a free-trial flow MUST state, near the CTA, how long the trial
+  // lasts, the exact amount billed after it, and that it auto-renews. Prices/trial
+  // come from the live offering where available, with the launch terms as fallback.
   const isAnnual = selected === 'annual'
   const monthlyPrice = plans.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
+  const annualTrialDays = pricing?.annual?.trialDays ?? 7
+  const annualPrice = pricing?.annual?.priceString ?? '$59.99'
   const legalCopy = isAnnual
-    ? 'Try your custom sequence free for 7 days. You won’t be charged until your trial ends. Cancel anytime in your system settings.'
-    : `Billed ${monthlyPrice}, auto-renewing until you cancel. No free trial on the monthly plan. Cancel anytime in your system settings.`
+    ? `${annualTrialDays}-day free trial, then ${annualPrice}/year. Your subscription renews automatically — your payment method is charged ${annualPrice} at the end of the free trial and every year after, unless you cancel at least 24 hours before the trial ends. Cancel anytime in your device Settings.`
+    : `${monthlyPrice}, charged now and automatically renewing every month until you cancel. No free trial on the monthly plan. Cancel anytime in your device Settings.`
   const ctaCopy = isAnnual ? 'Start Your Free Week' : 'Subscribe Monthly'
 
   return (
@@ -174,6 +194,13 @@ export default function PaywallScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected: on }}
               >
+                {plan.id === 'annual' && savingsBadge && (
+                  <View style={[styles.saveBadge, on && styles.saveBadgeOn]}>
+                    <Text style={[styles.saveBadgeText, on && styles.saveBadgeTextOn]}>
+                      {savingsBadge}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.planText}>
                   <Text style={styles.planName}>{plan.name}</Text>
                   <Text style={styles.planPrice}>{plan.price}</Text>
@@ -313,6 +340,34 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_600SemiBold',
     fontSize: 18,
     color: day.text,
+  },
+  // "Save 50%" pill notched into the annual card's top border — an opaque background
+  // cuts the border line behind it. Quiet gold tint normally; fills gold when the
+  // plan is selected so the value pops at the moment of choice.
+  saveBadge: {
+    position: 'absolute',
+    top: -10,
+    right: 16,
+    zIndex: 2,
+    backgroundColor: day.goldTint,
+    borderWidth: 1,
+    borderColor: day.gold,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+  },
+  saveBadgeOn: {
+    backgroundColor: day.gold,
+    borderColor: day.gold,
+  },
+  saveBadgeText: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 0.3,
+    color: day.gold,
+  },
+  saveBadgeTextOn: {
+    color: day.onAccent,
   },
   planPrice: {
     fontFamily: 'PlayfairDisplay_500Medium',

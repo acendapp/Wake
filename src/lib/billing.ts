@@ -32,6 +32,8 @@ type StoreProduct = import('react-native-purchases').PurchasesStoreProduct
 export type PlanPricing = {
   /** Localized recurring price exactly as the store charges it, e.g. "$59.99". */
   priceString: string
+  /** Numeric recurring price in the product's currency — for computing savings, etc. */
+  priceValue: number
   /** Localized per-month equivalent (annual price ÷ 12), or null if not derivable. */
   perMonthString: string | null
   /** Free-trial length in days from the intro offer, or 0 if the plan has none. */
@@ -181,6 +183,7 @@ export async function getPlanPricing(): Promise<Partial<Record<PlanId, PlanPrici
       if (!prod) continue
       out[plan] = {
         priceString: prod.priceString,
+        priceValue: prod.price,
         perMonthString: plan === 'annual' ? perMonthOf(prod) : null,
         trialDays: trialDaysOf(prod),
       }
