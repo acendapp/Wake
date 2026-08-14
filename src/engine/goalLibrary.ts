@@ -392,7 +392,7 @@ export const GOAL_LIBRARY: Goal[] = [
         slug: 'deep-breaths-2',
         title: 'Take 5–10 deep breaths',
         example: 'breathe in for 4 seconds, hold for 4, release for 4 — five to ten times.',
-        description: 'A few full breaths oxygenate the body and switch your system on.',
+        description: 'A few slow, deliberate breaths settle your nervous system and sharpen alertness.',
         category: 'focus',
         estMinutes: 2,
       },
@@ -551,9 +551,10 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'delay-caffeine-1',
-        title: 'Hold off on caffeine',
-        example: 'wait 60–90 minutes after waking before the first cup.',
-        description: 'Letting your natural cortisol peak first avoids the mid-morning crash.',
+        title: 'Ease into caffeine',
+        example: 'a glass of water first; if the coffee can wait a little, let it.',
+        description:
+          'On a rough morning, water and light do more than a fast coffee — and the caffeine still works just as well a bit later.',
         category: 'caffeine',
         estMinutes: 1,
       },
@@ -572,7 +573,8 @@ export const GOAL_LIBRARY: Goal[] = [
         slug: 'phone-away-1',
         title: 'Stay off your phone',
         example: 'keep it face-down for the first 20 minutes you’re up.',
-        description: 'A fragile state is easily hijacked by an early dopamine spike and crash.',
+        description:
+          'A shaky morning is easily knocked reactive — whatever you feed your attention first sets the tone.',
         category: 'digital',
         estMinutes: 1,
       },
@@ -591,17 +593,17 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'easy-move-8',
-        title: 'Keep your body moving',
-        example: 'a gentle walk or a few stretches — nothing that spends the state.',
-        description: 'Light movement consolidates a stable, ready state.',
+        title: 'Keep your body gently moving',
+        example: 'a gentle walk or a few stretches — nothing that drains you.',
+        description: 'Light movement keeps the steady, ready state you woke up in — without spending it.',
         category: 'movement',
         estMinutes: 8,
       },
       {
         slug: 'easy-move-3',
-        title: 'Keep your body moving',
+        title: 'Keep your body gently moving',
         example: 'a quick stretch by the bed is enough.',
-        description: 'Light movement consolidates a stable, ready state.',
+        description: 'Light movement keeps the steady, ready state you woke up in — without spending it.',
         category: 'movement',
         estMinutes: 3,
       },
@@ -618,9 +620,10 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'clean-caffeine-1',
-        title: 'Keep caffeine clean',
+        title: 'Keep caffeine to one cup',
         example: 'one cup, timed — not a steady drip all morning.',
-        description: "Don't over-spike a good baseline; protect this afternoon's energy.",
+        description:
+          'One good cup is plenty; sipping all morning keeps caffeine in your system into the afternoon, where it works against you.',
         category: 'caffeine',
         estMinutes: 1,
       },
@@ -713,12 +716,12 @@ export const GOAL_LIBRARY: Goal[] = [
         estMinutes: 12,
       },
       {
-        slug: 'read-6',
+        slug: 'read-5',
         title: 'Read',
         example: 'a few pages of anything good — the gain is in reading, not what you read.',
         description: 'A little input while you’re sharp sets a thinking tone for the day.',
         category: 'focus',
-        estMinutes: 6,
+        estMinutes: 5,
       },
     ],
   },
@@ -896,9 +899,10 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'time-caffeine-1',
-        title: 'Time caffeine to the work',
+        title: 'Save caffeine for the work',
         example: 'save the cup for your first hard block, not the moment you wake.',
-        description: 'Spending caffeine on a peak you already have wastes it; aim it at the climb.',
+        description:
+          "You're already sharp — coffee does more aimed at your first hard task than a peak you already have.",
         category: 'caffeine',
         estMinutes: 1,
       },
@@ -922,6 +926,28 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'A surplus morning is the day to reach — spend the extra readiness on purpose.',
         category: 'focus',
         estMinutes: 2,
+      },
+    ],
+  },
+  // A quick calisthenics burst — more activating than the gentle "stretch it out"
+  // move, concrete enough to just do. One short variant: under the 15-min budget's
+  // per-move cap, longer strength sets would never be selected anyway.
+  {
+    slug: 'quick-exercises',
+    label: 'a quick burst of effort',
+    category: 'movement',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['energize'],
+    priority: 62,
+    variants: [
+      {
+        slug: 'quick-exercises-1',
+        title: 'Do a few quick exercises',
+        example: 'a couple pushups, a quick wall-sit, a short plank — anything to get your blood flowing.',
+        description: 'A short burst of effort lifts your heart rate and clears the morning fog fast.',
+        category: 'movement',
+        estMinutes: 1,
       },
     ],
   },
