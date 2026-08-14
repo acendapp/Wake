@@ -14,8 +14,10 @@ import {
 } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
+import * as WebBrowser from 'expo-web-browser'
 
 import { ARTICLES, BYLINE, readMinutes, type Article } from '@/content/articles'
+import { SOURCE_TOPICS, sourcesForGoal, type Source } from '@/content/sources'
 import { GOAL_LIBRARY } from '@/engine/goalLibrary'
 import type { ActionCategory, Goal, Intent, ReadinessState } from '@/engine/types'
 import { daysWithPlans, logicalDate } from '@/lib/days'
@@ -107,6 +109,7 @@ export default function LibraryScreen() {
   const [view, setView] = useState<LibraryView>('learn')
   const [selected, setSelected] = useState<Goal | null>(null)
   const [reading, setReading] = useState<Article | null>(null)
+  const [showSources, setShowSources] = useState(false)
   const [collection, setCollection] = useState<CollectionEntry[]>([])
   const [collectionLoading, setCollectionLoading] = useState(true)
   const [collectionError, setCollectionError] = useState(false)
@@ -230,6 +233,19 @@ export default function LibraryScreen() {
             onOpen={setSelected}
           />
         )}
+
+        {/* Always-present entry to the citation library — the health claims in both
+            faces of this tab trace back here (Apple Guideline 1.4.1). */}
+        <Pressable
+          style={styles.sourcesEntry}
+          onPress={() => setShowSources(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Sources and references"
+        >
+          <Feather name="book-open" size={15} color={day.muted} />
+          <Text style={styles.sourcesEntryLabel}>Sources &amp; references</Text>
+          <Feather name="chevron-right" size={16} color={day.border} />
+        </Pressable>
       </ScrollView>
 
       {/* ── Article reader (full screen) ─────────────────────────────────────── */}
@@ -242,6 +258,17 @@ export default function LibraryScreen() {
             own provider — without this the close button lands under the notch. */}
         <SafeAreaProvider>
           {reading && <ArticleReader article={reading} onClose={() => setReading(null)} />}
+        </SafeAreaProvider>
+      </Modal>
+
+      {/* ── Sources & references (full screen) ───────────────────────────────── */}
+      <Modal
+        visible={showSources}
+        animationType="slide"
+        onRequestClose={() => setShowSources(false)}
+      >
+        <SafeAreaProvider>
+          <ReferencesScreen onClose={() => setShowSources(false)} />
         </SafeAreaProvider>
       </Modal>
 
@@ -388,6 +415,22 @@ function ArticleReader({ article, onClose }: { article: Article; onClose: () => 
           ),
         )}
 
+        {/* Citations for the physiological claims above (Apple Guideline 1.4.1).
+            Each opens its source in an in-app browser; the note keeps the content
+            framed as educational, not medical advice. */}
+        {article.sources && article.sources.length > 0 && (
+          <View style={styles.sourcesBlock}>
+            <Text style={styles.sourcesLabel}>Sources</Text>
+            {article.sources.map((s, i) => (
+              <SourceLink key={i} source={s} />
+            ))}
+            <Text style={styles.sourcesNote}>
+              Shared for general education, not medical advice. Talk to a clinician about your
+              own health.
+            </Text>
+          </View>
+        )}
+
         <View style={styles.readerEndRow}>
           <View style={styles.readerEndLine} />
           <Feather name="sun" size={13} color={day.gold} />
@@ -395,6 +438,79 @@ function ArticleReader({ article, onClose }: { article: Article; onClose: () => 
         </View>
 
         {/* Finishing the piece deserves its own exit — no reaching back to the top. */}
+        <Pressable style={styles.readerDone} onPress={onClose} accessibilityRole="button">
+          <Text style={styles.readerDoneLabel}>Done</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+// ── Sources: one tappable citation row, shared everywhere they appear ────────
+
+function SourceLink({ source }: { source: Source }) {
+  return (
+    <Pressable
+      style={styles.sourceRow}
+      onPress={() => WebBrowser.openBrowserAsync(source.url).catch(() => {})}
+      accessibilityRole="link"
+      accessibilityLabel={`Open source: ${source.label}`}
+    >
+      <Feather name="external-link" size={13} color={day.gold} style={styles.sourceIcon} />
+      <Text style={styles.sourceText}>{source.label}</Text>
+    </Pressable>
+  )
+}
+
+// The full-screen references library: every citation behind the moves and articles,
+// grouped by topic, one tap from the Library tab (Apple Guideline 1.4.1 — health
+// information must carry findable citations to its sources).
+function ReferencesScreen({ onClose }: { onClose: () => void }) {
+  return (
+    <SafeAreaView style={styles.readerSafe} edges={['top', 'bottom']}>
+      <View style={styles.readerHeader}>
+        <Pressable
+          onPress={onClose}
+          hitSlop={10}
+          style={styles.readerClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close references"
+        >
+          <Feather name="x" size={20} color={day.text} />
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.readerScroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.articleTag}>References</Text>
+        <Text style={styles.readerTitle}>Where this comes from</Text>
+        <Text style={styles.refIntro}>
+          Wake&rsquo;s morning guidance draws on published research. Below are the sources behind
+          the moves and articles. Everything here is general education, not medical advice — for
+          your own health, talk to a clinician.
+        </Text>
+
+        <View style={styles.readerRule} />
+
+        <Text style={styles.refSectionHead}>The science behind the moves</Text>
+        {SOURCE_TOPICS.map((topic) => (
+          <View key={topic.key} style={styles.refTopic}>
+            <Text style={styles.refTopicTitle}>{topic.title}</Text>
+            {topic.sources.map((s, i) => (
+              <SourceLink key={i} source={s} />
+            ))}
+          </View>
+        ))}
+
+        <Text style={[styles.refSectionHead, styles.refSectionHeadSpaced]}>Article sources</Text>
+        {ARTICLES.filter((a) => a.sources && a.sources.length > 0).map((a) => (
+          <View key={a.slug} style={styles.refTopic}>
+            <Text style={styles.refTopicTitle}>{a.title}</Text>
+            {a.sources!.map((s, i) => (
+              <SourceLink key={i} source={s} />
+            ))}
+          </View>
+        ))}
+
         <Pressable style={styles.readerDone} onPress={onClose} accessibilityRole="button">
           <Text style={styles.readerDoneLabel}>Done</Text>
         </Pressable>
@@ -495,6 +611,7 @@ function MovesCollection({
 function GoalDetail({ goal, onClose }: { goal: Goal; onClose: () => void }) {
   const lead = goal.variants[0]
   const meta = CATEGORY_META[goal.category]
+  const sources = sourcesForGoal(goal.slug)
 
   return (
     <View>
@@ -514,6 +631,15 @@ function GoalDetail({ goal, onClose }: { goal: Goal; onClose: () => void }) {
 
         <Text style={styles.sheetSectionLabel}>Why it works</Text>
         <Text style={styles.sheetBody}>{lead.description}</Text>
+
+        {sources.length > 0 && (
+          <View style={styles.moveSources}>
+            <Text style={styles.moveSourcesLabel}>Sources</Text>
+            {sources.map((s, i) => (
+              <SourceLink key={i} source={s} />
+            ))}
+          </View>
+        )}
 
         <Text style={styles.sheetSectionLabel}>When Wake reaches for it</Text>
         {isStaple(goal) ? (
@@ -743,6 +869,105 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: day.text,
     marginTop: 34,
+  },
+  sourcesBlock: {
+    marginTop: 40,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: day.border,
+  },
+  sourcesLabel: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: day.muted,
+    marginBottom: 4,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  sourceIcon: {
+    marginTop: 3,
+  },
+  sourceText: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: day.gold,
+    textDecorationLine: 'underline',
+  },
+  sourcesNote: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontStyle: 'italic',
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: day.muted,
+    marginTop: 12,
+  },
+
+  // ── Move-sheet inline sources ───────────────────────────────────────────────
+  moveSources: {
+    marginTop: 14,
+  },
+  moveSourcesLabel: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: day.muted,
+    marginBottom: 2,
+  },
+
+  // ── Sources & references entry + screen ─────────────────────────────────────
+  sourcesEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 30,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    backgroundColor: day.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+  },
+  sourcesEntryLabel: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 14,
+    color: day.text,
+  },
+  refIntro: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    lineHeight: 23,
+    color: day.muted,
+    marginTop: 10,
+  },
+  refSectionHead: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 18,
+    color: day.text,
+    marginTop: 20,
+    marginBottom: 2,
+  },
+  refSectionHeadSpaced: {
+    marginTop: 40,
+  },
+  refTopic: {
+    marginTop: 16,
+  },
+  refTopicTitle: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: day.text,
+    marginBottom: 2,
   },
   readerEndRow: {
     flexDirection: 'row',

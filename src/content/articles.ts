@@ -11,12 +11,20 @@ export const BYLINE = 'The Morning Desk'
 
 export type ArticleBlock = { type: 'p' | 'h'; text: string }
 
+/** A citation for the physiological claims in a piece: a readable label + a live
+ *  source URL. Rendered as a tappable "Sources" list at the end of every article.
+ *  Apple Guideline 1.4.1 requires health/medical claims to carry findable citations,
+ *  so every piece that makes one ships sources; URLs are stable PMC/PubMed/journal
+ *  permalinks (they don't move) to avoid dead-link re-rejection. */
+export type ArticleSource = { label: string; url: string }
+
 export type Article = {
   slug: string
   tag: string
   title: string
   featured?: boolean
   body: ArticleBlock[]
+  sources?: ArticleSource[]
 }
 
 /** Honest read time: total words at ~200 wpm, rounded up, never under a minute. */
@@ -84,6 +92,23 @@ export const ARTICLES: Article[] = [
         text: 'That’s the entire idea behind Wake: get the hinge right, and let the door do the work.',
       },
     ],
+    sources: [
+      {
+        label:
+          'Scheer et al. “An Endogenous Circadian Rhythm in Sleep Inertia…” PNAS / NIH-PMC',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3130065/',
+      },
+      {
+        label:
+          'Hilditch & McHill. “Sleep inertia: current insights.” Nature and Science of Sleep (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC5124508/',
+      },
+      {
+        label:
+          'Clow et al. “The circadian system modulates the cortisol awakening response.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9669756/',
+      },
+    ],
   },
   {
     slug: 'light-beats-coffee',
@@ -122,6 +147,18 @@ export const ARTICLES: Article[] = [
         text: 'So: light first, then coffee. Not instead of — just first. The coffee works better when the clock is set.',
       },
     ],
+    sources: [
+      {
+        label:
+          'Zeitzer et al. “Human suprachiasmatic response to light & melatonin suppression.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6281828/',
+      },
+      {
+        label:
+          'Chang et al. “Light-Induced Changes of the Circadian Clock of Humans.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3079938/',
+      },
+    ],
   },
   {
     slug: 'ninety-seconds-of-motion',
@@ -157,6 +194,17 @@ export const ARTICLES: Article[] = [
       {
         type: 'p',
         text: 'Some mornings, those ten squats will turn into a real workout. Great — that’s a bonus, never the assignment. The assignment is just: move, briefly, on purpose. Your body keeps the receipt either way.',
+      },
+    ],
+    sources: [
+      {
+        label:
+          'McHill et al. “Exercising Caution Upon Waking — Can Exercise Reduce Sleep Inertia?” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7155753/',
+      },
+      {
+        label: 'Kovac et al. “The impact of a short burst of exercise on sleep inertia.” PubMed',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/34606883/',
       },
     ],
   },
@@ -200,6 +248,17 @@ export const ARTICLES: Article[] = [
         text: 'You don’t need to think about any of this in the moment. Do the simple things — light, movement, water, consistency — and the chemistry takes care of itself. That’s the deal your body has been offering all along.',
       },
     ],
+    sources: [
+      {
+        label:
+          'Clow et al. “The circadian system modulates the cortisol awakening response.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9669756/',
+      },
+      {
+        label: 'Wilhelm et al. “Is the cortisol awakening rise a response to awakening?” PubMed',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/17408865/',
+      },
+    ],
   },
   {
     slug: 'phone-can-wait',
@@ -231,6 +290,17 @@ export const ARTICLES: Article[] = [
       {
         type: 'p',
         text: 'Twenty minutes. That’s it. Not a digital detox, not a dumb phone, not a lecture. And the notifications will all still be there — that’s the one thing in life you can truly count on.',
+      },
+    ],
+    sources: [
+      {
+        label:
+          'Leroy. “Why is it so hard to do my work? The challenge of attention residue.” OBHDP',
+        url: 'https://www.sciencedirect.com/science/article/abs/pii/S0749597809000399',
+      },
+      {
+        label: 'Wilson et al. “Task Engagement Across Transitions” (attention residue). NIH-PMC',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC8827296/',
       },
     ],
   },
@@ -265,6 +335,17 @@ export const ARTICLES: Article[] = [
       {
         type: 'p',
         text: 'One thing first, though: a glass of water before the coffee. You’ve been fasting from fluids for eight hours, and coffee on a hydrated body just lands better. That one’s not a myth.',
+      },
+    ],
+    sources: [
+      {
+        label:
+          'Reichert et al. “Adenosine, caffeine, and sleep–wake regulation: state of the science.” PubMed',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/35575450/',
+      },
+      {
+        label: 'Huang et al. “Roles of adenosine and its receptors in sleep–wake regulation.” PubMed',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/25175972/',
       },
     ],
   },
@@ -302,6 +383,18 @@ export const ARTICLES: Article[] = [
       {
         type: 'p',
         text: 'That’s also, not coincidentally, exactly what Wake does each evening: tomorrow morning gets decided tonight, so that when you wake up there’s nothing left to decide. We didn’t invent the trick. We just automated it.',
+      },
+    ],
+    sources: [
+      {
+        label:
+          'Gardner et al. “Automaticity subscale of the Self-Report Habit Index.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3552971/',
+      },
+      {
+        label:
+          'Galla & Duckworth. “Beneficial Habits Mediate Self-Control and Positive Outcomes.” (NIH-PMC)',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4731333/',
       },
     ],
   },
