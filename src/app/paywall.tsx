@@ -242,6 +242,19 @@ export default function PaywallScreen() {
           </Pressable>
         )}
 
+        {/* Returning users (and the App Review demo account) sign in here rather than
+            being trapped behind the hard wall with only a new-account path. */}
+        <Pressable
+          onPress={() => router.push('/sign-in')}
+          disabled={busy}
+          style={styles.signInRow}
+          accessibilityRole="button"
+        >
+          <Text style={styles.signInText}>
+            Already have an account? <Text style={styles.signInLink}>Sign in</Text>
+          </Text>
+        </Pressable>
+
         {/* The taste-before-you-commit valve: one demo morning, then back here.
             Disabled mid-purchase so it can't push the sample on top of the gate's
             navigation into the tabs. */}
@@ -435,6 +448,21 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_500Medium',
     fontSize: 15,
     color: day.muted,
+  },
+  // "Already have an account? Sign in" — the escape hatch out of the hard wall.
+  signInRow: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  signInText: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 14,
+    color: day.muted,
+  },
+  signInLink: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    color: day.gold,
+    textDecorationLine: 'underline',
   },
   // "View a sample routine" — quiet but real, directly under the CTA.
   sampleLink: {

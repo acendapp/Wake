@@ -160,7 +160,11 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       return
     }
     if (!entitled) {
-      if (!onPaywall && !onRoutine) router.replace('/paywall')
+      // /sign-in stays reachable so a user sitting on the paywall can sign into a
+      // different account (e.g. an existing subscriber, or the review demo account)
+      // instead of being trapped with no way out. Signing into another unentitled
+      // account simply lands back here, so this is no paywall bypass.
+      if (!onPaywall && !onRoutine && !onSignIn) router.replace('/paywall')
       return
     }
     // Fully set up — keep them out of the pre-app screens.
