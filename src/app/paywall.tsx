@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { getPlanPricing, type PlanPricing } from '@/lib/billing'
@@ -161,6 +161,13 @@ export default function PaywallScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Scrollable so the CTA + fine print are always reachable — on small iPhones
+          and in the iPad compatibility window (Apple Guideline 4), where a fixed
+          layout clipped the bottom of the page. */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.content}>
         {/* Dev-only escape hatch, top-right. __DEV__ is false in production
             builds, so this never ships — the real paywall stays hard. */}
@@ -284,6 +291,7 @@ export default function PaywallScreen() {
           </Pressable>
         </View>
       </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -292,6 +300,11 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: day.background,
+  },
+  // flexGrow keeps the header/plans and the footer spread apart on tall screens,
+  // while still letting the whole thing scroll when the viewport is too short.
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'space-between',
   },
   content: {
