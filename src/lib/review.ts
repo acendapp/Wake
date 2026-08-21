@@ -1,9 +1,11 @@
 import { getReviewAskedAt, setReviewAskedAt } from './prefs'
 
 // Ask for an App Store review at a genuine high point — a paid user who's kept a
-// streak going. iOS itself throttles how often the prompt actually shows (~3×/year);
-// we add our own gate so we never ask an unpaid user and never more than once per
-// ~4 months. Best-effort — it never throws into the caller.
+// streak going. iOS itself hard-caps how often the prompt actually shows (3× per
+// 365 days, and never to someone who already rated), so our own gate mostly decides
+// WHICH milestones get to spend those. We never ask an unpaid user and re-ask at
+// most weekly, so with the 7/10/14/21/30… milestones it lands on days 7, 14, 21 —
+// a user at their most enthusiastic. Best-effort — it never throws into the caller.
 //
 // LAZY + GUARDED, like billing.ts: expo-store-review is a native module absent from
 // Expo Go and from any build made before it was added. Requiring it behind a
@@ -25,7 +27,7 @@ function getStoreReview(): StoreReviewModule | null {
   return cached
 }
 
-const REASK_AFTER_MS = 120 * 24 * 60 * 60 * 1000 // ~4 months
+const REASK_AFTER_MS = 7 * 24 * 60 * 60 * 1000 // a week
 
 export async function maybeRequestReview(entitled: boolean): Promise<void> {
   const SR = getStoreReview()
