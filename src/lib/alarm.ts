@@ -106,19 +106,29 @@ export async function requestAlarmPermission(): Promise<boolean> {
 }
 
 /**
+ * What an arm/cancel call actually did. The one the UI must act on is 'denied':
+ * the preference is saved and the toggle reads "on", but iOS refused AlarmKit
+ * permission, so NOTHING will ring. iOS asks exactly once — after a "Don't Allow"
+ * every later request returns denied instantly, without a prompt — so the only
+ * way back is the user flipping it on in Settings, and they can't know to do
+ * that unless we tell them.
+ */
+export type AlarmApplyResult = 'armed' | 'cancelled' | 'unavailable' | 'denied'
+
+/**
  * Arm (or re-arm) the daily wake alarm for `time` ("HH:MM") with today's rotating
- * clip. No-op on Tier 0 — the preference is already persisted, so a later dev
- * build picks it up. Safe to call on every relevant hook (onboarding finish,
+ * clip. 'unavailable' on Tier 0 — the preference is already persisted, so a later
+ * dev build picks it up. Safe to call on every relevant hook (onboarding finish,
  * settings save, app launch). Re-arming on launch advances the clip rotation,
  * since a repeating alarm otherwise keeps the soundName it was scheduled with.
  */
-export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<void> {
-  if (!isValidTime(time)) return
+export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<AlarmApplyResult> {
+  if (!isValidTime(time)) return 'unavailable'
   const kit = getAlarmKit()
-  if (!isAlarmAvailable() || !kit) return
+  if (!isAlarmAvailable() || !kit) return 'unavailable'
 
   const granted = await kit.requestAlarmPermission()
-  if (!granted) return
+  if (!granted) return 'denied'
 
   const voice = isKnownVoice(voiceId) ? voiceId : DEFAULT_VOICE
   const [hour, minute] = time.split(':').map(Number)
@@ -135,6 +145,7 @@ export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<
     SNOOZE,
     soundNameForToday(voice),
   )
+  return 'armed'
 }
 
 /** Cancel any armed wake alarm. No-op on Tier 0. */
@@ -146,12 +157,14 @@ export async function cancelWakeAlarm(): Promise<void> {
 
 /**
  * Apply a preference: arm when enabled with a valid time, otherwise cancel.
- * The single entry point UI calls after writing the profile.
+ * The single entry point UI calls after writing the profile. Callers that can
+ * show UI should check for 'denied' (see AlarmApplyResult); best-effort callers
+ * (onboarding, the evening reflection, launch) may ignore the result.
  */
-export async function applyWakeAlarm(pref: WakeAlarm): Promise<void> {
+export async function applyWakeAlarm(pref: WakeAlarm): Promise<AlarmApplyResult> {
   if (pref.enabled && pref.time && isValidTime(pref.time)) {
-    await scheduleWakeAlarm(pref.time, pref.voice)
-  } else {
-    await cancelWakeAlarm()
+    return scheduleWakeAlarm(pref.time, pref.voice)
   }
+  await cancelWakeAlarm()
+  return 'cancelled'
 }

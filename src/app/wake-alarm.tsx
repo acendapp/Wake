@@ -1,8 +1,10 @@
 import { Feather } from '@expo/vector-icons'
+import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +38,9 @@ export default function WakeAlarmScreen() {
   const [voice, setVoice] = useState(profile?.wake_voice ?? DEFAULT_VOICE)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // iOS refused AlarmKit permission on save. The preference IS saved, but nothing
+  // will ring, so instead of popping back we hold here and point at Settings.
+  const [alarmDenied, setAlarmDenied] = useState(false)
 
   // Pre-fill once the profile arrives — the useState seeds capture only the first
   // render, so if the provider is still mid-fetch the toggle/time would otherwise
@@ -53,20 +58,47 @@ export default function WakeAlarmScreen() {
   const save = async () => {
     setSaving(true)
     setError(null)
+    setAlarmDenied(false)
     try {
       const wakeTime = enabled ? time : null
       await updateProfile({ wakeEnabled: enabled, wakeTime, wakeVoice: voice })
-      await applyWakeAlarm({ enabled, time: wakeTime, voice })
+      const armed = await applyWakeAlarm({ enabled, time: wakeTime, voice })
       // Prompt for notification permission (when enabling) + re-arm the reminders.
       if (enabled) await requestNotificationPermission()
       await syncReminders({ wakeEnabled: enabled, wakeTime, firstName: profile?.first_name })
       await refresh()
+      if (armed === 'denied') {
+        // Saved, but silently useless — surface it rather than closing as if it worked.
+        setAlarmDenied(true)
+        setSaving(false)
+        return
+      }
       close()
     } catch (e) {
       setError(errorMessage(e, 'Could not save. Please try again.'))
       setSaving(false)
     }
   }
+
+  // After the user goes to Settings to allow alarms, the app returns to this
+  // screen. Re-arm on foreground; once it takes, clear the warning and pop back
+  // so the fix feels like it just worked — no second tap on Save required.
+  useEffect(() => {
+    if (!alarmDenied) return
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return
+      void applyWakeAlarm({ enabled, time: enabled ? time : null, voice })
+        .then((result) => {
+          if (result === 'armed') {
+            setAlarmDenied(false)
+            close()
+          }
+        })
+        .catch(() => {})
+    })
+    return () => sub.remove()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alarmDenied, enabled, time, voice])
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -135,6 +167,24 @@ export default function WakeAlarmScreen() {
 
       <View style={styles.footer}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {alarmDenied ? (
+          <View style={styles.deniedCard}>
+            <Text style={styles.deniedTitle}>iOS is blocking the alarm</Text>
+            <Text style={styles.deniedBody}>
+              Your wake time is saved, but nothing will ring until you allow alarms for Wake
+              in Settings. It takes one tap — we&rsquo;ll bring you right back.
+            </Text>
+            <Pressable
+              style={styles.deniedButton}
+              onPress={() => {
+                void Linking.openSettings().catch(() => {})
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.deniedButtonLabel}>Open Settings</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <Pressable
           style={[styles.button, saving && styles.buttonDisabled]}
           onPress={save}
@@ -246,6 +296,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: day.negative,
     textAlign: 'center',
+  },
+  deniedCard: {
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.negative,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 4,
+  },
+  deniedTitle: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 15,
+    color: day.negative,
+  },
+  deniedBody: {
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: day.muted,
+    marginTop: 6,
+  },
+  deniedButton: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.gold,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  deniedButtonLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 14,
+    color: day.gold,
   },
   button: {
     backgroundColor: day.gold,
