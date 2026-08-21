@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons'
+import * as Linking from 'expo-linking'
 import { useRouter } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -8,9 +9,17 @@ import { useAuth } from '@/lib/auth'
 import { day } from '@/theme/colors'
 
 // The Account screen, opened from the You page's "Account" row. Surfaces the
-// signed-in email and the two account actions a paying user needs: change
-// password (via a reset email) and — required by App Store Guideline 5.1.1(v) —
+// signed-in email and the account actions a paying user needs: change password
+// (via a reset email), manage/cancel the subscription (which lives in Apple ID
+// settings, not in the app), and — required by App Store Guideline 5.1.1(v) —
 // permanent account deletion.
+
+// Apple's subscription-management page. On iOS this opens the App Store straight
+// to the user's subscription list, where Wake can be cancelled. An auto-renewable
+// subscription can ONLY be cancelled there — not by the app, and not by deleting
+// the account — so this is the one link that saves a user from being billed after
+// they thought they'd left.
+const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions'
 
 export default function AccountScreen() {
   const router = useRouter()
@@ -55,11 +64,22 @@ export default function AccountScreen() {
     }
   }
 
+  const onManageSubscription = async () => {
+    if (busy) return
+    setError(null)
+    setNotice(null)
+    try {
+      await Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)
+    } catch {
+      setError('Couldn’t open the App Store. Go to Settings → your name → Subscriptions.')
+    }
+  }
+
   const onDelete = () => {
     if (busy) return
     Alert.alert(
       'Delete your account?',
-      'This permanently erases your account, profile, and every reflection. This cannot be undone.',
+      'This permanently erases your account, profile, and every reflection. This cannot be undone.\n\nDeleting your account does not cancel a subscription — cancel it in Settings → your name → Subscriptions, or you’ll keep being charged.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: runDelete },
@@ -102,6 +122,22 @@ export default function AccountScreen() {
 
         <Pressable
           style={styles.row}
+          onPress={onManageSubscription}
+          disabled={busy}
+          accessibilityRole="button"
+        >
+          <View style={styles.rowIcon}>
+            <Feather name="credit-card" size={15} color={day.text} />
+          </View>
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle}>Manage subscription</Text>
+            <Text style={styles.rowSub}>Change or cancel in your Apple ID settings</Text>
+          </View>
+          <Feather name="external-link" size={18} color={day.border} />
+        </Pressable>
+
+        <Pressable
+          style={styles.row}
           onPress={onDelete}
           disabled={busy}
           accessibilityRole="button"
@@ -120,8 +156,9 @@ export default function AccountScreen() {
         </Pressable>
 
         <Text style={styles.fine}>
-          Deleting your account removes your profile and every reflection from Wake. Your
-          subscription, if any, is managed in your Apple ID settings.
+          Deleting your account removes your profile and every reflection from Wake. It does
+          not cancel your subscription — that’s managed in your Apple ID settings, using the
+          link above.
         </Text>
       </ScrollView>
     </SafeAreaView>
