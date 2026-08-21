@@ -366,8 +366,6 @@ function LearnFeed({ onRead }: { onRead: (article: Article) => void }) {
           </View>
         ))}
       </View>
-
-      <Text style={styles.feedFooter}>New pieces land every week.</Text>
     </Animated.View>
   )
 }
@@ -805,15 +803,6 @@ const styles = StyleSheet.create({
     color: day.muted,
     marginTop: 7,
   },
-  feedFooter: {
-    fontFamily: 'PlayfairDisplay_400Regular',
-    fontStyle: 'italic',
-    fontSize: 13.5,
-    color: day.muted,
-    textAlign: 'center',
-    marginTop: 26,
-  },
-
   // ── Article reader ──────────────────────────────────────────────────────────
   readerSafe: {
     flex: 1,
