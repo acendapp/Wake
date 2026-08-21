@@ -27,6 +27,7 @@ const PACKAGE_FOR_PLAN: Record<PlanId, string> = {
 
 type PurchasesModule = typeof import('react-native-purchases').default
 type StoreProduct = import('react-native-purchases').PurchasesStoreProduct
+type CustomerInfo = import('react-native-purchases').CustomerInfo
 
 /** Live, store-authoritative pricing for a plan, for display on the paywall. */
 export type PlanPricing = {
@@ -65,7 +66,7 @@ export function isBillingConfigured(): boolean {
 }
 
 let configured = false
-async function ensureConfigured(): Promise<PurchasesModule | null> {
+function ensureConfiguredSync(): PurchasesModule | null {
   const P = getPurchases()
   if (!P || !apiKey()) return null
   if (!configured) {
@@ -73,6 +74,9 @@ async function ensureConfigured(): Promise<PurchasesModule | null> {
     configured = true
   }
   return P
+}
+async function ensureConfigured(): Promise<PurchasesModule | null> {
+  return ensureConfiguredSync()
 }
 
 /** Identify the signed-in user to RevenueCat (so entitlements follow the account). */
@@ -98,6 +102,23 @@ export async function isEntitled(): Promise<boolean | null> {
     // Unknown — a store/network error, not a definitive "not entitled". The caller
     // fails open for a previously-entitled user rather than bouncing them.
     return null
+  }
+}
+
+/**
+ * Subscribe to RevenueCat's pushed CustomerInfo updates. The SDK fires these
+ * whenever the entitlement picture changes while the app is open — after a
+ * purchase or restore, a renewal, an Ask-to-Buy approval, or a grant/refund made
+ * in the dashboard — so the caller doesn't have to poll or wait for a relaunch.
+ * Returns an unsubscribe; a no-op when billing isn't configured.
+ */
+export function subscribeEntitlement(onChange: (entitled: boolean) => void): () => void {
+  const P = ensureConfiguredSync()
+  if (!P) return () => {}
+  const listener = (info: CustomerInfo) => onChange(!!info.entitlements.active[ENTITLEMENT_ID])
+  P.addCustomerInfoUpdateListener(listener)
+  return () => {
+    P.removeCustomerInfoUpdateListener(listener)
   }
 }
 

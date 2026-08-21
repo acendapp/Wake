@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { AppState } from 'react-native'
 
 import { useAuth } from './auth'
 import {
@@ -16,6 +17,7 @@ import {
   logOutBilling,
   purchasePlan,
   restorePurchases,
+  subscribeEntitlement,
   type PlanId,
 } from './billing'
 
@@ -135,6 +137,35 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     })()
     return () => {
       active = false
+    }
+  }, [uid])
+
+  // Live updates while the app is open. The check above runs only when the
+  // signed-in uid changes, so on its own a purchase Apple completed but
+  // purchasePackage() never returned for (network drop mid-flow), an Ask-to-Buy
+  // approval, or a grant made in the RevenueCat dashboard would all leave a paid
+  // user stuck on the paywall until they relaunched. Two catch-alls:
+  //   - RevenueCat's CustomerInfo listener, which the SDK fires the moment any of
+  //     those land;
+  //   - a fresh check whenever the app returns to the foreground, for anything
+  //     that happened while it was backgrounded.
+  // Both only ever GRANT. A lapse is picked up at the next launch, same as today,
+  // so a subscriber is never yanked out of the app mid-reflection.
+  useEffect(() => {
+    if (uid === null || !isBillingConfigured()) return
+    const grant = (value: boolean) => {
+      if (!value) return
+      setEntitled(true)
+      void setLastEntitled(true)
+    }
+    const unsubscribe = subscribeEntitlement(grant)
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return
+      void billingIsEntitled().then((checked) => grant(checked === true))
+    })
+    return () => {
+      unsubscribe()
+      appState.remove()
     }
   }, [uid])
 
