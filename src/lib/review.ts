@@ -1,3 +1,5 @@
+import * as Linking from 'expo-linking'
+
 import { getReviewAskedAt, setReviewAskedAt } from './prefs'
 
 // Ask for an App Store review at a genuine high point — a paid user who's kept a
@@ -28,6 +30,26 @@ function getStoreReview(): StoreReviewModule | null {
 }
 
 const REASK_AFTER_MS = 7 * 24 * 60 * 60 * 1000 // a week
+
+/** Wake's App Store id (apps.apple.com/.../id6791676733). */
+const APP_STORE_ID = '6791676733'
+/** Deep link straight into the App Store's review composer for Wake. */
+const WRITE_REVIEW_URL = `https://apps.apple.com/app/id${APP_STORE_ID}?action=write-review`
+
+/**
+ * Open the App Store review composer — for a tap the user chose themselves (the
+ * "Rate Wake" row on You). Deliberately NOT requestReview(): that prompt is
+ * throttled by iOS and may silently show nothing, which reads as a broken button.
+ * The deep link always opens. Returns false if nothing could open it.
+ */
+export async function openWriteReview(): Promise<boolean> {
+  try {
+    await Linking.openURL(WRITE_REVIEW_URL)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export async function maybeRequestReview(entitled: boolean): Promise<void> {
   const SR = getStoreReview()

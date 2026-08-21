@@ -24,6 +24,7 @@ import { daysForStats, logicalDate } from '@/lib/days'
 import { VOICES } from '@/lib/alarmCore'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
 import { useProfile } from '@/lib/profile'
+import { openWriteReview } from '@/lib/review'
 import {
   computeYouStats,
   METRICS,
@@ -647,6 +648,15 @@ export default function YouScreen() {
               title="Account"
               sub={email}
               onPress={() => router.push('/account')}
+            />
+            <View style={styles.settingsSeparator} />
+            {/* Always-available path to a review, so an enthusiastic user doesn't
+                have to wait for the streak-milestone prompt (which iOS also throttles). */}
+            <SettingsRow
+              icon="star"
+              title="Rate Wake"
+              sub="Leave a review on the App Store"
+              onPress={() => void openWriteReview()}
             />
             <View style={styles.settingsSeparator} />
             <Pressable
