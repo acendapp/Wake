@@ -152,66 +152,76 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; }
   .phone { margin: 1rem auto 0; }
 }
 
-/* ── Phone mockup (CSS-only morning screen) ──────────────────────────────── */
+/* ── Phone mockup: a CSS-drawn iPhone around a real screenshot ───────────── */
+/* Three nested layers — titanium rim → black bezel → screen — with the corner
+   radii stepping down by each layer's padding so the curves stay concentric.
+   Proportions follow a current iPhone: screen corners ≈ 14% of screen width,
+   Dynamic Island ≈ 31% wide sitting in the status bar's empty centre. */
 .phone {
+  position: relative;
   width: 268px;
   max-width: 80vw;
   margin-left: auto;
-  border-radius: 42px;
-  background: #1c1c1c;
-  padding: 11px;
-  box-shadow: var(--shadow);
+  padding: 3px; /* the rim */
+  border-radius: 46px;
+  background: linear-gradient(155deg, #ece8e1 0%, #b8b3ab 35%, #7d7871 70%, #a9a49c 100%);
+  box-shadow: var(--shadow), 0 2px 6px rgba(0, 0, 0, 0.25);
 }
-.phone__video {
-  display: block;
-  width: 100%;
-  border-radius: 32px;
-  aspect-ratio: 636 / 1280;
-  object-fit: cover;
-  background: var(--bg);
+.phone__body {
+  padding: 9px; /* the bezel */
+  border-radius: 43px;
+  background: #0b0b0c;
 }
 .phone__screen {
-  background: var(--bg);
-  border-radius: 32px;
+  position: relative;
   overflow: hidden;
-  padding: 1.4rem 1.2rem 1.5rem;
+  border-radius: 34px;
+  background: var(--bg);
+  aspect-ratio: 1170 / 2532; /* the screenshot's own ratio — no cropping */
 }
-.phone__notch {
-  width: 42%;
-  height: 6px;
-  border-radius: 3px;
-  background: #d8d3ca;
-  margin: 0 auto 1.1rem;
+.phone__shot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.phone__eyebrow { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
-.phone__greet { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; margin: 0.2rem 0 0.15rem; }
-.phone__weather { font-size: 0.78rem; color: var(--muted); margin: 0 0 1.1rem; }
-.phone__card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 0.9rem 0.95rem;
-  margin-bottom: 0.8rem;
+.phone__island {
+  position: absolute;
+  top: 1.1%;
+  left: 50%;
+  width: 31%;
+  height: 3.8%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #0b0b0c;
 }
-.phone__card-label { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.phone__focal { font-family: var(--serif); font-size: 1rem; font-weight: 600; margin: 0.25rem 0 0; }
-.phone__step { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; padding: 0.42rem 0; }
-.phone__dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--divider); flex: none; }
-.phone__dot--done { background: var(--gold); border-color: var(--gold); position: relative; }
-.phone__dot--done::after {
-  content: "✓"; color: #fff; font-size: 9px; position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
+/* Side buttons, drawn on the rim's edge. Left: action button + volume up/down
+   (one element, segmented with a gradient). Right: power. */
+.phone::before,
+.phone::after {
+  content: "";
+  position: absolute;
+  width: 3px;
+  border-radius: 2px;
+  background: #8f8a83;
 }
-.phone__step--done { color: var(--muted); }
-.phone__start {
-  margin-top: 0.9rem;
-  background: var(--gold-button);
-  color: #fff;
-  text-align: center;
-  border-radius: 12px;
-  padding: 0.7rem;
-  font-weight: 600;
-  font-size: 0.9rem;
+.phone::before {
+  left: -3px;
+  top: 17%;
+  height: 30%;
+  background: linear-gradient(
+    to bottom,
+    #8f8a83 0 13%,
+    transparent 13% 24%,
+    #8f8a83 24% 57%,
+    transparent 57% 67%,
+    #8f8a83 67% 100%
+  );
+}
+.phone::after {
+  right: -3px;
+  top: 24%;
+  height: 15%;
 }
 
 /* ── Trust strip ─────────────────────────────────────────────────────────── */

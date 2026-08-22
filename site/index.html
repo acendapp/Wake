@@ -98,19 +98,23 @@
           <p class="hero__note">7-day free trial · iPhone · Cancel anytime</p>
         </div>
 
-        <!-- Real app recording in a phone frame -->
+        <!-- A real app screenshot inside a CSS-drawn iPhone: titanium rim, black
+             bezel, Dynamic Island, side buttons. No image assets for the frame. -->
         <div class="phone" aria-hidden="true">
-          <video
-            class="phone__video"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="auto"
-            poster="assets/hero-poster.png"
-          >
-            <source src="assets/hero.mp4" type="video/mp4" />
-          </video>
+          <div class="phone__body">
+            <div class="phone__screen">
+              <img
+                class="phone__shot"
+                src="assets/hero-screen.jpg"
+                alt=""
+                width="804"
+                height="1740"
+                decoding="async"
+                fetchpriority="high"
+              />
+              <span class="phone__island"></span>
+            </div>
+          </div>
         </div>
       </section>
 
