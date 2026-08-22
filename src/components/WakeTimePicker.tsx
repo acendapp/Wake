@@ -1,11 +1,15 @@
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
 import { Feather } from '@expo/vector-icons'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { day } from '@/theme/colors'
 
-// A wake-time picker built from chevron steppers — hour, minute (5-min steps),
-// and an AM/PM toggle. A native time picker would mean a native module (no Expo
-// Go); this keeps it self-contained and on the warm cream surface, matching
-// DurationStepper. Emits "HH:MM" 24-hour (the shape stored on profiles.wake_time).
+// The wake-time picker. On iOS it's the native time wheel — the same control the
+// Clock app uses for alarms — so any minute is one spin away and nothing has to be
+// typed; it follows the phone's 12/24-hour setting. The picker is bundled inside
+// Expo Go (SDK 54), so this costs nothing in build tier. Elsewhere (Android, web)
+// the inline wheel isn't a thing — the native control is a dialog — so those keep
+// the chevron steppers (hour, 5-min minute, AM/PM) that match DurationStepper.
+// Emits "HH:MM" 24-hour (the shape stored on profiles.wake_time).
 
 type Props = {
   value: string // "HH:MM" 24h
@@ -21,7 +25,44 @@ function parse(value: string): { h: number; m: number } {
   return { h: Number(match[1]), m: Number(match[2]) }
 }
 
+/** "HH:MM" → a Date on today carrying just that wall-clock time (the wheel's input). */
+function toDate(value: string): Date {
+  const { h, m } = parse(value)
+  const d = new Date()
+  d.setHours(h, m, 0, 0)
+  return d
+}
+
 export function WakeTimePicker({ value, onChange }: Props) {
+  if (Platform.OS !== 'ios') return <StepperTimePicker value={value} onChange={onChange} />
+
+  const onPick = (_event: DateTimePickerEvent, date?: Date) => {
+    if (!date) return
+    onChange(`${pad(date.getHours())}:${pad(date.getMinutes())}`)
+  }
+
+  return (
+    <View style={styles.wheelWrap}>
+      <DateTimePicker
+        value={toDate(value)}
+        mode="time"
+        display="spinner"
+        minuteInterval={1}
+        onChange={onPick}
+        // The app is light-only (cream surfaces); pin the wheel so a phone in dark
+        // mode doesn't render white digits on cream.
+        themeVariant="light"
+        textColor={day.text}
+        accessibilityLabel="Wake time"
+        style={styles.wheel}
+      />
+    </View>
+  )
+}
+
+// ── Non-iOS fallback: chevron steppers ────────────────────────────────────────
+
+function StepperTimePicker({ value, onChange }: Props) {
   const { h, m } = parse(value)
   const period: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM'
   const hour12 = h % 12 === 0 ? 12 : h % 12
@@ -127,6 +168,11 @@ function Stepper({
 }
 
 const styles = StyleSheet.create({
+  // The iOS wheel sizes itself to its container's width; stretch so it fills the
+  // card instead of collapsing to a sliver under a centred parent.
+  wheelWrap: { alignSelf: 'stretch' },
+  wheel: { alignSelf: 'stretch', height: 200 },
+
   wrap: { alignItems: 'center', gap: 18 },
   clock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   stepper: { alignItems: 'center', gap: 4, width: 84 },

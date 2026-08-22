@@ -59,7 +59,8 @@
       ],
       "expo-audio",
       "expo-notifications",
-      "./plugins/withWakeAudio"
+      "./plugins/withWakeAudio",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
