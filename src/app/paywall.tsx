@@ -154,10 +154,22 @@ export default function PaywallScreen() {
   const monthlyPrice = plans.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
   const annualTrialDays = pricing?.annual?.trialDays ?? 7
   const annualPrice = pricing?.annual?.priceString ?? '$59.99'
+  // The store is the authority on whether a trial exists. If it reports the annual
+  // product with NO intro offer (misconfigured in App Store Connect, or this user
+  // already used a trial in the group), Apple will charge immediately — so the
+  // fine print and CTA must say that, never "0-day free trial" / "Start Your Free
+  // Week". Promising a trial the store won't honor is a 3.1.2(c) problem.
+  const annualHasTrial = annualTrialDays > 0
   const legalCopy = isAnnual
-    ? `${annualTrialDays}-day free trial, then ${annualPrice}/year. Your subscription renews automatically — your payment method is charged ${annualPrice} at the end of the free trial and every year after, unless you cancel at least 24 hours before the trial ends. Cancel anytime in your device Settings.`
+    ? annualHasTrial
+      ? `${annualTrialDays}-day free trial, then ${annualPrice}/year. Your subscription renews automatically — your payment method is charged ${annualPrice} at the end of the free trial and every year after, unless you cancel at least 24 hours before the trial ends. Cancel anytime in your device Settings.`
+      : `${annualPrice}/year, charged now and automatically renewing every year until you cancel. Cancel anytime in your device Settings.`
     : `${monthlyPrice}, charged now and automatically renewing every month until you cancel. No free trial on the monthly plan. Cancel anytime in your device Settings.`
-  const ctaCopy = isAnnual ? 'Start Your Free Week' : 'Subscribe Monthly'
+  const ctaCopy = isAnnual
+    ? annualHasTrial
+      ? 'Start Your Free Week'
+      : 'Subscribe Yearly'
+    : 'Subscribe Monthly'
 
   return (
     <SafeAreaView style={styles.safe}>
