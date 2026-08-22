@@ -1,0 +1,22 @@
+# Vercel serves only the marketing site (project "wake" → trywake.org has its
+# Root Directory set to `site`), but `vercel` uploads from the repo root. Keep
+# the app source and the large untracked screenshots/recordings in the repo
+# root out of every deploy. Patterns are root-anchored (leading slash) so
+# site/'s own PNGs (favicon, og, icons) are never caught.
+/node_modules
+/.expo
+/ios
+/android
+/assets
+/src
+/supabase
+/docs
+/legal
+/plugins
+/scripts
+/*.png
+/*.PNG
+/*.mp4
+/*.md
+/.env*
+/package-lock.json
