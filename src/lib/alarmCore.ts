@@ -72,3 +72,27 @@ export function soundForDate(date: Date, voiceId: string): string {
 export function isValidTime(time: string): boolean {
   return /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(time)
 }
+
+/** The time the picker falls back to for anything malformed or unset. */
+export const DEFAULT_WAKE_TIME = '07:00'
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * "HH:MM" → a Date carrying that wall-clock time, for the native time wheel
+ * (which ignores the date part). Built on a fixed reference day rather than
+ * today: on a DST-transition day, setHours() into the skipped hour shifts the
+ * time (02:30 → 03:30 on spring-forward), so a stored "02:30" would open the
+ * wheel at the wrong time and a spin could save it. Jan 15 has no transition
+ * anywhere, so every wall-clock time exists. Malformed input → 07:00.
+ */
+export function timeToDate(time: string): Date {
+  const valid = isValidTime(time) ? time : DEFAULT_WAKE_TIME
+  const [h, m] = valid.split(':').map(Number)
+  return new Date(2000, 0, 15, h, m, 0, 0)
+}
+
+/** A Date's local wall-clock time as "HH:MM" 24-hour (the shape wake_time stores). */
+export function dateToTime(date: Date): string {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}

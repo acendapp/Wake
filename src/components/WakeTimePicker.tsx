@@ -1,6 +1,7 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
 import { Feather } from '@expo/vector-icons'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { dateToTime, timeToDate } from '@/lib/alarmCore'
 import { day } from '@/theme/colors'
 
 // The wake-time picker. On iOS it's the native time wheel — the same control the
@@ -25,26 +26,20 @@ function parse(value: string): { h: number; m: number } {
   return { h: Number(match[1]), m: Number(match[2]) }
 }
 
-/** "HH:MM" → a Date on today carrying just that wall-clock time (the wheel's input). */
-function toDate(value: string): Date {
-  const { h, m } = parse(value)
-  const d = new Date()
-  d.setHours(h, m, 0, 0)
-  return d
-}
-
 export function WakeTimePicker({ value, onChange }: Props) {
   if (Platform.OS !== 'ios') return <StepperTimePicker value={value} onChange={onChange} />
 
+  // The wheel hands back a Date; only its wall-clock time matters. The bridge
+  // (timeToDate / dateToTime, in alarmCore) is pure and exhaustively tested.
   const onPick = (_event: DateTimePickerEvent, date?: Date) => {
     if (!date) return
-    onChange(`${pad(date.getHours())}:${pad(date.getMinutes())}`)
+    onChange(dateToTime(date))
   }
 
   return (
     <View style={styles.wheelWrap}>
       <DateTimePicker
-        value={toDate(value)}
+        value={timeToDate(value)}
         mode="time"
         display="spinner"
         minuteInterval={1}
