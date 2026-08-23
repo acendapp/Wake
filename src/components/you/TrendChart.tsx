@@ -15,6 +15,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg'
 
+import { buildLine, PAD_BOTTOM, PAD_RIGHT, PAD_TOP, toPoints } from '@/lib/trendPath'
 import { day } from '@/theme/colors'
 
 // A smooth editorial area chart — one metric over time. No gridlines, no axes,
@@ -47,52 +48,9 @@ type Props = {
   seriesLabel?: string
 }
 
-type Pt = { x: number; y: number }
-
-// Curve tension: how far each control point reaches toward its neighbours. The
-// textbook Catmull-Rom value is 1/6 ≈ 0.167, which reads as nearly-straight,
-// sharp-cornered segments. A higher value bows the connections into the soft,
-// rounded curve a wellness chart wants. ~0.27 is round without overshooting wildly.
-const CURVE_TENSION = 0.27
-
-/** Catmull-Rom → cubic bezier, for a naturally smooth curve through every point. */
-function buildLine(points: Pt[]): string {
-  'worklet'
-  if (points.length < 2) return ''
-  let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)]
-    const p1 = points[i]
-    const p2 = points[i + 1]
-    const p3 = points[Math.min(points.length - 1, i + 2)]
-    const cp1x = p1.x + (p2.x - p0.x) * CURVE_TENSION
-    const cp1y = p1.y + (p2.y - p0.y) * CURVE_TENSION
-    const cp2x = p2.x - (p3.x - p1.x) * CURVE_TENSION
-    const cp2y = p2.y - (p3.y - p1.y) * CURVE_TENSION
-    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
-  }
-  return d
-}
-
-// Layout paddings keep the curve, end-dot halo, and scrub dot inside the canvas.
-const PAD_TOP = 12
-const PAD_BOTTOM = 8
-const PAD_RIGHT = 6
-
-/** Map a series onto canvas points using its own min/max (with breathing room). */
-function toPoints(data: number[], width: number, height: number): Pt[] {
-  const innerH = height - PAD_TOP - PAD_BOTTOM
-  const innerW = width - PAD_RIGHT
-  const lo = Math.min(...data)
-  const hi = Math.max(...data)
-  const range = hi - lo || 1
-  // Guard the single-point case: i/(length-1) would be 0/0 = NaN with one entry.
-  const span = data.length > 1 ? data.length - 1 : 1
-  return data.map((v, i) => ({
-    x: (i / span) * innerW,
-    y: PAD_TOP + innerH - ((v - lo) / range) * innerH,
-  }))
-}
+// Geometry (toPoints, buildLine, the pads) lives in lib/trendPath so it's unit-
+// tested: the curve is guaranteed to stay inside the plotting band — it used to
+// overshoot on plateaus and get sliced flat by the canvas edge.
 
 export function TrendChart({
   data,
@@ -131,13 +89,16 @@ export function TrendChart({
     return target.map((p) => ({ x: p.x, y: baseY }))
   }, [fromData, target, width, height])
 
-  // The morphing paths, interpolated point-by-point on the UI thread.
+  // The morphing paths, interpolated point-by-point on the UI thread. The band
+  // bounds clamp the curve's control points so it can never leave the canvas.
+  const yTop = PAD_TOP
+  const yBottom = height - PAD_BOTTOM
   const lineProps = useAnimatedProps(() => {
     const pts = target.map((p, i) => ({
       x: p.x,
       y: origin[i].y + (p.y - origin[i].y) * progress.value,
     }))
-    return { d: buildLine(pts) }
+    return { d: buildLine(pts, yTop, yBottom) }
   })
   const areaProps = useAnimatedProps(() => {
     const pts = target.map((p, i) => ({
@@ -145,7 +106,9 @@ export function TrendChart({
       y: origin[i].y + (p.y - origin[i].y) * progress.value,
     }))
     const last = pts[pts.length - 1]
-    return { d: `${buildLine(pts)} L ${last.x.toFixed(2)} ${height} L ${pts[0].x.toFixed(2)} ${height} Z` }
+    return {
+      d: `${buildLine(pts, yTop, yBottom)} L ${last.x.toFixed(2)} ${height} L ${pts[0].x.toFixed(2)} ${height} Z`,
+    }
   })
   const endDot = target[target.length - 1]
   const endDotProps = useAnimatedProps(() => ({
