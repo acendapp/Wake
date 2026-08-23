@@ -190,7 +190,11 @@ export default function OnboardingScreen() {
     setSaving(true)
     setError(null)
     // Already signed in (came in via the sign-in screen) → skip straight to save.
-    if (needsAccount) {
+    // The live `!session` check matters on RETRY: if the first attempt created the
+    // account but the profile save then failed, tapping again used to re-run
+    // signUp with the now-registered email and dead-end on "an account with this
+    // email already exists" — for a user whose account had just been created.
+    if (needsAccount && !session) {
       const res = await signUp(email.trim(), password)
       if (res.error) {
         setError(res.error)
