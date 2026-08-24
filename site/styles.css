@@ -78,6 +78,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; }
   line-height: 1.1;
   gap: 0;
 }
+.btn--store:hover { background: #000; }
 .btn--store .store__top { display: flex; align-items: center; gap: 0.45rem; font-size: 0.72rem; font-weight: 500; opacity: 0.85; }
 .btn--store .store__main { font-size: 1.05rem; font-weight: 600; }
 .btn--store svg { width: 16px; height: 16px; fill: #fff; }
