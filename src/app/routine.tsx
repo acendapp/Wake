@@ -2,7 +2,16 @@ import { Feather, Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -10,7 +19,7 @@ import { Loading } from '@/components/Loading'
 import { TodayHome } from '@/components/today/TodayHome'
 import { generatePlan } from '@/engine/generatePlan'
 import type { Action } from '@/engine/types'
-import { getDay, logicalDate, saveCompletedSlugs, type DayRow } from '@/lib/days'
+import { getDay, logicalDate, saveCompletedSlugs, saveIntention, type DayRow } from '@/lib/days'
 import { useEntitlement } from '@/lib/entitlement'
 import { hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { useProfile } from '@/lib/profile'
@@ -81,6 +90,10 @@ export default function RoutineScreen() {
   const [loadError, setLoadError] = useState(false)
   const [row, setRow] = useState<DayRow | null>(null)
   const [completed, setCompleted] = useState<string[]>([])
+  // What they type under an intention-capturing focal point (set an intention,
+  // top three, stretch goal). Optional — Completed works regardless. Saved on
+  // Completed; the evening reflection plays it back.
+  const [intention, setIntention] = useState('')
   // The sample opens on the beautiful Today home; a real morning opens on focal.
   const [phase, setPhase] = useState<Phase>(isSample ? 'home' : 'focal')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -105,6 +118,7 @@ export default function RoutineScreen() {
         // the focal phase (never resumes as "already done"). See recording.ts.
         const slugs = RECORDING ? [] : (r?.completed_slugs ?? [])
         setCompleted(slugs)
+        if (!RECORDING && r?.intention) setIntention(r.intention)
         // Focal point already done earlier → resume on the checklist.
         if (!RECORDING && r?.plan && slugs.includes(r.plan.oneThing.slug)) setPhase('sequence')
         setLoading(false)
@@ -155,6 +169,18 @@ export default function RoutineScreen() {
 
   const completeFocal = () => {
     if (!focal) return
+    // Persist whatever was typed (or clear a deleted draft) before the check-off.
+    // Chained on the same write queue; a failure surfaces via the shared notice.
+    if (focal.capturesIntention && !isSample && !RECORDING) {
+      const text = intention
+      writeChain.current = writeChain.current
+        .catch(() => {})
+        .then(() => saveIntention(logicalDate(), text))
+        .catch(() => {
+          if (mounted.current)
+            setSaveError('Couldn’t save just now — tonight’s reflection will catch anything missed.')
+        })
+    }
     if (!completed.includes(focal.slug)) {
       hapticSuccess()
       persist([...completed, focal.slug])
@@ -251,6 +277,12 @@ export default function RoutineScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Header onClose={close} />
+        {/* The intention box invites the keyboard mid-screen; without this the
+            Completed button would sit underneath it. */}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <Animated.View entering={FadeIn.duration(400)} style={styles.focalWrap}>
           {/* Sample mode: name the hypothetical so the routine reads as an example. */}
           {isSample && (
@@ -270,6 +302,22 @@ export default function RoutineScreen() {
               <Feather name="clock" size={13} color={day.muted} />
               <Text style={styles.timeChipLabel}>about {focal.estMinutes} min</Text>
             </View>
+            {/* Intention-capturing focal points (set an intention, top three,
+                stretch goal) offer a box to write it down. Optional — the
+                evening reflection plays back whatever's captured here. Hidden in
+                sample mode, where nothing persists and the box would be dead. */}
+            {focal.capturesIntention && !RECORDING && !isSample ? (
+              <TextInput
+                style={styles.intentionInput}
+                value={intention}
+                onChangeText={setIntention}
+                placeholder="Write it here — putting it in words makes it real."
+                placeholderTextColor={day.muted}
+                multiline
+                maxLength={280}
+                accessibilityLabel="Your intention for today"
+              />
+            ) : null}
           </View>
 
           <View>
@@ -288,6 +336,7 @@ export default function RoutineScreen() {
             </Pressable>
           </View>
         </Animated.View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     )
   }
@@ -419,6 +468,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: day.background,
   },
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -512,6 +564,23 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 13,
     color: day.muted,
+  },
+  intentionInput: {
+    alignSelf: 'stretch',
+    minHeight: 76,
+    marginTop: 24,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    backgroundColor: day.surface,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    lineHeight: 22,
+    color: day.text,
+    textAlignVertical: 'top',
   },
 
   // ── Sequence phase ──────────────────────────────────────────────────────────

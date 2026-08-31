@@ -28,6 +28,7 @@ import {
   getDay,
   logicalDate,
   peekDay,
+  recentFocalPoints,
   saveMorning,
   type DayRow,
 } from '@/lib/days'
@@ -314,11 +315,18 @@ export default function Index() {
       // Demand comes from last night's reflection if it happened; otherwise the
       // inline demand tap supplies it so the Gap can still render.
       const dayDifficulty = today?.day_difficulty ?? demandInput
+      // Focal history feeds the no-repeat rules. Best-effort: if the fetch fails,
+      // the check-in still goes through — the rules just don't constrain today.
+      const focalHistory = await recentFocalPoints(30).catch(
+        () => [] as { date: string; slug: string }[],
+      )
       const plan = resolveMorningPlan({
         readiness: readinessInput,
         dayDifficulty,
         intent: profile?.intent,
         options: today?.plan_options,
+        recentFocalHistory: focalHistory,
+        planDate: logicalDate(),
       })
       const row = await saveMorning(logicalDate(), { readiness: readinessInput, dayDifficulty, plan })
       if (!mounted.current) return

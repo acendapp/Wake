@@ -54,9 +54,10 @@ function recapLine(state: ReadinessState, dayDifficulty: number): string {
 
 const NO_MORNING_RECAP = 'No check-in this morning — just go on how today felt.'
 
-// The evening ritual, trimmed to its core: today's reads, tomorrow's demand, and
-// the combined wake-alarm + morning-length setup. One beat per screen.
-const ALL_STEPS = ['reads', 'demand', 'wakeRoutine'] as const
+// The evening ritual, trimmed to its core: the intention play-back (only on days
+// the focal point captured one), today's reads, tomorrow's demand, and the
+// combined wake-alarm + morning-length setup. One beat per screen.
+const ALL_STEPS = ['intention', 'reads', 'demand', 'wakeRoutine'] as const
 type StepKey = (typeof ALL_STEPS)[number]
 
 type Phase = 'intro' | 'flow' | 'done'
@@ -114,8 +115,18 @@ export default function ReflectScreen() {
   })
   const [step, setStep] = useState(0)
 
-  // The flow is a fixed three beats now, so the step list never changes.
-  const activeSteps = ALL_STEPS
+  // The intention the morning's focal point captured, if any — it gates the
+  // play-back step: only days whose focal point was an intention-setter (and who
+  // actually wrote one) get asked whether they followed through.
+  const [intentionText, setIntentionText] = useState<string | null>(
+    () => peekDay(logicalDate())?.intention ?? null,
+  )
+  const [intentionKept, setIntentionKept] = useState<boolean | null>(
+    () => peekDay(logicalDate())?.intention_kept ?? null,
+  )
+
+  // Three fixed beats, plus the intention play-back on the days that earned it.
+  const activeSteps = intentionText ? ALL_STEPS : ALL_STEPS.filter((s) => s !== 'intention')
 
   // Answers.
   const [energy, setEnergy] = useState(6)
@@ -158,6 +169,8 @@ export default function ReflectScreen() {
           if (row.state && row.day_difficulty != null) {
             setMorningCall(recapLine(row.state, row.day_difficulty))
           }
+          setIntentionText(row.intention ?? null)
+          if (row.intention_kept != null) setIntentionKept(row.intention_kept)
           if (restoring) {
             // Tonight's reflection is already saved (e.g. the app reloaded since):
             // restore every answer and resume on the done screen — never a blank
@@ -203,6 +216,9 @@ export default function ReflectScreen() {
       await saveEvening(logicalDate(), {
         reads: { energy, mood, focus },
         tomorrowDemand: demand,
+        // Only when the play-back step was actually shown — otherwise leave the
+        // stored answer (if any) untouched.
+        ...(intentionText ? { intentionKept } : {}),
       })
       // Persist the wake toggle + tomorrow's time, and arm/cancel the alarm to
       // match (best-effort — the reflection is already saved, so a failure here
@@ -370,6 +386,9 @@ export default function ReflectScreen() {
             showsVerticalScrollIndicator={false}
           >
             {renderStep(key, {
+              intentionText,
+              intentionKept,
+              setIntentionKept,
               energy,
               setEnergy,
               mood,
@@ -412,6 +431,9 @@ export default function ReflectScreen() {
 // ── Step bodies ─────────────────────────────────────────────────────────────
 
 type StepProps = {
+  intentionText: string | null
+  intentionKept: boolean | null
+  setIntentionKept: (v: boolean) => void
   energy: number
   setEnergy: (n: number) => void
   mood: number
@@ -428,6 +450,42 @@ type StepProps = {
 
 function renderStep(key: StepKey, p: StepProps) {
   switch (key) {
+    case 'intention':
+      return (
+        <StepHeader
+          eyebrow="This morning"
+          question="You wrote this down. Did you follow through?"
+        >
+          <View style={styles.intentionQuoteCard}>
+            <Feather name="edit-3" size={14} color={day.gold} />
+            <Text style={styles.intentionQuote}>&ldquo;{p.intentionText}&rdquo;</Text>
+          </View>
+          <View style={styles.intentionChoices}>
+            {(
+              [
+                { value: true, label: 'I did' },
+                { value: false, label: 'Not today' },
+              ] as const
+            ).map((c) => {
+              const on = p.intentionKept === c.value
+              return (
+                <Pressable
+                  key={c.label}
+                  style={[styles.intentionChoice, on && styles.intentionChoiceOn]}
+                  onPress={() => p.setIntentionKept(c.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.intentionChoiceLabel, on && styles.intentionChoiceLabelOn]}>
+                    {c.label}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        </StepHeader>
+      )
+
     case 'reads':
       return (
         <StepHeader eyebrow="Your reads" question="How were energy, mood, and focus today?">
@@ -670,6 +728,53 @@ const styles = StyleSheet.create({
   },
   stepBody: {
     marginTop: 30,
+  },
+
+  // Intention play-back
+  intentionQuoteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: day.surface,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  intentionQuote: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontStyle: 'italic',
+    fontSize: 17,
+    lineHeight: 26,
+    color: day.text,
+  },
+  intentionChoices: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 22,
+  },
+  intentionChoice: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: day.border,
+    backgroundColor: day.surface,
+  },
+  intentionChoiceOn: {
+    borderColor: day.gold,
+    backgroundColor: day.goldTint,
+  },
+  intentionChoiceLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 16,
+    color: day.muted,
+  },
+  intentionChoiceLabelOn: {
+    color: day.gold,
   },
 
   // Footer

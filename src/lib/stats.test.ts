@@ -264,11 +264,15 @@ describe('computeYouStats — portfolio', () => {
 })
 
 describe('computeYouStats — patterns', () => {
+  // Patterns are gated on ≥10 active days (MIN_DAYS_FOR_PATTERNS); rows here set
+  // morning_completed_at so each counts as an active day.
+  const active = { morning_completed_at: '2026-06-01T08:00:00Z' }
+
   it('surfaces the focal-point observation only when the data earns it', () => {
-    // 3 done @ energy 8, 3 skipped @ energy 5 → +3 lift, both groups ≥3.
+    // 10 active days: 5 done @ energy 8, 5 skipped @ energy 5 → +3 lift, both groups ≥3.
     const rows = [
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
+      ...Array(5).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { ...active, one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
+      ...Array(5).fill(0).map((_, i) => mk(`2026-06-1${i}`, { ...active, one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
     ]
     const s = computeYouStats(rows, '2026-06-30')
     expect(s.patterns).toHaveLength(1)
@@ -277,8 +281,18 @@ describe('computeYouStats — patterns', () => {
 
   it('stays empty when a group is too small', () => {
     const rows = [
-      mk('2026-06-01', { one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 }),
-      ...Array(3).fill(0).map((_, i) => mk(`2026-06-1${i}`, { one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
+      ...Array(2).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { ...active, one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
+      ...Array(8).fill(0).map((_, i) => mk(`2026-06-1${i}`, { ...active, one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
+    ]
+    expect(computeYouStats(rows, '2026-06-30').patterns).toHaveLength(0)
+  })
+
+  it('stays locked before 10 active days, even when the math would qualify', () => {
+    // 4 done + 4 skipped — computePatterns' own thresholds are met, but only 8
+    // active days are on record, so the 10-day unlock keeps the box closed.
+    const rows = [
+      ...Array(4).fill(0).map((_, i) => mk(`2026-06-0${i + 1}`, { ...active, one_thing_slug: 'a', completed_slugs: ['a'], energy: 8 })),
+      ...Array(4).fill(0).map((_, i) => mk(`2026-06-1${i}`, { ...active, one_thing_slug: 'a', completed_slugs: [], energy: 5 })),
     ]
     expect(computeYouStats(rows, '2026-06-30').patterns).toHaveLength(0)
   })

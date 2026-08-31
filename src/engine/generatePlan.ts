@@ -98,14 +98,17 @@ function rankFor(goal: Goal, intent: Intent | null | undefined): number {
 // focal is pushed down most) and summed across occurrences, so a move that led
 // several recent mornings drops furthest.
 //
-// Tuning: the top routine goals for a state cluster within ~8 rank points of each
-// other (even with a +INTENT_BONUS match), so the leading weight (14) is set above
-// that gap to GUARANTEE the focal point changes day to day — no user parked in one
-// readiness state sees the same One Thing twice running. The fast decay then lets
-// the highest-leverage move reclaim the lead within a couple of days rather than
-// being suppressed for a week. Lower the first weight below the cluster gap if a
-// stable anchor is ever preferred over guaranteed rotation.
-const FRESHNESS_WEIGHTS = [14, 8, 4, 2]
+// Tuning (deepened Aug 2026, founder-confirmed): with the library at ~38 goals,
+// the old shallow curve ([14, 8, 4, 2]) only ever rotated the top 3–4 scorers —
+// the ~15–20-point gap between the top cluster and the mid-tier was never
+// overcome, so the rest of the library never led. This curve suppresses a
+// recently-led goal for ~9 mornings and its leading weight (40) clears the
+// cluster→mid-tier gap, which in simulation yields 7–8 distinct focal points per
+// month per state — while the priority signal still decides ties, so the state's
+// flagship move keeps leading most often and low-leverage tail items don't lead
+// as often as staples (this is deliberately NOT least-recently-used). The first
+// weight also still guarantees day-to-day rotation on its own.
+const FRESHNESS_WEIGHTS = [40, 32, 25, 19, 14, 10, 7, 4, 2]
 
 // Map each variant slug (what's stored per morning as `one_thing_slug`) back to
 // its goal, so recent focal history can be scored at the goal grain the ranker
@@ -130,6 +133,45 @@ export function freshnessPenalty(
     if (VARIANT_TO_GOAL.get(recentFocalSlugs[i]) === goalSlug) penalty += FRESHNESS_WEIGHTS[i]
   }
   return penalty
+}
+
+// ── Hard no-repeat rule for the focal point ──────────────────────────────────
+// On top of the soft freshness penalty above, one guarantee (goal grain, so all
+// variants of a goal count as the same focal point): once a goal has been the
+// focal point, it may not lead again for LEAD_COOLDOWN_DAYS. For a daily user
+// that forces 17+ distinct focal points across a month (founder target: 15–20).
+// This subsumes the earlier two rules (never two days in a row; ≤3 per week).
+// Every state's eligible pool (30+) comfortably exceeds the window, and if the
+// pool were ever exhausted the caller degrades to the soft penalty alone.
+// Blocked goals may still appear later in the sequence; the rule is about what
+// LEADS the morning.
+export const LEAD_COOLDOWN_DAYS = 16
+
+/** Whole-days-since-epoch for "YYYY-MM-DD" — UTC so there's no TZ drift. */
+function dayIndexOf(date: string): number {
+  const [y, m, d] = date.split('-').map(Number)
+  return Math.floor(Date.UTC(y, m - 1, d) / 86_400_000)
+}
+
+/**
+ * The goals barred from being `planDate`'s focal point, given the dated history
+ * of stored `one_thing_slug` values. Entries dated on/after `planDate` are
+ * ignored (a same-day re-check-in must not block its own goal).
+ */
+export function blockedFocalGoals(
+  history: readonly { date: string; slug: string }[],
+  planDate: string,
+): Set<string> {
+  const todayIdx = dayIndexOf(planDate)
+  const blocked = new Set<string>()
+  for (const h of history) {
+    const goal = VARIANT_TO_GOAL.get(h.slug)
+    if (!goal) continue
+    const idx = dayIndexOf(h.date)
+    if (idx >= todayIdx) continue
+    if (idx >= todayIdx - LEAD_COOLDOWN_DAYS) blocked.add(goal)
+  }
+  return blocked
 }
 
 /** The state-derived framing (headline/subhead/accent) for a plan. Shared so the
@@ -176,7 +218,8 @@ export function generatePlan(input: PlanInput): Plan {
   // well each serves the user's intent (the strongest prior we have), and pushed
   // down by how recently each was the focal point — so a user parked in one state
   // sees the lead rotate instead of the same move every morning.
-  const recentFocalSlugs = input.recentFocalSlugs ?? []
+  const history = input.recentFocalHistory ?? []
+  const recentFocalSlugs = input.recentFocalSlugs ?? history.map((h) => h.slug)
   const rank = (g: Goal) => rankFor(g, input.intent) - freshnessPenalty(g.slug, recentFocalSlugs)
   const candidates = GOAL_LIBRARY.filter(
     (g) => g.scope === 'routine' && g.states.includes(state),
@@ -187,14 +230,48 @@ export function generatePlan(input: PlanInput): Plan {
     throw new Error(`No routine goals available for state "${state}"`)
   }
 
-  // Greedy pack: walk goals by priority, take the largest variant that fits both
-  // the remaining budget AND the per-move cap, so one move can't eat the morning.
-  // A near-free move (1 min) almost always makes it; a costly one downscales.
+  // Hard no-repeat: goals barred from leading today (see blockedFocalGoals). If
+  // every candidate is somehow blocked, degrade to the soft penalty alone — a
+  // repeated focal point beats no morning at all.
+  const blocked =
+    history.length > 0 && input.planDate ? blockedFocalGoals(history, input.planDate) : new Set<string>()
+  const leadPool = candidates.filter((g) => !blocked.has(g.slug))
+  const leadCandidates = leadPool.length > 0 ? leadPool : candidates
+
   const cap = moveCap(budget)
   const limit = maxMoves(budget)
   const sequence: Action[] = []
   let remaining = budget
+
+  // The focal point is packed first, from the unblocked pool: the highest-ranked
+  // goal with a variant that fits the budget and the per-move cap.
+  for (const goal of leadCandidates) {
+    const variant = fitVariant(goal, Math.min(remaining, cap))
+    if (variant) {
+      sequence.push(variant)
+      remaining -= variant.estMinutes
+      break
+    }
+  }
+
+  // Guarantee a One Thing even when the budget is below every variant of the
+  // top goal: fall back to the smallest variant of the highest-priority goal.
+  if (sequence.length === 0) {
+    const top = leadCandidates[0]
+    sequence.push(top.variants[top.variants.length - 1])
+  }
+
+  // The One Thing is the highest-leverage move — locked in before any reorder.
+  const oneThing = sequence[0]
+  const leadGoalSlug = VARIANT_TO_GOAL.get(oneThing.slug)
+
+  // Greedy pack the rest: walk goals by priority (blocked goals included — the
+  // no-repeat rules only govern the lead), take the largest variant that fits
+  // both the remaining budget AND the per-move cap, so one move can't eat the
+  // morning. A near-free move (1 min) almost always makes it; a costly one
+  // downscales.
   for (const goal of candidates) {
+    if (goal.slug === leadGoalSlug) continue
     if (sequence.length >= limit) break
     const variant = fitVariant(goal, Math.min(remaining, cap))
     if (variant) {
@@ -202,16 +279,6 @@ export function generatePlan(input: PlanInput): Plan {
       remaining -= variant.estMinutes
     }
   }
-
-  // Guarantee a One Thing even when the budget is below every variant of the
-  // top goal: fall back to the smallest variant of the highest-priority goal.
-  if (sequence.length === 0) {
-    const top = candidates[0]
-    sequence.push(top.variants[top.variants.length - 1])
-  }
-
-  // The One Thing is the highest-leverage move — locked in before any reorder.
-  const oneThing = sequence[0]
 
   // Chronological invariant: getting out of bed can't follow anything else. If
   // it made the cut, it leads the sequence (the One Thing above is unaffected).

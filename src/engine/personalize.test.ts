@@ -104,10 +104,10 @@ describe('parsePersonalizedSequence', () => {
 
   it('rejects a single move over the per-move cap', () => {
     const bad: PersonalizedResponse = {
-      leadSlug: 'shower-5',
-      moves: [{ slug: 'shower-5', example: 'a' }],
+      leadSlug: 'move-body-8',
+      moves: [{ slug: 'move-body-8', example: 'a' }],
     }
-    // budget 5 → moveCap 3; a 5-min shower exceeds it
+    // budget 5 → moveCap 3; an 8-min movement block exceeds it
     expect(() => parsePersonalizedSequence(bad, 'deficit', 5)).toThrow(/move cap/)
   })
 

@@ -29,6 +29,7 @@ import {
   computeYouStats,
   METRICS,
   METRIC_LABEL,
+  MIN_DAYS_FOR_PATTERNS,
   type GapKey,
   type Metric,
   type YouStats,
@@ -503,11 +504,26 @@ export default function YouScreen() {
                     <Feather name="eye" size={16} color={day.gold} />
                   </View>
                   <View style={styles.patternText}>
-                    <Text style={styles.patternTitle}>Still taking shape.</Text>
-                    <Text style={styles.patternBody}>
-                      A few more mornings and Wake will surface what actually moves your
-                      energy, mood, and focus.
-                    </Text>
+                    {count < MIN_DAYS_FOR_PATTERNS ? (
+                      <>
+                        <Text style={styles.patternTitle}>
+                          Unlocks after {MIN_DAYS_FOR_PATTERNS} days.
+                        </Text>
+                        <Text style={styles.patternBody}>
+                          Day {Math.min(count, MIN_DAYS_FOR_PATTERNS)} of {MIN_DAYS_FOR_PATTERNS}.
+                          Patterns need enough mornings to be honest — once you&rsquo;re there,
+                          Wake surfaces what actually moves your energy, mood, and focus.
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.patternTitle}>Still taking shape.</Text>
+                        <Text style={styles.patternBody}>
+                          A few more mornings and Wake will surface what actually moves your
+                          energy, mood, and focus.
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </View>
               )}
@@ -602,8 +618,8 @@ export default function YouScreen() {
                 <View style={styles.patternText}>
                   <Text style={styles.patternTitle}>Nothing yet — and that&rsquo;s right.</Text>
                   <Text style={styles.patternBody}>
-                    Patterns emerge around week two. Every check-in teaches Wake how your
-                    mornings actually work.
+                    Patterns unlock after {MIN_DAYS_FOR_PATTERNS} days of mornings. Every
+                    check-in teaches Wake how your mornings actually work.
                   </Text>
                 </View>
               </View>

@@ -1,4 +1,10 @@
-import { framingFor, generatePlan } from '@/engine/generatePlan'
+import {
+  blockedFocalGoals,
+  framingFor,
+  generatePlan,
+  LEAD_COOLDOWN_DAYS,
+} from '@/engine/generatePlan'
+import { GOAL_LIBRARY } from '@/engine/goalLibrary'
 import {
   buildCandidates,
   buildMessages,
@@ -11,7 +17,7 @@ import type { Lookback, Plan, ReadinessState } from '@/engine/types'
 import {
   addDays,
   getDay,
-  recentFocalSlugs,
+  recentFocalPoints,
   recentReflections,
   savePlanOptions,
   type DayRow,
@@ -83,33 +89,53 @@ function buildContext(
   }
 }
 
+/** The goal a variant slug belongs to — for enforcing the no-repeat rules on the
+ *  model's lead pick at the same goal grain the engine uses. */
+const VARIANT_TO_GOAL: Map<string, string> = new Map(
+  GOAL_LIBRARY.flatMap((g) => g.variants.map((v) => [v.slug, g.slug] as const)),
+)
+
 /** Personalize one state via Claude; fall back to the deterministic plan on any
  *  failure (no key, network error, or an off-contract response). */
 async function personalizeState(
   state: ReadinessState,
+  targetDate: string,
   dayDifficulty: number,
   budget: number,
   profile: ProfileRow | null,
   reflections: ReflectionSummary[],
-  focalHistory: string[],
+  focalHistory: { date: string; slug: string }[],
 ): Promise<Plan> {
   const readiness = representativeReadiness(state, dayDifficulty)
+  // The model only sees the slugs still inside the lead-cooldown window — the
+  // prompt forbids leading with any of them, and validation below enforces it.
+  const cooldownCutoff = addDays(targetDate, -LEAD_COOLDOWN_DAYS)
+  const focalSlugs = focalHistory.filter((h) => h.date >= cooldownCutoff).map((h) => h.slug)
   const fallback = generatePlan({
     readiness,
     dayDifficulty,
     routineMinutes: budget,
     intent: profile?.intent ?? null,
-    recentFocalSlugs: focalHistory,
+    recentFocalHistory: focalHistory,
+    planDate: targetDate,
   })
 
   try {
-    const ctx = buildContext(state, dayDifficulty, budget, profile, reflections, focalHistory)
+    const ctx = buildContext(state, dayDifficulty, budget, profile, reflections, focalSlugs)
     const { system, user } = buildMessages(ctx, buildCandidates(state))
     const { data, error } = await supabase.functions.invoke('generate-routine', {
       body: { system, user },
     })
     if (error || typeof data?.text !== 'string') throw error ?? new Error('No model text')
     const { sequence, oneThing } = parsePersonalizedSequence(data.text, state, budget)
+    // The prompt only ASKS the model to rotate the lead; enforce the hard
+    // no-repeat rules here so an insistent model can't repeat yesterday's focal
+    // point (or serve a 4th appearance in a week). Violation → deterministic
+    // fallback, which already picked an unblocked lead.
+    const leadGoal = VARIANT_TO_GOAL.get(oneThing.slug)
+    if (leadGoal && blockedFocalGoals(focalHistory, targetDate).has(leadGoal)) {
+      throw new Error(`Personalization: lead "${oneThing.slug}" violates no-repeat rules`)
+    }
     // Reuse the deterministic framing; swap in the personalized moves. Mark the
     // plan as Claude-built so the dev indicator can tell it apart from a fallback.
     return { ...fallback, sequence, oneThing, source: 'claude' }
@@ -141,7 +167,7 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
     const [profile, reflectionRows, focalHistory, targetRow] = await Promise.all([
       fetchProfile(),
       recentReflections(5),
-      recentFocalSlugs(5),
+      recentFocalPoints(30),
       getDay(targetDate),
     ])
     const dayDifficulty = targetRow?.day_difficulty ?? DEFAULT_DEMAND
@@ -152,7 +178,7 @@ export async function pregeneratePlansFor(targetDate: string): Promise<boolean> 
 
     const plans = await Promise.all(
       STATES.map((state) =>
-        personalizeState(state, dayDifficulty, budget, profile, reflections, focalHistory),
+        personalizeState(state, targetDate, dayDifficulty, budget, profile, reflections, focalHistory),
       ),
     )
     const options: Partial<Record<ReadinessState, Plan>> = {}
@@ -188,12 +214,19 @@ export function resolveMorningPlan(input: {
   dayDifficulty: number
   intent?: ProfileRow['intent']
   options?: DayRow['plan_options']
+  /** Dated focal history + the plan's date — the no-repeat rules. Omitted (e.g.
+   *  the history fetch failed) → the rules simply don't constrain this morning. */
+  recentFocalHistory?: { date: string; slug: string }[]
+  planDate?: string
 }): Plan {
+  const history = input.recentFocalHistory ?? []
   const fallback = generatePlan({
     readiness: input.readiness,
     dayDifficulty: input.dayDifficulty,
     routineMinutes: SEQUENCE_MINUTES,
     intent: input.intent,
+    recentFocalHistory: history,
+    planDate: input.planDate,
   })
   const cached = input.options?.[fallback.state]
   // Trust the cache only if it was actually built for this state AND is structurally
@@ -210,6 +243,14 @@ export function resolveMorningPlan(input: {
     cached.sequence.length === 0
   )
     return fallback
+  // Pre-gen already enforced the no-repeat rules, but re-check against the
+  // morning's actual history: the cache could predate the rules, or the history
+  // could have shifted since (an edited reflection re-ran pre-gen, an extra
+  // morning landed). A blocked lead falls back to the deterministic plan.
+  if (history.length > 0 && input.planDate) {
+    const leadGoal = VARIANT_TO_GOAL.get(cached.oneThing.slug)
+    if (leadGoal && blockedFocalGoals(history, input.planDate).has(leadGoal)) return fallback
+  }
   // The cached plan was framed at pre-gen time; correct the gap and framing to
   // the realized morning.
   return { ...cached, gap: fallback.gap, ...framingFor(fallback.state) }

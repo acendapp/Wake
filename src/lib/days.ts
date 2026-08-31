@@ -28,6 +28,12 @@ export type DayRow = {
   focus: number | null
   mood: number | null
   did_one_thing: boolean | null
+  // What the user typed under an intention-capturing focal point (set an
+  // intention, top three, stretch goal) — null when the focal wasn't one, or
+  // they typed nothing. The evening reflection plays it back.
+  intention: string | null
+  // The evening's answer to "did you follow through?" — null until (unless) asked.
+  intention_kept: boolean | null
   evening_completed_at: string | null
   // Set when the user acknowledges the morning alarm but chooses "Not today" —
   // just wake, no routine. Counts toward the streak (waking well is the habit).
@@ -183,6 +189,16 @@ export async function saveCompletedSlugs(date: string, slugs: string[]): Promise
   return upsertDay(userId, date, { completed_slugs: slugs })
 }
 
+/**
+ * What the user typed under an intention-capturing focal point. Written by the
+ * /routine screen when they hit Completed; the evening reflection reads it back
+ * and asks whether they followed through. An empty string clears it.
+ */
+export async function saveIntention(date: string, text: string): Promise<DayRow> {
+  const userId = await currentUserId()
+  return upsertDay(userId, date, { intention: text.trim() || null })
+}
+
 /** Cache the evening-pregenerated per-state routines onto the day they target. */
 export async function savePlanOptions(
   date: string,
@@ -261,6 +277,18 @@ export async function recentReflections(limit = 5): Promise<DayRow[]> {
  * reflection — a focal point is set every morning, reflected on or not.
  */
 export async function recentFocalSlugs(limit = 5): Promise<string[]> {
+  return (await recentFocalPoints(limit)).map((r) => r.slug)
+}
+
+/**
+ * Dated focal-point history (`one_thing_slug` + its local date), newest first.
+ * Feeds the engine's hard no-repeat rule (a goal that led may not lead again for
+ * LEAD_COOLDOWN_DAYS) as well as the soft freshness penalty. The default limit
+ * comfortably covers the cooldown window even for a no-skip daily user.
+ */
+export async function recentFocalPoints(
+  limit = 30,
+): Promise<{ date: string; slug: string }[]> {
   const userId = await currentUserId()
   const { data, error } = await supabase
     .from('days')
@@ -270,9 +298,9 @@ export async function recentFocalSlugs(limit = 5): Promise<string[]> {
     .order('local_date', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return ((data as { one_thing_slug: string | null }[]) ?? [])
-    .map((r) => r.one_thing_slug)
-    .filter((s): s is string => s != null)
+  return ((data as { local_date: string; one_thing_slug: string | null }[]) ?? [])
+    .filter((r): r is { local_date: string; one_thing_slug: string } => r.one_thing_slug != null)
+    .map((r) => ({ date: r.local_date, slug: r.one_thing_slug }))
 }
 
 /**
@@ -290,6 +318,9 @@ export async function saveEvening(
     reads: DayReads
     note?: string
     tomorrowDemand: number
+    /** Answer to the intention play-back, when the step was shown. Omitted →
+     *  the stored value is left untouched (an edit never wipes an old answer). */
+    intentionKept?: boolean | null
   },
 ): Promise<void> {
   const userId = await currentUserId()
@@ -308,6 +339,7 @@ export async function saveEvening(
     mood: input.reads.mood,
     focus: input.reads.focus,
     note: input.note ?? null,
+    ...(input.intentionKept !== undefined ? { intention_kept: input.intentionKept } : {}),
     evening_completed_at: new Date().toISOString(),
   })
 }

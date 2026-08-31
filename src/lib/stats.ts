@@ -66,6 +66,12 @@ export interface PatternCard {
   body: string
 }
 
+// Patterns stay locked until this many active days are on record — an association
+// drawn from a handful of mornings reads as noise and erodes trust in every stat.
+// The You page shows "day N of 10" progress until then; the data thresholds inside
+// computePatterns still apply after unlock.
+export const MIN_DAYS_FOR_PATTERNS = 10
+
 export interface YouStats {
   /** Per metric, the recent reflection reads (oldest → newest), up to 14. */
   trend: Record<Metric, number[]>
@@ -298,7 +304,9 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
   }
 
   // ── Patterns (conservative; descriptive, never causal) ──
-  const patterns = computePatterns(rows)
+  // Locked until 10 active days regardless of what the math could already claim —
+  // the unlock is part of the product promise ("10 days in, patterns appear").
+  const patterns = activeIdx.size >= MIN_DAYS_FOR_PATTERNS ? computePatterns(rows) : []
 
   return {
     trend,

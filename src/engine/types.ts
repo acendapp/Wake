@@ -66,6 +66,14 @@ export interface Action {
   description: string
   category: ActionCategory
   estMinutes: number
+  /**
+   * True for moves whose action IS naming a goal/intention (set an intention,
+   * choose the top three, set a stretch goal). The focal-point screen offers a
+   * text box to capture what was named, and the evening reflection plays it back
+   * ("did you follow through?"). Lives on the Action so it travels inside the
+   * stored `plan` JSON — older rows without it simply don't offer the box.
+   */
+  capturesIntention?: boolean
 }
 
 /**
@@ -126,6 +134,16 @@ export interface PlanInput {
    * to the pre-freshness behavior).
    */
   recentFocalSlugs?: string[] | null
+  /**
+   * Dated focal-point history — each morning's stored `one_thing_slug` with its
+   * local date — plus the local date the plan is FOR. Together they drive the
+   * hard no-repeat rules (never the same focal as yesterday; never a fourth
+   * appearance within seven days). Omitted → only the soft freshness penalty
+   * applies (the pre-hard-rule behavior).
+   */
+  recentFocalHistory?: { date: string; slug: string }[] | null
+  /** "YYYY-MM-DD" local date the plan is for — anchors the no-repeat windows. */
+  planDate?: string | null
   /** Optional, for time-aware copy later. */
   now?: Date
   mode?: Mode | null

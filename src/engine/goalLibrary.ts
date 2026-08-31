@@ -80,6 +80,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'A clear aim points the whole day — the naming is the win.',
         category: 'focus',
         estMinutes: 2,
+        capturesIntention: true,
       },
     ],
   },
@@ -241,52 +242,9 @@ export const GOAL_LIBRARY: Goal[] = [
       },
     ],
   },
-  {
-    slug: 'get-dressed',
-    label: 'signal the day has begun',
-    category: 'transition',
-    scope: 'routine',
-    states: ['deficit', 'aligned', 'surplus'],
-    intents: ['energize', 'focus'],
-    priority: 54,
-    variants: [
-      {
-        slug: 'get-dressed-4',
-        title: 'Get dressed for the day',
-        example: 'out of pajamas and into real clothes — it tells your brain the day has begun.',
-        description: 'Changing clothes is a clean line between sleep and the day.',
-        category: 'transition',
-        estMinutes: 4,
-      },
-    ],
-  },
-  {
-    slug: 'take-shower',
-    label: 'wake up and reset',
-    category: 'transition',
-    scope: 'routine',
-    states: ['deficit', 'aligned', 'surplus'],
-    intents: ['energize', 'calm'],
-    priority: 52,
-    variants: [
-      {
-        slug: 'shower-10',
-        title: 'Take a shower',
-        example: 'a shower to fully wake up and reset.',
-        description: 'Warm water plus a fresh start wakes the body and the mind.',
-        category: 'transition',
-        estMinutes: 10,
-      },
-      {
-        slug: 'shower-5',
-        title: 'Take a shower',
-        example: 'even a quick rinse resets you for the day.',
-        description: 'Warm water plus a fresh start wakes the body and the mind.',
-        category: 'transition',
-        estMinutes: 5,
-      },
-    ],
-  },
+  // 'get-dressed' and 'take-shower' were removed Aug 2026 (redundant / not
+  // universally doable). Their slugs may still appear in old stored plans and
+  // focal history — every consumer handles unknown slugs, so no shim is kept.
   {
     slug: 'make-bed',
     label: 'a small finished thing',
@@ -322,6 +280,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'Getting thoughts out of your head frees up attention for the day.',
         category: 'focus',
         estMinutes: 8,
+        capturesIntention: true,
       },
       {
         slug: 'clear-head-4',
@@ -330,6 +289,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'Getting thoughts out of your head frees up attention for the day.',
         category: 'focus',
         estMinutes: 4,
+        capturesIntention: true,
       },
     ],
   },
@@ -349,6 +309,112 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'A brief mental rehearsal primes you to act the way you pictured.',
         category: 'focus',
         estMinutes: 2,
+        capturesIntention: true,
+      },
+    ],
+  },
+  // Single-task granularity, distinct from plan-day's top-three list — some days
+  // have exactly one thing that must happen, and writing it down is the move.
+  {
+    slug: 'write-top-priority',
+    label: "name the day's must-win",
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['focus'],
+    priority: 60,
+    variants: [
+      {
+        slug: 'write-top-priority-2',
+        title: 'Write down your top priority',
+        example: 'one line — the single task that has to happen for today to count.',
+        description: "Naming the day's must-win makes every other choice easier.",
+        category: 'focus',
+        estMinutes: 2,
+        capturesIntention: true,
+      },
+    ],
+  },
+  // Decomposition — the follow-on move to naming a priority: a big task starts
+  // moving the moment it has a first step.
+  {
+    slug: 'break-it-down',
+    label: 'give the big task a first step',
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['focus'],
+    priority: 55,
+    variants: [
+      {
+        slug: 'break-it-down-3',
+        title: 'Break your top priority into steps',
+        example: 'three small steps — make the first one so easy it starts itself.',
+        description: 'A big task stops being heavy once it has an obvious first step.',
+        category: 'focus',
+        estMinutes: 3,
+        capturesIntention: true,
+      },
+    ],
+  },
+  // Anticipation — gratitude's forward-looking sibling: savoring something ahead
+  // pulls you into the day instead of bracing against it.
+  {
+    slug: 'look-forward',
+    label: 'find the bright spot ahead',
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['calm', 'energize'],
+    priority: 50,
+    variants: [
+      {
+        slug: 'look-forward-1',
+        title: "Name something you're looking forward to",
+        example: "write down one thing in the day ahead you're glad is coming — even something small.",
+        description: 'Anticipation pulls you into the day instead of bracing against it.',
+        category: 'focus',
+        estMinutes: 1,
+      },
+    ],
+  },
+  // Confidence prime — recalling proof of capability before the day tests it.
+  {
+    slug: 'recent-win',
+    label: 'start from proof',
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['energize', 'focus'],
+    priority: 48,
+    variants: [
+      {
+        slug: 'recent-win-1',
+        title: 'Recall a recent win',
+        example: 'write down one thing you handled well lately — proof you can do hard things.',
+        description: 'Starting from a win primes confidence before the day tests it.',
+        category: 'focus',
+        estMinutes: 1,
+      },
+    ],
+  },
+  // Self-affirmation — the first voice you hear each day is your own.
+  {
+    slug: 'kind-word',
+    label: 'a kind first voice',
+    category: 'focus',
+    scope: 'routine',
+    states: ['deficit', 'aligned', 'surplus'],
+    intents: ['calm'],
+    priority: 46,
+    variants: [
+      {
+        slug: 'kind-word-1',
+        title: 'Say something kind about yourself',
+        example: 'one honest, positive sentence about yourself — out loud counts double.',
+        description: 'The first voice you hear each day is your own — make it a friendly one.',
+        category: 'focus',
+        estMinutes: 1,
       },
     ],
   },
@@ -363,7 +429,7 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'stretch-6',
-        title: 'Stretch it out',
+        title: 'Stretch lightly',
         example: 'a few minutes of easy stretching to loosen up.',
         description: 'Gentle stretching releases the stiffness of sleep and wakes the body.',
         category: 'movement',
@@ -371,7 +437,7 @@ export const GOAL_LIBRARY: Goal[] = [
       },
       {
         slug: 'stretch-3',
-        title: 'Stretch it out',
+        title: 'Stretch lightly',
         example: 'reach overhead and roll your shoulders a few times.',
         description: 'Gentle stretching releases the stiffness of sleep and wakes the body.',
         category: 'movement',
@@ -468,7 +534,7 @@ export const GOAL_LIBRARY: Goal[] = [
     variants: [
       {
         slug: 'move-body-8',
-        title: 'Get your blood moving',
+        title: 'Get your body moving',
         example: 'a short walk, a few stretches or squats — whatever feels easy this morning.',
         description: 'Moving at all is what lifts a low state — the form barely matters.',
         category: 'movement',
@@ -476,7 +542,7 @@ export const GOAL_LIBRARY: Goal[] = [
       },
       {
         slug: 'move-body-3',
-        title: 'Get your blood moving',
+        title: 'Get your body moving',
         example: 'even standing up to stretch or pace the room for a minute counts.',
         description: 'Moving at all is what lifts a low state — the form barely matters.',
         category: 'movement',
@@ -645,6 +711,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'Deciding what to guard up front keeps a steady day on track.',
         category: 'focus',
         estMinutes: 2,
+        capturesIntention: true,
       },
     ],
   },
@@ -837,35 +904,8 @@ export const GOAL_LIBRARY: Goal[] = [
       },
     ],
   },
-  // Balanced breakfast for aligned/surplus mornings — nutrition was one deficit-only
-  // move, so a steady or high-capacity morning was never offered breakfast at all.
-  {
-    slug: 'fuel-well',
-    label: 'eat for a steady curve',
-    category: 'nutrition',
-    scope: 'routine',
-    states: ['aligned', 'surplus'],
-    intents: ['energize', 'focus'],
-    priority: 54,
-    variants: [
-      {
-        slug: 'fuel-well-8',
-        title: 'Eat a real breakfast',
-        example: 'protein plus something whole — eggs and fruit, yogurt and oats.',
-        description: 'A balanced first meal holds energy flat instead of spiking then crashing.',
-        category: 'nutrition',
-        estMinutes: 8,
-      },
-      {
-        slug: 'fuel-well-3',
-        title: 'Eat a real breakfast',
-        example: 'grab something with protein and fiber on the way — not just a pastry.',
-        description: 'A balanced first meal holds energy flat instead of spiking then crashing.',
-        category: 'nutrition',
-        estMinutes: 3,
-      },
-    ],
-  },
+  // 'fuel-well' was removed Aug 2026 — redundant with protein-breakfast, which
+  // covers all three states.
   // Concrete task-prioritization — the single highest-evidence productivity ritual
   // (identify your top few). Distinct from set-intention (feeling/tone).
   {
@@ -884,6 +924,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'A short ranked list turns a vague day into a plan you can act on.',
         category: 'focus',
         estMinutes: 3,
+        capturesIntention: true,
       },
     ],
   },
@@ -926,6 +967,7 @@ export const GOAL_LIBRARY: Goal[] = [
         description: 'A surplus morning is the day to reach — spend the extra readiness on purpose.',
         category: 'focus',
         estMinutes: 2,
+        capturesIntention: true,
       },
     ],
   },
