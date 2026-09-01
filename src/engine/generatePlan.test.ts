@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { blockedFocalGoals, classifyState, freshnessPenalty, generatePlan } from './generatePlan'
+import {
+  blockedFocalGoals,
+  classifyState,
+  freshnessPenalty,
+  generatePlan,
+  LEAD_COOLDOWN_DAYS,
+} from './generatePlan'
 
 const totalMinutes = (plan: ReturnType<typeof generatePlan>) =>
   plan.sequence.reduce((sum, a) => sum + a.estMinutes, 0)
@@ -246,14 +252,21 @@ describe('blockedFocalGoals — the lead-cooldown rule', () => {
   })
 
   it('blocks any single appearance inside the cooldown window', () => {
-    // 12 days ago — well past the old weekly rules, still inside the 16-day cooldown.
-    const b = blockedFocalGoals([{ date: '2026-08-08', slug: 'move-body-8' }], '2026-08-20')
+    // 5 days ago — past the old never-two-in-a-row rule, still inside the
+    // 7-day cooldown.
+    const b = blockedFocalGoals([{ date: '2026-08-15', slug: 'move-body-8' }], '2026-08-20')
     expect(b.has('move-body')).toBe(true)
   })
 
-  it('does not block once the appearance has aged out of the cooldown', () => {
-    // 17 days ago — one past LEAD_COOLDOWN_DAYS.
-    const b = blockedFocalGoals([{ date: '2026-08-03', slug: 'move-body-3' }], '2026-08-20')
+  it('always blocks at exactly the cooldown floor, jitter or not', () => {
+    // 7 days ago — the floor; the seeded jitter only ever EXTENDS the window.
+    const b = blockedFocalGoals([{ date: '2026-08-13', slug: 'move-body-3' }], '2026-08-20')
+    expect(b.has('move-body')).toBe(true)
+  })
+
+  it('does not block once the appearance has aged out of the maximum window', () => {
+    // 11 days ago — one past LEAD_COOLDOWN_DAYS + LEAD_COOLDOWN_JITTER_DAYS.
+    const b = blockedFocalGoals([{ date: '2026-08-09', slug: 'move-body-3' }], '2026-08-20')
     expect(b.has('move-body')).toBe(false)
   })
 
@@ -281,7 +294,7 @@ describe('generatePlan — hard no-repeat enforcement', () => {
     expect(next.oneThing.slug).not.toBe(lead)
   })
 
-  it('30 simulated mornings: 15+ distinct focal points, none repeating inside the cooldown', () => {
+  it('30 simulated mornings: 8+ distinct focal points, none repeating inside the cooldown', () => {
     const history: { date: string; slug: string }[] = []
     const leads: string[] = []
     for (let i = 0; i < 30; i++) {
@@ -294,14 +307,28 @@ describe('generatePlan — hard no-repeat enforcement', () => {
       leads.push(lead)
       history.unshift({ date: dateFor(i), slug: lead })
     }
-    // The founder target: at least 15–20 different focal points across a month.
-    expect(new Set(leads).size).toBeGreaterThanOrEqual(15)
-    // And no goal leads twice within the cooldown window.
+    // The 7-day cooldown guarantees 8 distinct leads in any 8-day span; across a
+    // month the simulation lands at ~9–11 as the ranking re-elects the top
+    // scorers when they come off their jittered cooldowns. (The earlier 16-day
+    // rule pushed this to 17+ — the founder's 15–20 target; deepening the soft
+    // freshness curve is the lever if that variety is ever wanted back.)
+    expect(new Set(leads).size).toBeGreaterThanOrEqual(8)
+    // And no goal leads twice within the cooldown floor.
     for (let i = 0; i < leads.length; i++) {
-      for (let j = i + 1; j < leads.length && j - i <= 16; j++) {
+      for (let j = i + 1; j < leads.length && j - i <= LEAD_COOLDOWN_DAYS; j++) {
         expect(leads[j]).not.toBe(leads[i])
       }
     }
+    // The jittered windows must break the metronome: with a FIXED window the
+    // same cast repeated in the same order every window+1 days (day 9 = day 1,
+    // day 17 = day 9, …). Founder requirement: favorites may return weekly, but
+    // never as the identical sequence.
+    const period = LEAD_COOLDOWN_DAYS + 1
+    let breaks = 0
+    for (let i = period; i < leads.length; i++) {
+      if (leads[i] !== leads[i - period]) breaks++
+    }
+    expect(breaks).toBeGreaterThan(0)
   })
 
   it('a blocked goal may still appear in the sequence, just not lead', () => {

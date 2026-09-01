@@ -1,9 +1,4 @@
-import {
-  blockedFocalGoals,
-  framingFor,
-  generatePlan,
-  LEAD_COOLDOWN_DAYS,
-} from '@/engine/generatePlan'
+import { blockedFocalGoals, framingFor, generatePlan } from '@/engine/generatePlan'
 import { GOAL_LIBRARY } from '@/engine/goalLibrary'
 import {
   buildCandidates,
@@ -107,10 +102,17 @@ async function personalizeState(
   focalHistory: { date: string; slug: string }[],
 ): Promise<Plan> {
   const readiness = representativeReadiness(state, dayDifficulty)
-  // The model only sees the slugs still inside the lead-cooldown window — the
-  // prompt forbids leading with any of them, and validation below enforces it.
-  const cooldownCutoff = addDays(targetDate, -LEAD_COOLDOWN_DAYS)
-  const focalSlugs = focalHistory.filter((h) => h.date >= cooldownCutoff).map((h) => h.slug)
+  // The model only sees the slugs whose goal is still inside its lead-cooldown
+  // window — the prompt forbids leading with any of them, and validation below
+  // enforces it. Derived from blockedFocalGoals (not a flat date cutoff) so the
+  // prompt and the enforcement agree on the per-occurrence jittered windows.
+  const blockedGoals = blockedFocalGoals(focalHistory, targetDate)
+  const focalSlugs = focalHistory
+    .filter((h) => {
+      const goal = VARIANT_TO_GOAL.get(h.slug)
+      return goal !== undefined && blockedGoals.has(goal)
+    })
+    .map((h) => h.slug)
   const fallback = generatePlan({
     readiness,
     dayDifficulty,

@@ -138,14 +138,37 @@ export function freshnessPenalty(
 // ── Hard no-repeat rule for the focal point ──────────────────────────────────
 // On top of the soft freshness penalty above, one guarantee (goal grain, so all
 // variants of a goal count as the same focal point): once a goal has been the
-// focal point, it may not lead again for LEAD_COOLDOWN_DAYS. For a daily user
-// that forces 17+ distinct focal points across a month (founder target: 15–20).
+// focal point, it may not lead again for LEAD_COOLDOWN_DAYS — plus a seeded
+// 0–LEAD_COOLDOWN_JITTER_DAYS extension, below. For a daily user this yields
+// ~9–11 distinct focal points per month, with favorites returning roughly
+// weekly (the window was 16 days at launch, which forced 17+/month; it was
+// deliberately shortened so favorites come back). If more variety is ever
+// wanted at this length, deepen the soft freshness curve above.
 // This subsumes the earlier two rules (never two days in a row; ≤3 per week).
 // Every state's eligible pool (30+) comfortably exceeds the window, and if the
 // pool were ever exhausted the caller degrades to the soft penalty alone.
 // Blocked goals may still appear later in the sequence; the rule is about what
 // LEADS the morning.
-export const LEAD_COOLDOWN_DAYS = 16
+export const LEAD_COOLDOWN_DAYS = 7
+
+// With a FIXED window the weekly carousel repeats in the SAME order every
+// cycle, structurally: at steady state exactly one strong goal frees up per day
+// (the one that led window+1 days ago) and instantly reclaims the lead, so no
+// ranking tweak can reorder it. Extending each occurrence's window by 0–3 days
+// — deterministically seeded from (goal, the date it led), so the same morning
+// always re-resolves identically — releases the cast in a different relative
+// order each cycle: same favorites, shuffled order. The 7-day floor always
+// holds; a goal is only ever held LONGER, never allowed back sooner.
+export const LEAD_COOLDOWN_JITTER_DAYS = 3
+
+/** Seeded 0..LEAD_COOLDOWN_JITTER_DAYS extension for one led-on-date occurrence
+ *  of a goal (djb2 over "goal|date" — stable across sessions and platforms). */
+function cooldownJitter(goalSlug: string, ledDate: string): number {
+  const s = `${goalSlug}|${ledDate}`
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  return h % (LEAD_COOLDOWN_JITTER_DAYS + 1)
+}
 
 /** Whole-days-since-epoch for "YYYY-MM-DD" — UTC so there's no TZ drift. */
 function dayIndexOf(date: string): number {
@@ -156,7 +179,8 @@ function dayIndexOf(date: string): number {
 /**
  * The goals barred from being `planDate`'s focal point, given the dated history
  * of stored `one_thing_slug` values. Entries dated on/after `planDate` are
- * ignored (a same-day re-check-in must not block its own goal).
+ * ignored (a same-day re-check-in must not block its own goal). Each occurrence
+ * blocks for LEAD_COOLDOWN_DAYS plus its seeded jitter (see above).
  */
 export function blockedFocalGoals(
   history: readonly { date: string; slug: string }[],
@@ -169,7 +193,7 @@ export function blockedFocalGoals(
     if (!goal) continue
     const idx = dayIndexOf(h.date)
     if (idx >= todayIdx) continue
-    if (idx >= todayIdx - LEAD_COOLDOWN_DAYS) blocked.add(goal)
+    if (idx >= todayIdx - (LEAD_COOLDOWN_DAYS + cooldownJitter(goal, h.date))) blocked.add(goal)
   }
   return blocked
 }
