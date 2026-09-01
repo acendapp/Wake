@@ -162,8 +162,10 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     if (!entitled) {
       // /sign-in stays reachable so a user sitting on the paywall can sign into a
       // different account (e.g. an existing subscriber, or the review demo account)
-      // instead of being trapped with no way out. Signing into another unentitled
-      // account simply lands back here, so this is no paywall bypass.
+      // instead of being trapped with no way out. This exemption means the gate
+      // never routes anyone OFF /sign-in while unentitled — the sign-in screen
+      // itself navigates after a successful sign-in (fresh entitlement check →
+      // tabs or paywall), so no one is stranded there and this is no paywall bypass.
       if (!onPaywall && !onRoutine && !onSignIn) router.replace('/paywall')
       return
     }

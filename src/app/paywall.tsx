@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { useAuth } from '@/lib/auth'
 import { getPlanPricing, type PlanPricing } from '@/lib/billing'
 import { useEntitlement } from '@/lib/entitlement'
 import { hapticImpact, hapticSelect, hapticSuccess } from '@/lib/haptics'
@@ -55,6 +56,7 @@ const PLANS: {
 
 export default function PaywallScreen() {
   const { purchase, restore, bypass } = useEntitlement()
+  const { session, signOut } = useAuth()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const [selected, setSelected] = useState<PlanId>('annual')
@@ -104,10 +106,13 @@ export default function PaywallScreen() {
     if (restoring) return
     setRestoring(true)
     setNotice(null)
-    const ok = await restore()
+    const ok = await restore() // true | false | null (store error)
     if (!mountedRef.current) return
     setRestoring(false)
-    if (!ok) setNotice('No previous purchase found for this account.')
+    // A store/network error is NOT "you never bought anything" — say what
+    // actually happened so a paying user doesn't conclude their purchase is gone.
+    if (ok === null) setNotice('Couldn’t reach the App Store. Check your connection and try again.')
+    else if (!ok) setNotice('No previous purchase found for this account.')
     // On success the gate routes away as entitlement flips.
   }
 
@@ -262,7 +267,10 @@ export default function PaywallScreen() {
         )}
 
         {/* Returning users (and the App Review demo account) sign in here rather than
-            being trapped behind the hard wall with only a new-account path. */}
+            being trapped behind the hard wall with only a new-account path. The gate
+            only routes signed-in users to this screen, so the copy must not read like
+            a logged-out state — "Already have an account?" convinced a stranded
+            subscriber they'd somehow been signed out. */}
         <Pressable
           onPress={() => router.push('/sign-in')}
           disabled={busy}
@@ -270,7 +278,7 @@ export default function PaywallScreen() {
           accessibilityRole="button"
         >
           <Text style={styles.signInText}>
-            Already have an account? <Text style={styles.signInLink}>Sign in</Text>
+            Not you? <Text style={styles.signInLink}>Sign in with a different account</Text>
           </Text>
         </Pressable>
 
@@ -285,6 +293,17 @@ export default function PaywallScreen() {
         >
           <Text style={styles.sampleLinkLabel}>View a sample routine</Text>
         </Pressable>
+
+        {/* Name the signed-in account and offer a way out. Without this, a signed-in
+            user who lost their entitlement reads the paywall as "logged out" and has
+            no self-service path but deleting the app. */}
+        <View style={styles.accountRow}>
+          <Text style={styles.linkText}>Signed in as {session?.user.email ?? 'your account'}</Text>
+          <Text style={styles.linkDot}>·</Text>
+          <Pressable onPress={signOut} disabled={busy} hitSlop={8} accessibilityRole="button">
+            <Text style={[styles.linkText, styles.signOutLink]}>Sign out</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.links}>
           {/* Restore runs RevenueCat's restore when billing is configured; with no
@@ -498,6 +517,17 @@ const styles = StyleSheet.create({
     fontFamily: 'PlayfairDisplay_500Medium',
     fontSize: 15,
     color: day.gold,
+    textDecorationLine: 'underline',
+  },
+  // "Signed in as … · Sign out" — quiet, same weight as the legal links below.
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  signOutLink: {
     textDecorationLine: 'underline',
   },
   links: {

@@ -85,7 +85,8 @@ export async function logInBilling(appUserId: string): Promise<void> {
   if (!P) return
   try {
     await P.logIn(appUserId)
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] logIn failed', e)
     // Non-fatal — entitlement check will just return false.
   }
 }
@@ -98,7 +99,8 @@ export async function isEntitled(): Promise<boolean | null> {
   try {
     const info = await P.getCustomerInfo()
     return !!info.entitlements.active[ENTITLEMENT_ID]
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] getCustomerInfo failed', e)
     // Unknown — a store/network error, not a definitive "not entitled". The caller
     // fails open for a previously-entitled user rather than bouncing them.
     return null
@@ -136,21 +138,26 @@ export async function purchasePlan(plan: PlanId): Promise<boolean> {
     if (!pkg) return false
     const { customerInfo } = await P.purchasePackage(pkg)
     return !!customerInfo.entitlements.active[ENTITLEMENT_ID]
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] purchasePlan failed', e)
     // Includes user-cancelled — caller just stays on the paywall.
     return false
   }
 }
 
-/** Restore prior purchases. Returns true if the user ends up entitled. */
-export async function restorePurchases(): Promise<boolean> {
+/** Restore prior purchases. True when the user ends up entitled, false when the
+ *  store definitively found nothing, or null when the store check errored — so
+ *  the paywall can say "couldn't reach the store" instead of the misleading
+ *  "no previous purchase found". */
+export async function restorePurchases(): Promise<boolean | null> {
   const P = await ensureConfigured()
   if (!P) return false
   try {
     const info = await P.restorePurchases()
     return !!info.entitlements.active[ENTITLEMENT_ID]
-  } catch {
-    return false
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] restorePurchases failed', e)
+    return null
   }
 }
 
@@ -210,7 +217,8 @@ export async function getPlanPricing(): Promise<Partial<Record<PlanId, PlanPrici
       }
     }
     return Object.keys(out).length ? out : null
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] getPlanPricing failed', e)
     return null
   }
 }
@@ -221,7 +229,8 @@ export async function logOutBilling(): Promise<void> {
   if (!P || !apiKey() || !configured) return
   try {
     await P.logOut()
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[billing] logOut failed', e)
     // Non-fatal.
   }
 }

@@ -14,16 +14,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '@/lib/auth'
+import { useEntitlement } from '@/lib/entitlement'
 import { isValidEmail } from '@/lib/errors'
 import { day } from '@/theme/colors'
 
-// Email + password gate for *returning* users. On success the auth listener flips
-// the session and the root layout redirects into the app — so the sign-in itself
-// never navigates. New users don't create an account here: "Create an account"
-// sends them into onboarding, which builds their routine first and creates the
-// account at the final step.
+// Email + password gate for *returning* users. On success this screen re-checks
+// entitlement and routes itself: entitled → tabs, unentitled → paywall. (It can't
+// lean on the root gate alone: signing into the account you're ALREADY in doesn't
+// change the uid, so no provider re-runs — the press would be a silent no-op, as
+// it was for a stranded subscriber sitting on the paywall.) New users don't create
+// an account here: "Create an account" drops any lingering session and sends them
+// into onboarding, which builds their routine first and creates the account at
+// the final step.
 export default function SignInScreen() {
-  const { signIn, resetPassword } = useAuth()
+  const { signIn, resetPassword, signOut, session } = useAuth()
+  const { refresh } = useEntitlement()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,16 +42,36 @@ export default function SignInScreen() {
     setBusy(true)
     setError(null)
     setConfirm(null)
-    const res = await signIn(email.trim(), password)
-    if (res.error) setError(res.error)
-    setBusy(false)
+    try {
+      const res = await signIn(email.trim(), password)
+      if (res.error) {
+        setError(res.error)
+        return
+      }
+      // Fresh store check before routing — this is what rescues a user whose
+      // entitlement was granted (or fixed) while they were stuck on this screen.
+      const entitled = await refresh()
+      router.replace(entitled ? '/' : '/paywall')
+    } finally {
+      // try/finally so an unexpected rejection can't strand the spinner forever.
+      setBusy(false)
+    }
   }
 
   // New users go through onboarding first; jump straight to the first question
   // (step 1), past the welcome screen they just came from. replace() so Back
-  // doesn't drop them onto a stranded sign-in screen.
-  const createAccount = () => {
-    router.replace({ pathname: '/onboarding', params: { start: 'questions' } })
+  // doesn't drop them onto a stranded sign-in screen. Arriving from the paywall
+  // there's still a live session — drop it first, or the root gate sees
+  // "signed in + onboarded + unentitled" and bounces onboarding straight back
+  // to the paywall.
+  const createAccount = async () => {
+    setBusy(true)
+    try {
+      if (session) await signOut()
+      router.replace({ pathname: '/onboarding', params: { start: 'questions' } })
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Sends a reset link to whatever's in the email field. We require the email
@@ -137,7 +162,12 @@ export default function SignInScreen() {
             </Pressable>
           </View>
 
-          <Pressable onPress={createAccount} style={styles.toggle} accessibilityRole="button">
+          <Pressable
+            onPress={createAccount}
+            disabled={busy}
+            style={styles.toggle}
+            accessibilityRole="button"
+          >
             <Text style={styles.toggleLabel}>New here? Create an account</Text>
           </Pressable>
         </ScrollView>

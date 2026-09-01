@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -83,8 +84,14 @@ type EntitlementContextValue = {
   /** Purchase a plan. Returns true if the user ends up entitled. With real billing
    *  this runs the store flow; without a key it flips the mock so testing flows. */
   purchase: (plan: PlanId) => Promise<boolean>
-  /** Restore prior purchases (real billing only). Returns true if now entitled. */
-  restore: () => Promise<boolean>
+  /** Restore prior purchases (real billing only). True → now entitled; false →
+   *  the store definitively found nothing; null → the store check errored. */
+  restore: () => Promise<boolean | null>
+  /** Re-run the authoritative entitlement check for the signed-in user and return
+   *  the result. The uid-keyed effect only fires when the uid CHANGES, so this is
+   *  how a same-account sign-in (or a dashboard grant made while the user sat on
+   *  the paywall) gets picked up without a relaunch. False when signed out. */
+  refresh: () => Promise<boolean>
   /** Dev-only, in-memory pass. Not persisted, so a relaunch re-shows the paywall. */
   bypass: () => void
 }
@@ -102,8 +109,38 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   // is still "loading", so the gate never flashes the wrong screen.
   const loading = uid !== null && loadedFor !== uid
 
+  // The uid the provider currently serves — so an in-flight check that resolves
+  // after a sign-out/account-switch can't write a stale result into state.
+  const uidRef = useRef(uid)
+  uidRef.current = uid
+
+  // One authoritative entitlement check for `checkUid`, applied to state (unless
+  // the uid moved on mid-flight) and returned so callers can route on the result.
+  const check = useCallback(async (checkUid: string): Promise<boolean> => {
+    let value: boolean
+    if (isBillingConfigured()) {
+      await logInBilling(checkUid)
+      const checked = await billingIsEntitled() // true | false | null (store error)
+      if (checked === null) {
+        // Live check failed (RevenueCat outage, or an offline reinstall before the
+        // SDK cached CustomerInfo). Fail OPEN for a previously-entitled user so a
+        // paying subscriber is never stranded on the paywall by a transient error.
+        value = await getLastEntitled()
+      } else {
+        value = checked
+        void setLastEntitled(checked)
+      }
+    } else {
+      value = await getMockEntitled()
+    }
+    if (uidRef.current === checkUid) {
+      setEntitled(value)
+      setLoadedFor(checkUid)
+    }
+    return value
+  }, [])
+
   useEffect(() => {
-    let active = true
     if (uid === null) {
       // Signed out — drop the store identity and reset the mock.
       setEntitled(false)
@@ -114,31 +151,8 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       void logOutBilling()
       return
     }
-    ;(async () => {
-      let value: boolean
-      if (isBillingConfigured()) {
-        await logInBilling(uid)
-        const checked = await billingIsEntitled() // true | false | null (store error)
-        if (checked === null) {
-          // Live check failed (RevenueCat outage, or an offline reinstall before the
-          // SDK cached CustomerInfo). Fail OPEN for a previously-entitled user so a
-          // paying subscriber is never stranded on the paywall by a transient error.
-          value = await getLastEntitled()
-        } else {
-          value = checked
-          void setLastEntitled(checked)
-        }
-      } else {
-        value = await getMockEntitled()
-      }
-      if (!active) return
-      setEntitled(value)
-      setLoadedFor(uid)
-    })()
-    return () => {
-      active = false
-    }
-  }, [uid])
+    void check(uid)
+  }, [uid, check])
 
   // Live updates while the app is open. The check above runs only when the
   // signed-in uid changes, so on its own a purchase Apple completed but
@@ -188,15 +202,21 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     return true
   }, [])
 
-  const restore = useCallback(async () => {
+  const restore = useCallback(async (): Promise<boolean | null> => {
     if (!isBillingConfigured()) return false
-    const ok = await restorePurchases()
+    const ok = await restorePurchases() // true | false | null (store error)
     if (ok) {
       setEntitled(true)
       void setLastEntitled(true)
     }
     return ok
   }, [])
+
+  const refresh = useCallback(async (): Promise<boolean> => {
+    const current = uidRef.current
+    if (current === null) return false
+    return check(current)
+  }, [check])
 
   const bypass = useCallback(() => {
     // Defense in depth: the paywall only wires this to a __DEV__-gated button, but
@@ -207,7 +227,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
 
   return (
     <EntitlementContext.Provider
-      value={{ entitled: entitled || devBypassed, loading, purchase, restore, bypass }}
+      value={{ entitled: entitled || devBypassed, loading, purchase, restore, refresh, bypass }}
     >
       {children}
     </EntitlementContext.Provider>
