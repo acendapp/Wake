@@ -1,7 +1,15 @@
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useAuth } from '@/lib/auth'
@@ -9,6 +17,7 @@ import { getPlanPricing, type PlanPricing } from '@/lib/billing'
 import { useEntitlement } from '@/lib/entitlement'
 import { hapticImpact, hapticSelect, hapticSuccess } from '@/lib/haptics'
 import { openLegal, PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/lib/legal'
+import { redeemPromo } from '@/lib/promo'
 import { day } from '@/theme/colors'
 
 // The paywall. Gate-driven: the root layout sends any onboarded-but-unentitled
@@ -55,7 +64,7 @@ const PLANS: {
 ]
 
 export default function PaywallScreen() {
-  const { purchase, restore, bypass } = useEntitlement()
+  const { purchase, restore, refresh, promoGraceEndsAt, bypass } = useEntitlement()
   const { session, signOut } = useAuth()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -64,6 +73,10 @@ export default function PaywallScreen() {
   const [restoring, setRestoring] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [pricing, setPricing] = useState<Partial<Record<PlanId, PlanPricing>> | null>(null)
+  // Promo-code entry, tucked behind a quiet link so the purchase flow stays clean.
+  const [codeOpen, setCodeOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [codeBusy, setCodeBusy] = useState(false)
 
   // Pull live, localized prices from the store offering so the paywall never drifts
   // from what's actually charged. Null (Expo Go / no key / offline) keeps the copy below.
@@ -100,6 +113,26 @@ export default function PaywallScreen() {
       setBusy(false)
       setNotice('Purchase didn’t complete. You can try again.')
     }
+  }
+
+  const onApplyCode = async () => {
+    if (codeBusy || !code.trim()) return
+    setCodeBusy(true)
+    setNotice(null)
+    const res = await redeemPromo(code.trim())
+    if (res === 'ok') {
+      hapticSuccess()
+      // refresh() picks up the redemption and flips entitled; the gate then
+      // routes into the tabs and unmounts this screen.
+      await refresh()
+    }
+    if (!mountedRef.current) return
+    setCodeBusy(false)
+    if (res === 'invalid') setNotice('That code isn’t active.')
+    else if (res === 'used') setNotice('You’ve already used this code’s free access.')
+    else if (res === 'rate_limited') setNotice('Too many tries — wait an hour and try again.')
+    else if (res === 'error')
+      setNotice('Couldn’t check that code. Check your connection and try again.')
   }
 
   const onRestore = async () => {
@@ -266,6 +299,18 @@ export default function PaywallScreen() {
           </Pressable>
         )}
 
+        {/* A promo-grace visitor still HAS access — they came here from the
+            countdown banner to subscribe. The hard wall must not trap them. */}
+        {promoGraceEndsAt !== null && PAYWALL_MODE !== 'soft' && (
+          <Pressable
+            onPress={() => router.replace('/')}
+            style={styles.dismiss}
+            accessibilityRole="button"
+          >
+            <Text style={styles.dismissLabel}>Not now</Text>
+          </Pressable>
+        )}
+
         {/* Returning users (and the App Review demo account) sign in here rather than
             being trapped behind the hard wall with only a new-account path. The gate
             only routes signed-in users to this screen, so the copy must not read like
@@ -281,6 +326,49 @@ export default function PaywallScreen() {
             Not you? <Text style={styles.signInLink}>Sign in with a different account</Text>
           </Text>
         </Pressable>
+
+        {/* Promo codes: creators/friends ride free (lib/promo.ts). A quiet link
+            so the purchase flow stays the star; expands to an inline input. */}
+        {codeOpen ? (
+          <View style={styles.codeRow}>
+            <TextInput
+              style={styles.codeInput}
+              value={code}
+              onChangeText={setCode}
+              placeholder="Promo code"
+              placeholderTextColor={day.muted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              autoFocus
+              editable={!codeBusy}
+              onSubmitEditing={onApplyCode}
+              returnKeyType="go"
+            />
+            <Pressable
+              style={[styles.codeApply, (codeBusy || !code.trim()) && styles.ctaDisabled]}
+              onPress={onApplyCode}
+              disabled={codeBusy || !code.trim()}
+              accessibilityRole="button"
+            >
+              {codeBusy ? (
+                <ActivityIndicator color={day.onAccent} />
+              ) : (
+                <Text style={styles.codeApplyLabel}>Apply</Text>
+              )}
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setCodeOpen(true)}
+            disabled={busy}
+            style={styles.signInRow}
+            accessibilityRole="button"
+          >
+            <Text style={styles.signInText}>
+              Have a promo code? <Text style={styles.signInLink}>Enter it</Text>
+            </Text>
+          </Pressable>
+        )}
 
         {/* The taste-before-you-commit valve: one demo morning, then back here.
             Disabled mid-purchase so it can't push the sample on top of the gate's
@@ -518,6 +606,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: day.gold,
     textDecorationLine: 'underline',
+  },
+  // Inline promo-code entry: input + Apply, matching the sign-in screen's fields.
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  codeInput: {
+    flex: 1,
+    fontFamily: 'PlayfairDisplay_400Regular',
+    fontSize: 15,
+    color: day.text,
+    backgroundColor: day.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: day.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  codeApply: {
+    backgroundColor: day.gold,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeApplyLabel: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    fontSize: 14,
+    color: day.onAccent,
   },
   // "Signed in as … · Sign out" — quiet, same weight as the legal links below.
   accountRow: {

@@ -79,7 +79,7 @@ export default function RootLayout() {
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, initializing, recovery } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
-  const { entitled, loading: entitlementLoading } = useEntitlement()
+  const { entitled, loading: entitlementLoading, promoGraceEndsAt } = useEntitlement()
   // usePathname returns the clean, group-stripped path ('/sign-in', '/onboarding',
   // '/paywall', '/'), so the gate can match exact screens without depending on
   // whether useSegments surfaces the route-group parens — which it doesn't for
@@ -169,9 +169,11 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       if (!onPaywall && !onRoutine && !onSignIn) router.replace('/paywall')
       return
     }
-    // Fully set up — keep them out of the pre-app screens.
-    if (onSignIn || onOnboarding || onPaywall) router.replace('/')
-  }, [ready, recovery, session, profile, entitled, pathname, router])
+    // Fully set up — keep them out of the pre-app screens. Exception: a user in
+    // promo grace counts as entitled but must still be able to OPEN the paywall
+    // (the countdown banner sends them there to subscribe before access ends).
+    if (onSignIn || onOnboarding || (onPaywall && !promoGraceEndsAt)) router.replace('/')
+  }, [ready, recovery, session, profile, entitled, promoGraceEndsAt, pathname, router])
 
   if (!everReady.current) return null
 

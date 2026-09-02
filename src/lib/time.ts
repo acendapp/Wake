@@ -30,3 +30,14 @@ export function isEveningNow(now = new Date()): boolean {
   const h = now.getHours()
   return h >= EVENING_HOUR || h < DAY_ROLLOVER_HOUR
 }
+
+/**
+ * Whole days (rounded up) until an ISO timestamp — 0 once it has passed. Drives
+ * countdown copy like the promo-grace banner: 6.2 days out reads "in 7 days",
+ * under 24h reads "tomorrow"/"today" at the caller's discretion.
+ */
+export function daysUntil(iso: string, nowMs = Date.now()): number {
+  const target = new Date(iso).getTime()
+  if (!Number.isFinite(target)) return 0
+  return Math.max(0, Math.ceil((target - nowMs) / 86_400_000))
+}

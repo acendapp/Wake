@@ -21,6 +21,7 @@ import {
   subscribeEntitlement,
   type PlanId,
 } from './billing'
+import { clearPromoCache, getPromoStatus } from './promo'
 
 // Subscription entitlement — whether the user has unlocked the app past the
 // paywall.
@@ -92,6 +93,10 @@ type EntitlementContextValue = {
    *  how a same-account sign-in (or a dashboard grant made while the user sat on
    *  the paywall) gets picked up without a relaunch. False when signed out. */
   refresh: () => Promise<boolean>
+  /** When the user rides a deactivated promo code, the ISO timestamp their grace
+   *  window closes — drives the "free access ends in N days" banner and keeps the
+   *  paywall visitable. Null outside grace. */
+  promoGraceEndsAt: string | null
   /** Dev-only, in-memory pass. Not persisted, so a relaunch re-shows the paywall. */
   bypass: () => void
 }
@@ -104,6 +109,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   const [entitled, setEntitled] = useState(false)
   const [devBypassed, setDevBypassed] = useState(false)
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  const [promoGraceEndsAt, setPromoGraceEndsAt] = useState<string | null>(null)
 
   // Mirrors ProfileProvider: a signed-in user we haven't loaded for *this* uid
   // is still "loading", so the gate never flashes the wrong screen.
@@ -133,8 +139,19 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     } else {
       value = await getMockEntitled()
     }
+    // No store entitlement — a promo code can still carry the user: 'active'
+    // rides free, 'grace' (code deactivated < 7 days ago) still enters but gets
+    // the countdown banner. A subscriber skips the round trip and never shows
+    // the banner, even if they also once redeemed a code.
+    let grace: string | null = null
+    if (!value) {
+      const promo = await getPromoStatus()
+      if (promo.state === 'active' || promo.state === 'grace') value = true
+      if (promo.state === 'grace') grace = promo.graceEndsAt
+    }
     if (uidRef.current === checkUid) {
       setEntitled(value)
+      setPromoGraceEndsAt(grace)
       setLoadedFor(checkUid)
     }
     return value
@@ -142,12 +159,14 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (uid === null) {
-      // Signed out — drop the store identity and reset the mock.
+      // Signed out — drop the store identity and reset the mock + promo cache.
       setEntitled(false)
       setDevBypassed(false)
       setLoadedFor(null)
+      setPromoGraceEndsAt(null)
       void setMockEntitled(false)
       void setLastEntitled(false)
+      void clearPromoCache()
       void logOutBilling()
       return
     }
@@ -170,6 +189,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     const grant = (value: boolean) => {
       if (!value) return
       setEntitled(true)
+      setPromoGraceEndsAt(null) // a real store entitlement supersedes promo grace
       void setLastEntitled(true)
     }
     const unsubscribe = subscribeEntitlement(grant)
@@ -188,6 +208,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       const ok = await purchasePlan(plan)
       if (ok) {
         setEntitled(true)
+        setPromoGraceEndsAt(null) // a real subscription supersedes any promo grace
         void setLastEntitled(true)
       }
       return ok
@@ -207,6 +228,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     const ok = await restorePurchases() // true | false | null (store error)
     if (ok) {
       setEntitled(true)
+      setPromoGraceEndsAt(null) // a real subscription supersedes any promo grace
       void setLastEntitled(true)
     }
     return ok
@@ -227,7 +249,15 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
 
   return (
     <EntitlementContext.Provider
-      value={{ entitled: entitled || devBypassed, loading, purchase, restore, refresh, bypass }}
+      value={{
+        entitled: entitled || devBypassed,
+        loading,
+        purchase,
+        restore,
+        refresh,
+        promoGraceEndsAt,
+        bypass,
+      }}
     >
       {children}
     </EntitlementContext.Provider>

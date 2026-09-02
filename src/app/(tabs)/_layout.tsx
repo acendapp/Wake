@@ -1,7 +1,10 @@
 import { Feather } from '@expo/vector-icons'
-import { Tabs } from 'expo-router'
-import { StyleSheet } from 'react-native'
+import { Tabs, useRouter } from 'expo-router'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { useEntitlement } from '@/lib/entitlement'
+import { daysUntil } from '@/lib/time'
 import { day } from '@/theme/colors'
 
 // Bottom-tab palette, from the shared theme. Gold is the app's accent (greeting +
@@ -15,12 +18,39 @@ const HAIRLINE = day.border // subtle grey edge
 // in the bar and don't crowd the Playfair labels.
 const ICON_SIZE = 19
 
+// The promo-grace countdown: a user whose code was deactivated keeps access for
+// 7 days, and this pill — floating over every tab — is how they find out and
+// where they convert. Tapping it opens the paywall (the root gate lets a grace
+// user visit it). Absolutely positioned so no screen's own layout shifts.
+function GraceBanner() {
+  const { promoGraceEndsAt } = useEntitlement()
+  const router = useRouter()
+  if (promoGraceEndsAt === null) return null
+  const days = daysUntil(promoGraceEndsAt)
+  const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`
+  return (
+    <SafeAreaView edges={['top']} style={styles.bannerSafe} pointerEvents="box-none">
+      <Pressable
+        onPress={() => router.push('/paywall')}
+        style={({ pressed }) => [styles.banner, pressed && { opacity: 0.9 }]}
+        accessibilityRole="button"
+      >
+        <Text style={styles.bannerText}>
+          Your free access ends {when} — <Text style={styles.bannerLink}>keep your mornings</Text>
+        </Text>
+      </Pressable>
+    </SafeAreaView>
+  )
+}
+
 // Tab order: morning (Today) → review (Reflect) → learn (Library) → who you're
 // becoming (You). Icons echo it: sun, moon, book, then the person. (Today's sun
 // is why the header weather glyph was moved off `sun` to `cloud`.)
 export default function TabsLayout() {
   return (
-    <Tabs
+    <View style={styles.flex}>
+      <GraceBanner />
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACTIVE,
@@ -68,11 +98,46 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Feather name="user" size={ICON_SIZE} color={color} />,
         }}
       />
-    </Tabs>
+      </Tabs>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  // Grace countdown pill: floats over screen content inside the top safe area,
+  // gold-tinted so it reads as a gentle nudge, not an error.
+  bannerSafe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    alignItems: 'center',
+  },
+  banner: {
+    marginTop: 6,
+    marginHorizontal: 24,
+    backgroundColor: day.goldTint,
+    borderWidth: 1,
+    borderColor: day.gold,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  bannerText: {
+    fontFamily: 'PlayfairDisplay_500Medium',
+    fontSize: 13,
+    color: day.text,
+    textAlign: 'center',
+  },
+  bannerLink: {
+    fontFamily: 'PlayfairDisplay_600SemiBold',
+    color: day.gold,
+    textDecorationLine: 'underline',
+  },
   bar: {
     backgroundColor: SURFACE,
     borderTopColor: HAIRLINE,

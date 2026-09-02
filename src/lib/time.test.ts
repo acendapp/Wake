@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DAY_ROLLOVER_HOUR, EVENING_HOUR, isEveningNow, logicalNow } from './time'
+import { DAY_ROLLOVER_HOUR, daysUntil, EVENING_HOUR, isEveningNow, logicalNow } from './time'
 
 // The clock model is foundational — every "today/tomorrow" read and the evening
 // gate key off these two functions, and the boundaries (3am rollover, the evening
@@ -44,5 +44,26 @@ describe('isEveningNow — evening window wraps past midnight', () => {
     expect(isEveningNow(new Date(2026, 5, 7, DAY_ROLLOVER_HOUR, 0))).toBe(false)
     expect(isEveningNow(new Date(2026, 5, 7, 12, 0))).toBe(false)
     expect(isEveningNow(new Date(2026, 5, 7, EVENING_HOUR - 1, 59))).toBe(false)
+  })
+})
+
+describe('daysUntil — promo-grace countdown', () => {
+  const now = Date.UTC(2026, 8, 1, 12, 0, 0) // Sep 1, 12:00 UTC
+  const HOUR = 60 * 60 * 1000
+
+  it('rounds partial days UP (6.5 days out reads "in 7 days")', () => {
+    expect(daysUntil(new Date(now + 6.5 * 24 * HOUR).toISOString(), now)).toBe(7)
+  })
+
+  it('reports 1 inside the final 24 hours', () => {
+    expect(daysUntil(new Date(now + 3 * HOUR).toISOString(), now)).toBe(1)
+  })
+
+  it('clamps to 0 once the moment has passed', () => {
+    expect(daysUntil(new Date(now - HOUR).toISOString(), now)).toBe(0)
+  })
+
+  it('treats an unparseable timestamp as already over, not NaN', () => {
+    expect(daysUntil('not-a-date', now)).toBe(0)
   })
 })
