@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { CurationLoader } from '@/components/onboarding/CurationLoader'
 import { PasswordInput } from '@/components/PasswordInput'
 import { WakeRoutineStep } from '@/components/reflect/WakeRoutineStep'
-import { applyWakeAlarm, DEFAULT_VOICE } from '@/lib/alarm'
+import { DEFAULT_VOICE } from '@/lib/alarm'
 import { useAuth } from '@/lib/auth'
 import { isValidEmail } from '@/lib/errors'
 import { requestNotificationPermission, syncReminders } from '@/lib/notifications'
@@ -223,17 +223,17 @@ export default function OnboardingScreen() {
         wakeTime: wakeEnabled ? wakeTime : null,
         wakeVoice,
       })
-      // Best-effort side effects — arming the alarm or scheduling reminders must
-      // never fail account creation. The profile is already saved + stamped
-      // onboarded above; a native alarm/notification rejection here used to throw
-      // the whole flow back to a generic "Something went wrong", stranding a user
-      // who actually has an account. Let them proceed to the paywall regardless.
+      // Best-effort side effects — scheduling reminders must never fail account
+      // creation. The profile is already saved + stamped onboarded above; a
+      // native rejection here used to throw the whole flow back to a generic
+      // "Something went wrong", stranding a user who actually has an account.
+      // Let them proceed to the paywall regardless.
+      //
+      // NOTE: the wake alarm is deliberately NOT armed here. The alarm is
+      // premium value and this runs BEFORE the paywall — arming is the root
+      // gate's job (see _layout.tsx), which arms the moment the user is
+      // entitled and never before. Only the preference is saved.
       try {
-        await applyWakeAlarm({
-          enabled: wakeEnabled,
-          time: wakeEnabled ? wakeTime : null,
-          voice: wakeVoice,
-        })
         await requestNotificationPermission()
         await syncReminders({
           wakeEnabled,

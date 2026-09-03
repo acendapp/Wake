@@ -118,8 +118,9 @@ export type AlarmApplyResult = 'armed' | 'cancelled' | 'unavailable' | 'denied'
 /**
  * Arm (or re-arm) the daily wake alarm for `time` ("HH:MM") with today's rotating
  * clip. 'unavailable' on Tier 0 — the preference is already persisted, so a later
- * dev build picks it up. Safe to call on every relevant hook (onboarding finish,
- * settings save, app launch). Re-arming on launch advances the clip rotation,
+ * dev build picks it up. The root gate is the arming authority (entitled users
+ * only — see _layout.tsx); the settings save and the evening reflection re-apply
+ * from behind the paywall. Re-arming on launch advances the clip rotation,
  * since a repeating alarm otherwise keeps the soundName it was scheduled with.
  */
 export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<AlarmApplyResult> {
@@ -127,32 +128,45 @@ export async function scheduleWakeAlarm(time: string, voiceId: string): Promise<
   const kit = getAlarmKit()
   if (!isAlarmAvailable() || !kit) return 'unavailable'
 
-  const granted = await kit.requestAlarmPermission()
-  if (!granted) return 'denied'
+  // The native calls can THROW (not just resolve false) — an uncaught rejection
+  // here used to escape applyWakeAlarm entirely, and because stopAllAlarms runs
+  // before scheduleRelativeAlarm, a schedule failure could destroy the existing
+  // alarm without replacing it and no caller would ever know.
+  try {
+    const granted = await kit.requestAlarmPermission()
+    if (!granted) return 'denied'
 
-  const voice = isKnownVoice(voiceId) ? voiceId : DEFAULT_VOICE
-  const [hour, minute] = time.split(':').map(Number)
-  // Wake schedules only this one alarm, so clear before re-arming to avoid dupes.
-  await kit.stopAllAlarms()
-  await kit.scheduleRelativeAlarm(
-    ALARM_TITLE,
-    STOP_BUTTON,
-    ALARM_TINT,
-    hour,
-    minute,
-    [...EVERY_DAY],
-    SNOOZE_BUTTON,
-    SNOOZE,
-    soundNameForToday(voice),
-  )
-  return 'armed'
+    const voice = isKnownVoice(voiceId) ? voiceId : DEFAULT_VOICE
+    const [hour, minute] = time.split(':').map(Number)
+    // Wake schedules only this one alarm, so clear before re-arming to avoid dupes.
+    await kit.stopAllAlarms()
+    await kit.scheduleRelativeAlarm(
+      ALARM_TITLE,
+      STOP_BUTTON,
+      ALARM_TINT,
+      hour,
+      minute,
+      [...EVERY_DAY],
+      SNOOZE_BUTTON,
+      SNOOZE,
+      soundNameForToday(voice),
+    )
+    return 'armed'
+  } catch (e) {
+    if (__DEV__) console.warn('[alarm] scheduleWakeAlarm failed', e)
+    return 'unavailable'
+  }
 }
 
-/** Cancel any armed wake alarm. No-op on Tier 0. */
+/** Cancel any armed wake alarm. No-op on Tier 0; never throws. */
 export async function cancelWakeAlarm(): Promise<void> {
   const kit = getAlarmKit()
   if (!isAlarmAvailable() || !kit) return
-  await kit.stopAllAlarms()
+  try {
+    await kit.stopAllAlarms()
+  } catch (e) {
+    if (__DEV__) console.warn('[alarm] cancelWakeAlarm failed', e)
+  }
 }
 
 /**

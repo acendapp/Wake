@@ -104,18 +104,38 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     if (ready) SplashScreen.hideAsync()
   }, [ready])
 
-  // Re-arm the wake alarm on every launch when it's enabled. A repeating AlarmKit
-  // alarm keeps the single soundName it was scheduled with, so re-arming here is
-  // what advances the daily clip rotation. No-op on Tier 0 (Expo Go / non-26.1),
-  // where the stored preference simply waits for a capable build.
+  // The wake alarm's single arming authority. The alarm is premium value, so it
+  // must exist exactly when (entitled && enabled && valid time):
+  //   · armed the moment entitlement lands — purchase, restore, promo code, or a
+  //     dashboard grant arriving via the RevenueCat listener all flip `entitled`,
+  //     which re-runs this effect (this is also when the one-shot AlarmKit
+  //     permission prompt now appears — onboarding no longer arms anything);
+  //   · CANCELLED the moment access is gone — signed out, paywall abandoned,
+  //     promo grace expired. Cancelling for a signed-out/unentitled state on
+  //     every launch is what disarms an alarm a previous build armed pre-paywall.
+  // Re-running on each entitled launch also advances the daily clip rotation
+  // (a repeating AlarmKit alarm keeps the soundName it was scheduled with).
+  // No-op on Tier 0 (Expo Go / non-26.1), where the preference simply waits.
   useEffect(() => {
-    if (!profile?.wake_enabled || !profile.wake_time) return
+    // Hold while either provider is still resolving: scheduleWakeAlarm clears
+    // before re-arming, so acting on a half-loaded state could cancel a
+    // legitimately armed alarm and never put it back.
+    if (profileLoading || entitlementLoading) return
+    const wakeTime = profile?.wake_time ?? null
+    const shouldArm = entitled && !!profile?.wake_enabled && wakeTime !== null
     void applyWakeAlarm({
-      enabled: true,
-      time: profile.wake_time,
-      voice: profile.wake_voice ?? DEFAULT_VOICE,
+      enabled: shouldArm,
+      time: shouldArm ? wakeTime : null,
+      voice: profile?.wake_voice ?? DEFAULT_VOICE,
     }).catch(() => {})
-  }, [profile?.wake_enabled, profile?.wake_time, profile?.wake_voice])
+  }, [
+    profileLoading,
+    entitlementLoading,
+    entitled,
+    profile?.wake_enabled,
+    profile?.wake_time,
+    profile?.wake_voice,
+  ])
 
   // Daily reminders (morning nudge + evening "set up tomorrow") are scheduled by the
   // Today screen — the single authority — which has the live streak + reflected-today
