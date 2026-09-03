@@ -189,35 +189,21 @@ export function computeYouStats(rows: StatsDay[], today: string): YouStats {
     if (run > best) best = run
   }
   // Current streak counts back from today, or yesterday if today isn't logged yet
-  // (so an un-logged today never reads as a broken streak before evening). One
-  // "rest day" of forgiveness: a single missed day mid-run is bridged once, so a
-  // hard-won streak doesn't collapse from a single miss. The rest day itself does
-  // not count toward the number, and a two-day gap (or a second gap) still breaks
-  // the run.
+  // (so an un-logged today never reads as a broken streak before evening). STRICT:
+  // a missed day breaks the run, full stop. (A one-day "grace bridge" shipped
+  // briefly and was removed Sep 3 2026 — it silently counted through a missed day,
+  // so the number jumped 1→2 the morning after a miss while the week strip showed
+  // the miss right beside it. If forgiveness ever returns it must be explicit in
+  // the UI, never silent arithmetic.)
   let current = 0
-  // Anchor the current run at today, else yesterday, else the day before — the last
-  // case covers a still-alive run whose single grace day was yesterday's miss while
-  // today is merely un-logged (not yet a miss). Pre-consuming grace there keeps a
-  // hard-won streak from reading 0 all morning before the day's check-in.
-  let anchor: number | null = null
-  let preGrace = false
-  if (activeIdx.has(todayIdx)) anchor = todayIdx
-  else if (activeIdx.has(todayIdx - 1)) anchor = todayIdx - 1
-  else if (activeIdx.has(todayIdx - 2)) {
-    anchor = todayIdx - 2
-    preGrace = true
-  }
+  const anchor = activeIdx.has(todayIdx)
+    ? todayIdx
+    : activeIdx.has(todayIdx - 1)
+      ? todayIdx - 1
+      : null
   if (anchor !== null) {
-    let graceUsed = preGrace
-    for (let i = anchor; ; i--) {
-      if (activeIdx.has(i)) current++
-      else if (!graceUsed && activeIdx.has(i - 1)) graceUsed = true // bridge one gap
-      else break
-    }
+    for (let i = anchor; activeIdx.has(i); i--) current++
   }
-  // A grace-extended live run can exceed the strict historical best; keep best the
-  // longest run ever seen so "current" never reads as larger than "best".
-  if (current > best) best = current
 
   // ── Week strip (Monday-first) ──
   const daysFromMonday = (weekdayOf(today) + 6) % 7

@@ -243,9 +243,8 @@ export default function Index() {
 
   // The celebration is a reward for finishing the morning, so it must never fire on
   // a bare app-open. Gate it on today actually being done — a completed check-in or
-  // the "just wake me" path. Without this, a streak that ticks a milestone overnight
-  // (e.g. via the grace bridge in computeYouStats) would pop the moment the Today
-  // tab loads, before the user has done anything today.
+  // the "just wake me" path — so a milestone always pops at the moment it was
+  // earned, never while yesterday's number is still on screen.
   const morningDoneToday = today?.morning_completed_at != null || today?.woke_at != null
 
   // Celebrate when the streak crosses a milestone (3, 7, 14, 30…), once each. The
@@ -333,6 +332,15 @@ export default function Index() {
       // RECORDING: saveMorning returns the real row, which may still carry today's
       // old completed steps — strip them so the focal button reads START, not DONE.
       setToday(RECORDING ? { ...row, completed_slugs: [] } : row)
+      // The check-in is what makes today an active day, so recompute the streak
+      // NOW — leaving it to the next focus reload made the +1 (and its milestone
+      // celebration) surface at whatever navigation happened next, which read as
+      // the streak jumping when the focal point was completed. Best-effort.
+      void daysForStats()
+        .then((rows) => {
+          if (mounted.current) setStreak(computeYouStats(rows, logicalDate()).streak.current)
+        })
+        .catch(() => {})
     } catch (e) {
       if (!mounted.current) return
       setSubmitError(errorMessage(e, 'Could not save your check-in.'))
