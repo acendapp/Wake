@@ -8,7 +8,7 @@ import { Platform } from 'react-native'
 // TO GO LIVE (founder):
 //   1. Create a RevenueCat project; add the iOS app + App Store Connect creds.
 //   2. Create an entitlement called "premium" and an Offering whose packages are
-//      the $59.99/yr (annual) and $9.99/mo (monthly) products from App Store Connect.
+//      the $39.99/yr (annual) and $5.99/mo (monthly) products from App Store Connect.
 //   3. Set EXPO_PUBLIC_REVENUECAT_IOS_KEY (and _ANDROID later) in .env / EAS env.
 //   4. Sandbox-test purchase + restore on a real device (needs the $99 + a build).
 

@@ -52,13 +52,13 @@ const PLANS: {
   {
     id: 'annual',
     name: 'Yearly',
-    price: '7 days free, then $59.99/year',
-    detail: 'Just $4.99/month',
+    price: '7 days free, then $39.99/year',
+    detail: 'Just $3.33/month',
   },
   {
     id: 'monthly',
     name: 'Monthly',
-    price: '$9.99/month',
+    price: '$5.99/month',
     detail: 'No trial included',
   },
 ]
@@ -170,7 +170,7 @@ export default function PaywallScreen() {
 
   // The yearly-vs-monthly saving, for the badge on the annual plan. Computed from
   // live numeric prices when available (so it stays right in every currency), else
-  // the known launch tiers — $59.99/yr against $9.99/mo × 12 ≈ 50%.
+  // the known tiers — $39.99/yr against $5.99/mo × 12 ≈ 44% (repriced Sep 2026).
   const savingsPct = (() => {
     const a = pricing?.annual?.priceValue
     const m = pricing?.monthly?.priceValue
@@ -178,7 +178,7 @@ export default function PaywallScreen() {
       const pct = Math.round((1 - a / (m * 12)) * 100)
       return pct > 0 ? pct : null
     }
-    return 50
+    return 44
   })()
   const savingsBadge = savingsPct != null ? `Save ${savingsPct}%` : null
 
@@ -189,9 +189,9 @@ export default function PaywallScreen() {
   // lasts, the exact amount billed after it, and that it auto-renews. Prices/trial
   // come from the live offering where available, with the launch terms as fallback.
   const isAnnual = selected === 'annual'
-  const monthlyPrice = plans.find((p) => p.id === 'monthly')?.price ?? '$9.99/month'
+  const monthlyPrice = plans.find((p) => p.id === 'monthly')?.price ?? '$5.99/month'
   const annualTrialDays = pricing?.annual?.trialDays ?? 7
-  const annualPrice = pricing?.annual?.priceString ?? '$59.99'
+  const annualPrice = pricing?.annual?.priceString ?? '$39.99'
   // The store is the authority on whether a trial exists. If it reports the annual
   // product with NO intro offer (misconfigured in App Store Connect, or this user
   // already used a trial in the group), Apple will charge immediately — so the
